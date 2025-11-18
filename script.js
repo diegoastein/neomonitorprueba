@@ -22,7 +22,6 @@ import {
 
 // --- Configuración de Firebase ---
 // ⚠️ ¡ATENCIÓN! PEGA TUS CREDENCIALES DE FIREBASE AQUÍ ⚠️
-
 const firebaseConfig = {
   apiKey: "AIzaSyCmuO4U_fDthWu_vY-ghx9marNtF78_vzM",
   authDomain: "nacimientos2.firebaseapp.com",
@@ -196,6 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
             pacienteData['diagnostico'] = Array.from(document.getElementById('diagnostico').selectedOptions).map(opt => opt.value);
             pacienteData['diagnostico_otros'] = document.getElementById('diagnostico_otros').value;
             pacienteData['antPatologicos'] = Array.from(document.getElementById('antPatologicos').selectedOptions).map(opt => opt.value);
+            // Guardar PCD y PCI
+            pacienteData['pcd'] = document.getElementById('pcd').value;
+            pacienteData['pci'] = document.getElementById('pci').value;
+
             pacienteData.createdAt = Timestamp.now();
             pacienteData.createdBy = currentUser.email;
             pacienteData.lastModifiedBy = currentUser.email;
@@ -367,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeEditModal() {
-         editModal.classList.add('hidden');
+                 editModal.classList.add('hidden');
     }
 
     closeEditModalButton.addEventListener('click', closeEditModal);
@@ -437,17 +440,70 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("No hay datos para exportar", "error");
             return;
         }
-        // (Lógica de CSV simplificada para brevedad, igual que antes)
-        const headersMap = { apellido: "Apellido", nombre: "Nombre", fecha_nacimiento: "Fecha Nacimiento", hora_nacimiento: "Hora Nacimiento" }; // ... agregar resto
-        const headers = Object.keys(headersMap); // O usar Object.keys(data[0]) para todo
+
+        const headersMap = {
+            apellido: "Apellido",
+            nombre: "Nombre",
+            fecha_nacimiento: "Fecha Nacimiento",
+            hora_nacimiento: "Hora Nacimiento",
+            edad_materna: "Edad Materna",
+            g: "G",
+            p: "P",
+            a: "A",
+            controlada: "Controlada",
+            num_controles: "N° Controles",
+            antPatologicos: "Ant. Patológicos",
+            peso: "Peso (gr)",
+            talla: "Talla (cm)",
+            pc: "PC (cm)",
+            eg: "EG (sem)",
+            apgar1: "Apgar 1",
+            apgar5: "Apgar 5",
+            tipo_nacimiento: "Tipo Nacimiento",
+            evolucion: "Evolución",
+            grupo_materno: "Grupo Materno",
+            rh_materno: "Rh Materno",
+            grupo_paciente: "Grupo Paciente",
+            rh_paciente: "Rh Paciente",
+            pcd: "PCD",
+            pci: "PCI",
+            diagnostico: "Diagnóstico",
+            diagnostico_otros: "Otros Diag.",
+            notas: "Notas",
+            vdrl_fecha: "Fecha VDRL",
+            vdrl_resultado: "Res. VDRL",
+            hiv_fecha: "Fecha HIV",
+            hiv_resultado: "Res. HIV",
+            chagas_fecha: "Fecha Chagas",
+            chagas_resultado: "Res. Chagas",
+            hbv_fecha: "Fecha HBV",
+            hbv_resultado: "Res. HBV",
+            toxo_fecha: "Fecha Toxo",
+            toxo_resultado: "Res. Toxo",
+            cmv_fecha: "Fecha CMV",
+            cmv_resultado: "Res. CMV",
+            serologias_notas: "Notas Serologías",
+            createdBy: "Creado Por",
+            createdAt: "Fecha Creación",
+            lastModifiedBy: "Modificado Por",
+            lastModifiedAt: "Fecha Modificación"
+        };
+
+        const headers = Object.keys(headersMap);
+        const csvHeaders = Object.values(headersMap);
         
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += headers.join(",") + "\r\n";
+        csvContent += csvHeaders.join(",") + "\r\n";
 
         data.forEach(row => {
             const values = headers.map(header => {
                 let value = row[header] || "";
-                if (typeof value === 'string' && value.includes(',')) value = `"${value}"`;
+                if (value && value.toDate) value = value.toDate().toLocaleString('es-AR');
+                if (Array.isArray(value)) value = value.join('; ');
+                if (typeof value === 'boolean') value = value ? "SI" : "NO";
+                if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+                    value = `"${value.replace(/"/g, '""')}"`;
+                }
                 return value;
             });
             csvContent += values.join(",") + "\r\n";
