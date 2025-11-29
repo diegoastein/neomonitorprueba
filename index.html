@@ -29,10 +29,64 @@
         /* Animación para el mensaje de error */
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Estilos para el log de errores en pantalla */
+        #debug-log {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            padding: 1rem;
+            font-family: monospace;
+            z-index: 9999;
+            max-height: 50vh;
+            overflow: auto;
+        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- Loader inicial por si React falla al cargar -->
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #10b981; font-family: sans-serif;">
+            <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h2 style="font-size: 1.5rem; font-weight: bold;">Iniciando Monitor...</h2>
+            <p style="color: #64748b; margin-top: 10px;">Si esto tarda mucho, verifica tu configuración.</p>
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+        </div>
+    </div>
+
+    <!-- Contenedor para mostrar errores fatales -->
+    <div id="debug-log"></div>
+
+    <script>
+        // Sistema de captura de errores global para mostrar en pantalla
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const log = document.getElementById('debug-log');
+            log.style.display = 'block';
+            log.innerHTML += `<div><strong>ERROR:</strong> ${msg} <br/><small>${url}:${lineNo}</small></div><br/>`;
+            return false;
+        };
+        
+        // Captura de errores de promesas (Firebase suele fallar aquí)
+        window.onunhandledrejection = function(event) {
+            const log = document.getElementById('debug-log');
+            log.style.display = 'block';
+            let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
+            
+            // Mensajes amigables para errores comunes
+            if(message.includes('auth/unauthorized-domain')) {
+                message = "BLOQUEADO: Este dominio no está autorizado en Firebase. <br/>Ve a Firebase Console -> Auth -> Settings -> Dominios Autorizados y agrega tu URL de GitHub.";
+            }
+            
+            log.innerHTML += `<div style="border-top: 1px solid white; padding-top: 5px; margin-top: 5px;"><strong>ERROR DE CONEXIÓN:</strong> <br/>${message}</div>`;
+        };
+    </script>
 
     <script type="text/babel">
         // ==========================================
@@ -63,6 +117,8 @@
                 console.log("Firebase iniciado correctamente");
             } catch (error) {
                 console.error("Error iniciando Firebase:", error);
+                // El error se mostrará en pantalla gracias al window.onerror de arriba
+                throw error;
             }
         }
 
@@ -356,7 +412,11 @@
                 setSessionId(id);
             };
 
-            if (!user) return <div className="h-screen w-full flex items-center justify-center text-white bg-slate-900">Conectando...</div>;
+            if (!user) return (
+                <div style={{height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "white"}}>
+                    Cargando... (Verifica el cuadro rojo si aparece)
+                </div>
+            );
 
             return (
                 <div className="font-sans antialiased">
