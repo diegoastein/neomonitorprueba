@@ -14,7 +14,7 @@
     <!-- Babel para traducir React -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- FIREBASE COMPAT (Funciona sin servidor local) -->
+    <!-- FIREBASE COMPAT -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -26,103 +26,98 @@
             50% { opacity: 0.5; }
         }
         .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        /* Animación para el mensaje de error */
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        /* Estilos para el log de errores en pantalla */
         #debug-log {
             display: none;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
+            bottom: 0; left: 0; width: 100%;
             background: rgba(220, 38, 38, 0.9);
-            color: white;
-            padding: 1rem;
-            font-family: monospace;
-            z-index: 9999;
-            max-height: 50vh;
-            overflow: auto;
+            color: white; padding: 1rem;
+            font-family: monospace; z-index: 9999;
+            max-height: 50vh; overflow: auto;
         }
     </style>
 </head>
 <body>
     <div id="root">
-        <!-- Loader inicial por si React falla al cargar -->
         <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #10b981; font-family: sans-serif;">
             <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <h2 style="font-size: 1.5rem; font-weight: bold;">Iniciando Monitor...</h2>
-            <p style="color: #64748b; margin-top: 10px;">Si esto tarda mucho, verifica tu configuración.</p>
             <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
         </div>
     </div>
-
-    <!-- Contenedor para mostrar errores fatales -->
     <div id="debug-log"></div>
 
     <script>
-        // Sistema de captura de errores global para mostrar en pantalla
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
             log.innerHTML += `<div><strong>ERROR:</strong> ${msg} <br/><small>${url}:${lineNo}</small></div><br/>`;
             return false;
         };
-        
-        // Captura de errores de promesas (Firebase suele fallar aquí)
         window.onunhandledrejection = function(event) {
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            
-            // Mensajes amigables para errores comunes
-            if(message.includes('auth/unauthorized-domain')) {
-                message = "BLOQUEADO: Este dominio no está autorizado en Firebase. <br/>Ve a Firebase Console -> Auth -> Settings -> Dominios Autorizados y agrega tu URL de GitHub.";
-            }
-            
+            if(message.includes('auth/unauthorized-domain')) message = "BLOQUEADO: Dominio no autorizado en Firebase.";
             log.innerHTML += `<div style="border-top: 1px solid white; padding-top: 5px; margin-top: 5px;"><strong>ERROR DE CONEXIÓN:</strong> <br/>${message}</div>`;
         };
     </script>
 
     <script type="text/babel">
         // ==========================================
-        // 1. CONFIGURACIÓN (PEGAR TUS LLAVES AQUÍ)
+        // 1. CONFIGURACIÓN FIREBASE
         // ==========================================
        const firebaseConfig = {
-  apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
-  authDomain: "monitor-36c41.firebaseapp.com",
-  projectId: "monitor-36c41",
-  storageBucket: "monitor-36c41.firebasestorage.app",
-  messagingSenderId: "830562769122",
-  appId: "1:830562769122:web:1db7060de0c80556db66bb"
-};
-        // ==========================================
+          apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
+          authDomain: "monitor-36c41.firebaseapp.com",
+          projectId: "monitor-36c41",
+          storageBucket: "monitor-36c41.firebasestorage.app",
+          messagingSenderId: "830562769122",
+          appId: "1:830562769122:web:1db7060de0c80556db66bb"
+        };
 
-        // Inicialización de Firebase (Modo Compatibilidad)
         let db, auth;
-        // CORRECCIÓN: Usamos firebaseConfig en lugar de YOUR_FIREBASE_CONFIG
         const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
         if (isConfigured && typeof firebase !== 'undefined') {
             try {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
-                console.log("Firebase iniciado correctamente");
-            } catch (error) {
-                console.error("Error iniciando Firebase:", error);
-                // El error se mostrará en pantalla gracias al window.onerror de arriba
-                throw error;
-            }
+            } catch (error) { console.error("Error iniciando Firebase:", error); throw error; }
         }
 
         const { useState, useEffect, useRef } = React;
+
+        // --- SISTEMA DE AUDIO (Web Audio API) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const playBeep = (pitch = 800, type = 'high') => {
+            if (audioCtx.state === 'suspended') return; // Esperando interacción usuario
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = pitch;
+            
+            // Sonido corto y nítido (QRS beep)
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0.2, now); // Volumen
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            
+            oscillator.start(now);
+            oscillator.stop(now + 0.15);
+        };
 
         // --- ICONOS SVG ---
         const Icons = {
@@ -133,20 +128,22 @@
             Smartphone: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>,
             AlertTriangle: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
             Wifi: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
-            Volume2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>,
-            VolumeX: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>
+            Volume2: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>,
+            VolumeX: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>,
+            Play: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
         };
 
         const DEFAULT_VITALS = { hr: 140, spo2: 98, resp: 45, alarmMuted: false, connected: true };
 
         // --- COMPONENTES ---
 
-        // Canvas de Ondas
-        const WaveformCanvas = ({ color, speed, type, flatline }) => {
+        // Canvas de Ondas (Lógica Mejorada)
+        const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
             const frameRef = useRef(0);
+            const hasBeepedRef = useRef(false);
 
             useEffect(() => {
                 const canvas = canvasRef.current;
@@ -160,33 +157,70 @@
                         dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
                     }
 
+                    // Baseline más estable (Mitad de pantalla)
                     let newValue = canvas.height / 2;
                     const amplitude = canvas.height / 3;
                     
                     if (!flatline) {
-                        const speedFactor = (speed / 60) * 0.15;
+                        // Velocidad ajustada
+                        const speedFactor = (speed / 60) * 0.15; 
                         phaseRef.current += speedFactor;
                         const p = phaseRef.current % (2 * Math.PI);
 
+                        // --- LÓGICA DE BEAT Y AUDIO ---
+                        // El pico de la onda R suele estar cerca de PI en nuestra fase simulada
+                        if (type === 'ecg' && p > 3.0 && p < 3.2 && !hasBeepedRef.current) {
+                            if (onBeat) onBeat(); // Disparar sonido
+                            hasBeepedRef.current = true;
+                        }
+                        if (p > 4.0 || p < 1.0) hasBeepedRef.current = false; // Reset beat flag
+
                         if (type === 'ecg') {
-                            if (p > 2.8 && p < 3.2) {
-                                newValue = (canvas.height / 2) - (Math.sin((p - 3) * 20) * amplitude * 1.5 * Math.exp(-Math.pow(p - 3, 2) * 100));
-                            } else {
-                                newValue = (canvas.height / 2) + (Math.sin(p) * (amplitude * 0.1)) + (Math.random() * 2);
+                            // Algoritmo ECG Derivación II Realista
+                            // Baseline plana con onda P pequeña, QRS grande y T mediana
+                            
+                            // QRS Complex (El pico principal) - Ocurre alrededor de 3.14 (PI)
+                            // Hacemos que sea una subida brusca (valor Y disminuye)
+                            if (p > 3.0 && p < 3.28) {
+                                // Pico R (Hacia arriba en monitor medico = Hacia abajo en Y canvas)
+                                const spike = Math.sin((p - 3.14) * 20); 
+                                // Invertimos spike para que vaya hacia arriba visualmente (Y negativo)
+                                // Multiplicamos por amplitud grande
+                                // Usamos Math.exp para hacerla angosta
+                                newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - 3.14, 2) * 50));
+                            } 
+                            // Onda T (Post latido)
+                            else if (p > 3.5 && p < 4.5) {
+                                newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
                             }
+                            // Onda P (Pre latido)
+                            else if (p > 2.5 && p < 2.9) {
+                                newValue = (canvas.height / 2) - (amplitude * 0.15 * Math.sin((p - 2.5) * 5));
+                            }
+                            else {
+                                // Ruido basal mínimo
+                                newValue = (canvas.height / 2) + (Math.random() * 1.5 - 0.75);
+                            }
+
                         } else {
+                            // Pletismografía (SpO2)
                             const wave = Math.sin(p) + 0.5 * Math.sin(2 * p + 0.5);
                             newValue = (canvas.height / 2) - (wave * amplitude * 0.6);
                         }
                     } else {
+                        // Asistolia con ruido
                         newValue = (canvas.height / 2) + (Math.random() * 2 - 1);
                     }
+
+                    // Clamp para evitar que se salga de pantalla (valores negativos matemáticos)
+                    if (newValue < 5) newValue = 5;
+                    if (newValue > canvas.height - 5) newValue = canvas.height - 5;
 
                     dataRef.current.push(newValue);
                     dataRef.current.shift();
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 2; // Linea un poco más fina para precisión
                     ctx.strokeStyle = color;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
@@ -200,12 +234,11 @@
                 };
                 frameRef.current = requestAnimationFrame(draw);
                 return () => cancelAnimationFrame(frameRef.current);
-            }, [color, speed, type, flatline]);
+            }, [color, speed, type, flatline, onBeat]);
 
             return <canvas ref={canvasRef} className="w-full h-full block"></canvas>;
         };
 
-        // Pantalla Selección
         const RoleSelection = ({ onSelect }) => {
             const [sessionId, setSessionId] = useState('');
             return (
@@ -213,7 +246,10 @@
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
                         <div className="flex justify-center mb-6"><Icons.Activity /></div>
                         <h1 className="text-3xl font-bold text-center mb-2 text-emerald-400">NeoSim</h1>
-                        <p className="text-slate-400 text-center mb-8">Si no configuraste Firebase, funcionará en modo DEMO.</p>
+                        <p className="text-slate-400 text-center mb-8 italic text-sm">
+                            aplicación hecha con muchas ganas pero poco conocimiento.<br/>
+                            Uselo bajo su exclusiva responsabilidad.
+                        </p>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
@@ -238,10 +274,27 @@
             );
         };
 
-        // Pantalla Monitor
         const MonitorScreen = ({ sessionId, vitals }) => {
             const [alarmState, setAlarmState] = useState('none');
             const [flash, setFlash] = useState(false);
+            const [audioEnabled, setAudioEnabled] = useState(false);
+
+            // Handler para activar audio (requerido por navegadores)
+            const enableAudio = () => {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                setAudioEnabled(true);
+            };
+
+            // Callback para sonido de latido
+            const handleBeat = () => {
+                if (!audioEnabled || vitals.alarmMuted) return;
+                // Pitch más alto si es saturación baja o FC critica
+                let pitch = 800;
+                if (vitals.spo2 < 85) pitch = 400; // Tono bajo advertencia
+                playBeep(pitch);
+            };
 
             useEffect(() => {
                 let level = 'none';
@@ -262,11 +315,22 @@
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden`}>
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
+                    
+                    {/* Botón Overlay para activar audio la primera vez */}
+                    {!audioEnabled && (
+                        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
+                            <button onClick={enableAudio} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 px-12 rounded-2xl text-2xl flex items-center gap-4 animate-bounce">
+                                <Icons.Play className="w-8 h-8 fill-current" />
+                                Click para Iniciar Monitor y Sonido
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
                         <div className="flex gap-2 items-center">
-                             {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
+                             {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-emerald-500 w-4 h-4" />}
                              <span>ID: {sessionId}</span>
                         </div>
                     </div>
@@ -276,7 +340,8 @@
                         <div className="grid grid-cols-[70%_30%] h-full">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-emerald-500 font-bold text-sm z-10">II</span>
-                                <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} />
+                                {/* Pasamos handleBeat para que suene con el gráfico */}
+                                <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
                             <div className="flex flex-col justify-center items-end pr-8 relative">
                                 <span className="absolute top-2 right-2 text-emerald-500 font-bold text-lg">FC</span>
@@ -314,7 +379,6 @@
             );
         };
 
-        // Pantalla Controlador
         const ControllerScreen = ({ sessionId, vitals, onUpdate }) => {
             return (
                 <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
@@ -353,14 +417,12 @@
             );
         };
 
-        // App Principal
         const App = () => {
             const [mode, setMode] = useState('select');
             const [sessionId, setSessionId] = useState('');
             const [vitals, setVitals] = useState(DEFAULT_VITALS);
             const [user, setUser] = useState(null);
 
-            // Manejo de Error: Si no pusiste las llaves
             if (!isConfigured) {
                 return (
                     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center fade-in">
@@ -387,24 +449,17 @@
 
             useEffect(() => {
                 if (!sessionId || !user) return;
-                
-                // Firestore Listen (Compat syntax)
                 const unsubscribe = db.collection("sessions").doc(sessionId)
                     .onSnapshot((doc) => {
                         if (doc.exists) setVitals({...doc.data(), connected: true});
                     }, (error) => console.log("Esperando conexión...", error));
-
                 return () => unsubscribe();
             }, [sessionId, user]);
 
             const handleUpdate = async (newVitals) => {
                 const updated = { ...vitals, ...newVitals };
                 setVitals(updated);
-                
-                if (sessionId) {
-                    // Firestore Write (Compat syntax)
-                    await db.collection("sessions").doc(sessionId).set(updated, { merge: true });
-                }
+                if (sessionId) await db.collection("sessions").doc(sessionId).set(updated, { merge: true });
             };
 
             const onSelect = (m, id) => {
