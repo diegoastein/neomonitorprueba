@@ -165,71 +165,41 @@
              }
         };
 
-        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (MEJORADO V2 - Llanto Complejo)
+        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (MEJORADO V3 - Wah-Wah)
         const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
 
             if (type === 'cry') {
-                // SIMULACIÓN DE LLANTO REALISTA
-                // Usamos dos osciladores para crear disonancia natural (vocal chords)
-                const osc1 = audioCtx.createOscillator();
-                const osc2 = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
+                // Simulación de Llanto estilo "Wah" (Filtro dinámico)
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
                 const filter = audioCtx.createBiquadFilter();
 
-                // Vibrato (LFO) para simular el temblor del llanto
-                const lfo = audioCtx.createOscillator();
-                const lfoGain = audioCtx.createGain();
-                lfo.type = 'sine';
-                lfo.frequency.value = 6; // 6Hz vibrato rate
-                lfoGain.gain.value = 15; // Profundidad del vibrato
-
-                osc1.type = 'sawtooth';
-                osc2.type = 'triangle';
-
-                // Filtro para dar cualidad vocal (formante)
-                filter.type = 'bandpass';
-                filter.frequency.value = 1500;
-                filter.Q.value = 1;
-
-                // Conexiones: LFO -> Frecuencia Osc1/2 -> Filtro -> Gain -> Output
-                lfo.connect(lfoGain);
-                lfoGain.connect(osc1.frequency);
-                lfoGain.connect(osc2.frequency);
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
                 
-                osc1.connect(filter);
-                osc2.connect(filter);
-                filter.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                // Envolvente de Frecuencia (El "Waaaaa")
-                const startFreq = 450;
-                const peakFreq = 600;
-                const endFreq = 350;
-
-                osc1.frequency.setValueAtTime(startFreq, now);
-                osc1.frequency.linearRampToValueAtTime(peakFreq, now + 0.3); // Subida rápida
-                osc1.frequency.exponentialRampToValueAtTime(endFreq, now + 1.5); // Bajada lenta
-
-                osc2.frequency.setValueAtTime(startFreq * 1.5, now); // Armónico
-                osc2.frequency.linearRampToValueAtTime(peakFreq * 1.5, now + 0.3);
-                osc2.frequency.exponentialRampToValueAtTime(endFreq * 1.5, now + 1.5);
-
-                // Envolvente de Volumen (Respiración)
-                gainNode.gain.setValueAtTime(0, now);
-                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.1); // Ataque
-                gainNode.gain.setValueAtTime(0.3, now + 0.8); // Sustain
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.5); // Release
-
-                lfo.start(now);
-                osc1.start(now);
-                osc2.start(now);
+                osc.type = 'sawtooth'; 
                 
-                lfo.stop(now + 1.6);
-                osc1.stop(now + 1.6);
-                osc2.stop(now + 1.6);
-
+                // Tono fundamental (cae ligeramente al final)
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.exponentialRampToValueAtTime(400, now + 0.8);
+                
+                // Filtro Wah-Wah (Simula apertura de boca)
+                filter.type = 'lowpass';
+                filter.Q.value = 5; // Resonancia vocal
+                filter.frequency.setValueAtTime(400, now);
+                filter.frequency.linearRampToValueAtTime(1200, now + 0.2); // Waa
+                filter.frequency.linearRampToValueAtTime(400, now + 0.8);  // ...ah
+                
+                // Volumen (Corto y definido)
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.3, now + 0.1); 
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8); 
+                
+                osc.start(now);
+                osc.stop(now + 0.9);
             } 
             else if (type === 'grunt') {
                 // Simulación de Quejido (Corto y grave)
