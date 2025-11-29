@@ -7,14 +7,14 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React y ReactDOM (Con Crossorigin para ver errores reales) -->
+    <!-- React y ReactDOM -->
     <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel para traducir React -->
+    <!-- Babel -->
     <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- FIREBASE COMPAT (Con Crossorigin) -->
+    <!-- FIREBASE COMPAT -->
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -59,12 +59,22 @@
             background: #0f172a;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
         }
+        
+        /* Estilo Slider Personalizado */
+        input[type=range] {
+            accent-color: #10b981; 
+        }
+        input[type=range].cyan-slider {
+            accent-color: #06b6d4;
+        }
+        input[type=range].time-slider {
+            accent-color: #f59e0b;
+        }
     </style>
 </head>
 <body>
     <div id="root">
         <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #10b981; font-family: sans-serif;">
-            <!-- Loading Spinner -->
             <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -76,39 +86,23 @@
     <div id="debug-log"></div>
 
     <script>
-        // Manejador de errores global mejorado
         function showError(title, details) {
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
             log.innerHTML += `<div style="margin-bottom:10px;"><strong>${title}</strong><br/><small>${details}</small></div>`;
         }
-
         window.onerror = function(msg, url, lineNo, columnNo, error) {
-            // Ignorar errores de redimensionamiento (ResizeObserver) que son inofensivos
             if (msg.includes('ResizeObserver')) return false;
-            
             let details = `${url}:${lineNo}`;
-            if (msg === 'Script error.') {
-                details += '<br/>(Error externo bloqueado por seguridad. Revisa la consola F12 o asegúrate de usar HTTPS)';
-            }
+            if (msg === 'Script error.') details += '<br/>(Error externo bloqueado por seguridad. Revisa la consola F12)';
             showError('ERROR DE SCRIPT:', `${msg} <br/> ${details}`);
             return false;
         };
-
         window.onunhandledrejection = function(event) {
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            if(message.toString().includes('auth/unauthorized-domain')) {
-                message = "BLOQUEADO POR FIREBASE: Dominio no autorizado.<br/>Ve a Firebase Console -> Authentication -> Settings -> Dominios y agrega tu URL.";
-            }
+            if(message.toString().includes('auth/unauthorized-domain')) message = "BLOQUEADO POR FIREBASE: Dominio no autorizado.";
             showError('ERROR DE CONEXIÓN:', message);
         };
-
-        // Capturar errores de carga de recursos (scripts que no bajan)
-        window.addEventListener('error', function(e) {
-            if (e.target.tagName === 'SCRIPT') {
-                showError('ERROR DE CARGA:', `No se pudo cargar el archivo: ${e.target.src}. Revisa tu conexión a internet.`);
-            }
-        }, true);
     </script>
 
     <script type="text/babel">
@@ -132,24 +126,17 @@
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
-            } catch (error) { 
-                console.error("Error iniciando Firebase:", error); 
-                // No lanzamos el error aquí para permitir que la UI cargue y muestre el mensaje bonito
-            }
+            } catch (error) { console.error("Error iniciando Firebase:", error); }
         }
 
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- SISTEMA DE AUDIO (Web Audio API) Seguro ---
+        // --- SISTEMA DE AUDIO ---
         let audioCtx;
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) {
-                audioCtx = new AudioContext();
-            }
-        } catch (e) {
-            console.warn("AudioContext no soportado o bloqueado:", e);
-        }
+            if (AudioContext) audioCtx = new AudioContext();
+        } catch (e) { console.warn("AudioContext no soportado:", e); }
         
         const playBeep = (pitch = 800) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
@@ -208,10 +195,44 @@
             Battery: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
             Menu: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
             QrCode: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
-            X: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            X: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            Clock: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 140, spo2: 98, resp: 45, alarmMuted: false, connected: true };
+        const DEFAULT_VITALS = { hr: 140, spo2: 98, resp: 45, alarmMuted: false, connected: true, transition: null };
+
+        // --- HOOK PARA INTERPOLACIÓN ---
+        const useInterpolatedVitals = (targetVitals) => {
+            const [currentVitals, setCurrentVitals] = useState(targetVitals);
+            const requestRef = useRef();
+            
+            useEffect(() => {
+                const animate = () => {
+                    const now = Date.now();
+                    const t = targetVitals.transition;
+
+                    if (t && t.duration > 0 && now < t.startTime + t.duration) {
+                        const progress = (now - t.startTime) / t.duration;
+                        const ease = progress; // Lineal para ser predecible, o cubic-bezier para suavidad
+                        
+                        setCurrentVitals({
+                            ...targetVitals,
+                            hr: Math.round(t.startHr + (t.targetHr - t.startHr) * ease),
+                            spo2: Math.round(t.startSpo2 + (t.targetSpo2 - t.startSpo2) * ease),
+                            resp: Math.round(t.startResp + (t.targetResp - t.startResp) * ease),
+                        });
+                        requestRef.current = requestAnimationFrame(animate);
+                    } else {
+                        // Fin de transición o sin transición
+                        setCurrentVitals(targetVitals);
+                    }
+                };
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, [targetVitals]);
+
+            return currentVitals;
+        };
 
         // --- COMPONENTES ---
 
@@ -325,7 +346,9 @@
             );
         };
 
-        const MonitorScreen = ({ sessionId, vitals }) => {
+        const MonitorScreen = ({ sessionId, vitals: targetVitals }) => {
+            const vitals = useInterpolatedVitals(targetVitals);
+            
             const [alarmState, setAlarmState] = useState('none');
             const [flash, setFlash] = useState(false);
             const [audioEnabled, setAudioEnabled] = useState(false);
@@ -333,7 +356,6 @@
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
 
-            // --- DETECCION DE ENTORNO PREVIEW ---
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
 
             const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
@@ -362,7 +384,6 @@
                 return () => clearInterval(interval);
             }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
-            // GENERADOR DE URL SEGURA PARA QR
             useEffect(() => {
                 if (showQR) {
                     let baseUrl = window.location.origin + window.location.pathname;
@@ -394,7 +415,6 @@
                         </div>
                     )}
 
-                    {/* QR Modal con AVISO DE PREVIEW */}
                     {showQR && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-8 text-center">
                             <div className="bg-white p-8 rounded-xl flex flex-col items-center max-w-md w-full">
@@ -405,10 +425,10 @@
                                         <div className="flex justify-center mb-2"><Icons.AlertTriangle className="w-8 h-8"/></div>
                                         <p className="font-bold">¡Estás en modo PREVIEW!</p>
                                         <p className="text-sm mt-2">
-                                            El código QR no funcionará desde este editor de prueba (el celular no puede conectarse aquí).
+                                            El código QR no funcionará desde este editor de prueba.
                                         </p>
                                         <p className="text-sm font-bold mt-2 underline">
-                                            Sube este código a GitHub Pages y escanea el QR desde ahí.
+                                            Sube este código a GitHub Pages.
                                         </p>
                                     </div>
                                 ) : (
@@ -484,7 +504,6 @@
                         </div>
                     </div>
 
-                    {/* BARRA INFERIOR REALISTA */}
                     <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16 shrink-0">
                         <div className="flex gap-2 h-full">
                             <div className="soft-key w-24">Menú<br/>Principal</div>
@@ -511,7 +530,34 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals, onUpdate }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
+            // Estado local para los sliders (interpolación en el controlador para feedback visual)
+            const vitals = useInterpolatedVitals(currentVitals);
+            const [transitionDuration, setTransitionDuration] = useState(0);
+
+            const handleVitalsChange = (newValues) => {
+                // Preparar datos para Firestore
+                const now = Date.now();
+                const durationMs = transitionDuration * 1000;
+                
+                const updateData = {
+                    ...newValues,
+                    // Si hay tiempo de transición, guardamos metadata
+                    transition: (durationMs > 0) ? {
+                        startTime: now,
+                        duration: durationMs,
+                        startHr: vitals.hr,
+                        targetHr: newValues.hr !== undefined ? newValues.hr : vitals.hr,
+                        startSpo2: vitals.spo2,
+                        targetSpo2: newValues.spo2 !== undefined ? newValues.spo2 : vitals.spo2,
+                        startResp: vitals.resp,
+                        targetResp: newValues.resp !== undefined ? newValues.resp : vitals.resp
+                    } : null
+                };
+                
+                onUpdate(updateData);
+            };
+
             return (
                 <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
                     <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
@@ -519,24 +565,50 @@
                         <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                     </header>
                     <div className="space-y-6 max-w-lg mx-auto">
+                        
+                        {/* SLIDER DE TIEMPO DE TRANSICIÓN */}
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-2">
+                                <label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Tiempo Transición</label>
+                                <span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="90" 
+                                step="10" 
+                                value={transitionDuration} 
+                                onChange={(e) => setTransitionDuration(parseInt(e.target.value))} 
+                                className="w-full h-8 time-slider cursor-pointer" 
+                            />
+                            <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                <span>Inmediato</span>
+                                <span>90 seg</span>
+                            </div>
+                        </div>
+
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-4">
                                 <label className="text-emerald-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {vitals.hr}</label>
                             </div>
-                            <input type="range" min="0" max="250" value={vitals.hr} onChange={(e) => onUpdate({hr: parseInt(e.target.value)})} className="w-full h-12 accent-emerald-500 cursor-pointer" />
+                            {/* Max 200 lpm */}
+                            <input type="range" min="0" max="200" value={vitals.hr} onChange={(e) => handleVitalsChange({hr: parseInt(e.target.value)})} className="w-full h-12 accent-emerald-500 cursor-pointer" />
                         </div>
+                        
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-4">
                                 <label className="text-cyan-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {vitals.spo2}%</label>
                             </div>
-                            <input type="range" min="0" max="100" value={vitals.spo2} onChange={(e) => onUpdate({spo2: parseInt(e.target.value)})} className="w-full h-12 accent-cyan-500 cursor-pointer" />
+                            <input type="range" min="0" max="100" value={vitals.spo2} onChange={(e) => handleVitalsChange({spo2: parseInt(e.target.value)})} className="w-full h-12 accent-cyan-500 cursor-pointer" />
                         </div>
+
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => onUpdate({hr: 140, spo2: 98, resp: 45})} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
-                            <button onClick={() => onUpdate({hr: 60, spo2: 85, resp: 20})} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                            <button onClick={() => onUpdate({hr: 150, spo2: 65, resp: 60})} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
-                            <button onClick={() => onUpdate({hr: 0, spo2: 0, resp: 0})} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
+                            <button onClick={() => handleVitalsChange({hr: 140, spo2: 98, resp: 45})} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
+                            <button onClick={() => handleVitalsChange({hr: 60, spo2: 85, resp: 20})} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
+                            <button onClick={() => handleVitalsChange({hr: 150, spo2: 65, resp: 60})} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => handleVitalsChange({hr: 0, spo2: 0, resp: 0})} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
                         </div>
+                        
                         <button onClick={() => onUpdate({ alarmMuted: !vitals.alarmMuted })} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>
                              {vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}
                         </button>
@@ -583,9 +655,9 @@
             }, [sessionId, user]);
 
             const handleUpdate = async (newVitals) => {
-                const updated = { ...vitals, ...newVitals };
-                setVitals(updated);
-                if (sessionId && db) await db.collection("sessions").doc(sessionId).set(updated, { merge: true });
+                // Actualizar DB. Si es transición, el hook en Monitor se encarga de la magia.
+                // En el control también usamos el hook para ver el progreso.
+                if (sessionId && db) await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true });
             };
 
             const onSelect = (m, id) => { setMode(m); setSessionId(id); };
