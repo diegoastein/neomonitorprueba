@@ -78,13 +78,14 @@
 
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             if (msg.includes('ResizeObserver')) return false;
-            if (msg === 'Script error.') return false; 
+            if (msg === 'Script error.') return false; // Ignorar errores de scripts externos por seguridad
             showError('Aviso:', msg);
             return false;
         };
 
         window.onunhandledrejection = function(event) {
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
+            // Filtro agresivo para errores de conexión Firebase (se reconecta solo)
             if (message.toString().toLowerCase().includes('client is offline') || 
                 message.toString().includes('network') || 
                 message.toString().includes('internet')) {
@@ -455,32 +456,32 @@
                     <div className="flex-1 min-h-0 grid grid-rows-[1fr_1fr_1fr] divide-y divide-slate-800">
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">II</span>
-                                <WaveformCanvas color="#facc15" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
+                                <span className="absolute top-2 left-2 text-emerald-500 font-bold text-sm z-10">II</span>
+                                <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
                             <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">FC</span>
-                                <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
+                                <span className="absolute top-2 right-2 text-emerald-500 font-bold text-lg">FC</span>
+                                <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
                                     <span style={{fontSize: '2.5vh'}}>180</span>
                                     <span style={{fontSize: '2.5vh'}}>100</span>
                                 </div>
-                                <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '12vh'}}>{vitals.hr}</span>
+                                <span className={`leading-none font-mono font-bold ${getTextColor('text-emerald-500')}`} style={{fontSize: '12vh'}}>{vitals.hr}</span>
                             </div>
                         </div>
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-cyan-500 font-bold text-sm z-10">Pleth</span>
-                                <WaveformCanvas color="#06b6d4" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
+                                <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">Pleth</span>
+                                <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
                             </div>
                             <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-cyan-500 font-bold text-lg">SpO2</span>
-                                <div className="absolute top-10 right-2 text-cyan-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
+                                <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">SpO2</span>
+                                <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
                                     <span style={{fontSize: '2.5vh'}}>100</span>
                                     <span style={{fontSize: '2.5vh'}}>90</span>
                                 </div>
                                 <div className="flex items-baseline">
-                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-cyan-500')}`} style={{fontSize: '12vh'}}>{vitals.spo2}</span>
-                                    <span className={`ml-2 ${getTextColor('text-cyan-500')}`} style={{fontSize: '5vh'}}>%</span>
+                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '12vh'}}>{vitals.spo2}</span>
+                                    <span className={`ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '5vh'}}>%</span>
                                 </div>
                             </div>
                         </div>
@@ -528,7 +529,8 @@
 
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
-            const [transitionDuration, setTransitionDuration] = useState(0);
+            // Default transition time set to 10 seconds
+            const [transitionDuration, setTransitionDuration] = useState(10);
             
             // LOCAL STATE FOR SLIDERS
             const [targets, setTargets] = useState(currentVitals);
@@ -583,17 +585,17 @@
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
-                                <label className="text-yellow-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label>
+                                <label className="text-emerald-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label>
                                 <span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span>
                             </div>
-                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-yellow-400 cursor-pointer" />
+                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-emerald-500 cursor-pointer" />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
-                                <label className="text-cyan-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label>
+                                <label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label>
                                 <span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span>
                             </div>
-                            <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} className="w-full h-12 accent-cyan-500 cursor-pointer" />
+                            <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} className="w-full h-12 accent-yellow-400 cursor-pointer" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => handleSliderChange('hr', 140) || handleSliderChange('spo2', 98)} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
