@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        body { background-color: #0f172a; color: white; }
+        body { background-color: #0f172a; color: white; margin: 0; overflow: hidden; }
         @keyframes pulse-fast {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -154,13 +154,10 @@
                 }
 
                 const draw = (time) => {
-                    // Cálculo de Delta Time (Tiempo entre cuadros)
-                    // Si el PC es lento, dt es grande y avanzamos más la onda para compensar.
-                    // Esto garantiza que el ritmo sea constante en el tiempo.
+                    // Cálculo de Delta Time
                     const deltaTime = (time - lastTimeRef.current) / 1000;
                     lastTimeRef.current = time;
 
-                    // Evitar saltos gigantes si se minimiza la pestaña
                     if (deltaTime > 0.1) {
                          frameRef.current = requestAnimationFrame(draw);
                          return;
@@ -176,8 +173,6 @@
                     const amplitude = canvas.height / 3;
                     
                     if (!flatline) {
-                        // Lógica basada en TIEMPO, no en FRAMES
-                        // HR / 60 = beats/seg. * 2PI = radianes/seg.
                         const beatsPerSecond = speed / 60;
                         const angularSpeed = beatsPerSecond * 2 * Math.PI;
                         const phaseIncrement = angularSpeed * deltaTime;
@@ -185,18 +180,14 @@
                         const prevPhase = phaseRef.current;
                         phaseRef.current += phaseIncrement;
 
-                        // Mantener fase acotada (0 a 2PI)
                         if (phaseRef.current >= 2 * Math.PI) {
                             phaseRef.current -= 2 * Math.PI;
                         }
 
                         const p = phaseRef.current;
 
-                        // DETECCIÓN DE LATIDO (Audio y visualización)
-                        // Disparamos si cruzamos el pico R (aprox en PI)
                         if (type === 'ecg' && onBeat) {
                              const threshold = Math.PI;
-                             // Verificar cruce normal O cruce por reinicio de ciclo (wrap)
                              if ((prevPhase < threshold && p >= threshold) || 
                                  (prevPhase > p && prevPhase < threshold)) { 
                                  onBeat();
@@ -204,16 +195,12 @@
                         }
 
                         if (type === 'ecg') {
-                            // Algoritmo ECG Derivación II Realista (Usando fase continua)
-                            // Pico R en PI (3.14)
                             if (p > 3.0 && p < 3.28) {
                                 newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50));
                             } 
-                            // Onda T
                             else if (p > 3.5 && p < 4.5) {
                                 newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
                             }
-                            // Onda P
                             else if (p > 2.5 && p < 2.9) {
                                 newValue = (canvas.height / 2) - (amplitude * 0.15 * Math.sin((p - 2.5) * 5));
                             }
@@ -222,7 +209,6 @@
                             }
 
                         } else {
-                            // Pletismografía
                             const wave = Math.sin(p) + 0.5 * Math.sin(2 * p + 0.5);
                             newValue = (canvas.height / 2) - (wave * amplitude * 0.6);
                         }
@@ -296,20 +282,15 @@
             const [flash, setFlash] = useState(false);
             const [audioEnabled, setAudioEnabled] = useState(false);
 
-            // Handler para activar audio (requerido por navegadores)
             const enableAudio = () => {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 setAudioEnabled(true);
             };
 
-            // Callback para sonido de latido
             const handleBeat = () => {
                 if (!audioEnabled || vitals.alarmMuted) return;
-                // Pitch más alto si es saturación baja o FC critica
                 let pitch = 800;
-                if (vitals.spo2 < 85) pitch = 400; // Tono bajo advertencia
+                if (vitals.spo2 < 85) pitch = 400; 
                 playBeep(pitch);
             };
 
@@ -334,7 +315,6 @@
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
                     
-                    {/* Botón Overlay para activar audio la primera vez */}
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
                             <button onClick={enableAudio} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 px-12 rounded-2xl text-2xl flex items-center gap-4 animate-bounce">
@@ -344,7 +324,7 @@
                         </div>
                     )}
 
-                    <div className="flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800">
+                    <div className="flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800" style={{minHeight: '40px'}}>
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
                         <div className="flex gap-2 items-center">
                              {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-emerald-500 w-4 h-4" />}
@@ -352,43 +332,45 @@
                         </div>
                     </div>
 
-                    <div className="flex-1 grid grid-rows-3 divide-y divide-slate-800">
+                    <div className="flex-1 grid grid-rows-[1fr_1fr_1fr] divide-y divide-slate-800">
                         {/* ECG */}
-                        <div className="grid grid-cols-[70%_30%] h-full">
+                        <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-emerald-500 font-bold text-sm z-10">II</span>
-                                {/* Pasamos handleBeat para que suene con el gráfico */}
                                 <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
-                            <div className="flex flex-col justify-center items-end pr-8 relative">
+                            <div className="flex flex-col justify-center items-end pr-8 relative min-w-0">
                                 <span className="absolute top-2 right-2 text-emerald-500 font-bold text-lg">FC</span>
-                                <span className={`text-[6rem] lg:text-[8rem] leading-none font-mono font-bold ${getTextColor('text-emerald-500')}`}>{vitals.hr}</span>
+                                <span className={`leading-none font-mono font-bold ${getTextColor('text-emerald-500')}`} style={{fontSize: '15vh'}}>{vitals.hr}</span>
                             </div>
                         </div>
                         {/* SpO2 */}
-                        <div className="grid grid-cols-[70%_30%] h-full">
+                        <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-cyan-500 font-bold text-sm z-10">Pleth</span>
                                 <WaveformCanvas color="#06b6d4" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
                             </div>
-                            <div className="flex flex-col justify-center items-end pr-8 relative">
+                            <div className="flex flex-col justify-center items-end pr-8 relative min-w-0">
                                 <span className="absolute top-2 right-2 text-cyan-500 font-bold text-lg">SpO2</span>
-                                <span className={`text-[6rem] lg:text-[8rem] leading-none font-mono font-bold ${getTextColor('text-cyan-500')}`}>{vitals.spo2}<span className="text-4xl ml-2">%</span></span>
+                                <div className="flex items-baseline">
+                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-cyan-500')}`} style={{fontSize: '15vh'}}>{vitals.spo2}</span>
+                                    <span className={`text-4xl ml-2 ${getTextColor('text-cyan-500')}`}>%</span>
+                                </div>
                             </div>
                         </div>
                         {/* Other */}
-                        <div className="grid grid-cols-2 h-full divide-x divide-slate-800">
-                             <div className="flex flex-col justify-center items-end pr-8 relative">
+                        <div className="grid grid-cols-2 h-full divide-x divide-slate-800 min-h-0">
+                             <div className="flex flex-col justify-center items-end pr-8 relative min-w-0">
                                 <span className="absolute top-2 left-4 text-yellow-500 font-bold text-lg">RESP</span>
                                 <div className="flex items-center gap-4">
                                     <Icons.Wind className={`w-8 h-8 text-slate-600 ${vitals.hr > 0 ? 'animate-pulse-fast' : ''}`} />
-                                    <span className="text-[5rem] lg:text-[6rem] leading-none font-mono font-bold text-yellow-500">{vitals.resp}</span>
+                                    <span className="leading-none font-mono font-bold text-yellow-500" style={{fontSize: '12vh'}}>{vitals.resp}</span>
                                 </div>
                              </div>
-                             <div className="flex flex-col justify-center pl-8 relative">
+                             <div className="flex flex-col justify-center pl-8 relative min-w-0">
                                 <span className="absolute top-2 left-4 text-white font-bold text-lg">PNI</span>
-                                <span className="text-[4rem] font-mono font-bold text-white">{vitals.hr > 0 ? '65/42' : '--/--'}</span>
-                                <span className="text-slate-500">(51)</span>
+                                <span className="font-mono font-bold text-white leading-none" style={{fontSize: '8vh'}}>{vitals.hr > 0 ? '65/42' : '--/--'}</span>
+                                <span className="text-slate-500 text-xl mt-2">(51)</span>
                              </div>
                         </div>
                     </div>
