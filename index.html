@@ -20,7 +20,9 @@
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        body { background-color: #0f172a; color: white; margin: 0; overflow: hidden; }
+        /* Fondo Negro Absoluto */
+        body { background-color: #000000; color: white; margin: 0; overflow: hidden; }
+        
         @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
@@ -43,16 +45,16 @@
         }
         .soft-key:active { background: #0f172a; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
         
-        /* Sliders */
-        input[type=range] { accent-color: #10b981; }
+        /* Sliders con colores personalizados */
+        input[type=range] { accent-color: #42B334; } /* Verde FC Personalizado */
         input[type=range].cyan-slider { accent-color: #06b6d4; }
         input[type=range].time-slider { accent-color: #f59e0b; }
-        input[type=range].yellow-slider { accent-color: #facc15; }
+        input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
     </style>
 </head>
 <body>
     <div id="root">
-        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #10b981; font-family: sans-serif;">
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #42B334; font-family: sans-serif;">
             <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -64,33 +66,22 @@
     <div id="debug-log"></div>
 
     <script>
-        // Manejador de errores MENOS INTRUSIVO
         function showError(title, details) {
-            // Ignoramos errores de red comunes para no bloquear la pantalla
             if (details.includes('network') || details.includes('fetch') || details.includes('offline')) return;
-            
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
             log.innerHTML = `<strong>${title}</strong><br/>${details}`;
-            // Ocultar después de 5 segundos si no es crítico
             setTimeout(() => { log.style.display = 'none'; }, 5000);
         }
-
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             if (msg.includes('ResizeObserver')) return false;
-            if (msg === 'Script error.') return false; // Ignorar errores de scripts externos por seguridad
+            if (msg === 'Script error.') return false; 
             showError('Aviso:', msg);
             return false;
         };
-
         window.onunhandledrejection = function(event) {
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            // Filtro agresivo para errores de conexión Firebase (se reconecta solo)
-            if (message.toString().toLowerCase().includes('client is offline') || 
-                message.toString().includes('network') || 
-                message.toString().includes('internet')) {
-                return; 
-            }
+            if (message.toString().toLowerCase().includes('client is offline') || message.toString().includes('network')) return; 
             if(message.toString().includes('auth/unauthorized-domain')) {
                 message = "BLOQUEADO: Dominio no autorizado en Firebase.";
                 showError('Configuración:', message);
@@ -254,11 +245,10 @@
                     lastTimeRef.current = time;
                     if (deltaTime > 0.1) { frameRef.current = requestAnimationFrame(draw); return; }
 
-                    // Responsividad del Canvas
-                    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+                    if (canvas.width !== canvas.offsetWidth) {
                         canvas.width = canvas.offsetWidth;
                         canvas.height = canvas.offsetHeight;
-                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2); 
+                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
                     }
 
                     let newValue = canvas.height / 2;
@@ -297,7 +287,7 @@
                     dataRef.current.shift();
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 2.4; // 20% más grueso (original 2.0)
                     ctx.strokeStyle = color;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
@@ -322,7 +312,7 @@
                 <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
                         <div className="flex justify-center mb-6"><Icons.Activity /></div>
-                        <h1 className="text-3xl font-bold text-center mb-2 text-emerald-400">NeoSim</h1>
+                        <h1 className="text-3xl font-bold text-center mb-2 text-[#42B334]">NeoSim</h1>
                         <p className="text-slate-400 text-center mb-8 italic text-sm">aplicación hecha con muchas ganas pero poco conocimiento.<br/>Uselo bajo su exclusiva responsabilidad.</p>
                         <div className="space-y-6">
                             <div>
@@ -334,7 +324,7 @@
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <button onClick={() => sessionId && onSelect('monitor', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
-                                    <Icons.Monitor className="w-8 h-8 mb-3 text-emerald-400" />
+                                    <Icons.Monitor className="w-8 h-8 mb-3 text-[#42B334]" />
                                     <span className="font-semibold">Monitor</span>
                                 </button>
                                 <button onClick={() => sessionId && onSelect('control', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
@@ -447,7 +437,7 @@
                     <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 min-h-[40px]">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
                         <div className="flex gap-2 items-center">
-                             {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-emerald-500 w-4 h-4" />}
+                             {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}
                              <span>ID: {sessionId}</span>
                         </div>
                     </div>
@@ -456,16 +446,16 @@
                     <div className="flex-1 min-h-0 grid grid-rows-[1fr_1fr_1fr] divide-y divide-slate-800">
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-emerald-500 font-bold text-sm z-10">II</span>
-                                <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
+                                <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
+                                <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
                             <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-emerald-500 font-bold text-lg">FC</span>
-                                <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
+                                <span className="absolute top-2 right-2 text-[#42B334] font-bold text-lg">FC</span>
+                                <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}>
                                     <span style={{fontSize: '2.5vh'}}>180</span>
                                     <span style={{fontSize: '2.5vh'}}>100</span>
                                 </div>
-                                <span className={`leading-none font-mono font-bold ${getTextColor('text-emerald-500')}`} style={{fontSize: '12vh'}}>{vitals.hr}</span>
+                                <span className={`leading-none font-mono font-bold`} style={{fontSize: '12vh', color: getTextColor('#42B334')}}>{vitals.hr}</span>
                             </div>
                         </div>
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
@@ -568,6 +558,37 @@
                 onUpdate(updateData);
             };
 
+            // Escenarios Clínicos Actualizados
+            const applyPreset = (type) => {
+                let presetValues = {};
+                switch(type) {
+                    case 'normal': presetValues = { hr: 142, spo2: 98, resp: 45 }; break;
+                    case 'brady': presetValues = { hr: 68, spo2: 75, resp: 20 }; break;
+                    case 'desat': presetValues = { hr: 110, spo2: 84, resp: 60 }; break;
+                    case 'vpp': presetValues = { hr: 88, spo2: 84, resp: 40 }; break;
+                    case 'vpp_ct': presetValues = { hr: 56, spo2: 65, resp: 0 }; break;
+                }
+                
+                setTargets(prev => ({ ...prev, ...presetValues }));
+                
+                const now = Date.now();
+                const durationMs = transitionDuration * 1000;
+                
+                onUpdate({
+                    ...presetValues,
+                    transition: (durationMs > 0) ? {
+                        startTime: now,
+                        duration: durationMs,
+                        startHr: vitals.hr,
+                        targetHr: presetValues.hr,
+                        startSpo2: vitals.spo2,
+                        targetSpo2: presetValues.spo2,
+                        startResp: vitals.resp,
+                        targetResp: presetValues.resp
+                    } : null
+                });
+            };
+
             return (
                 <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
                     <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
@@ -585,10 +606,10 @@
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
-                                <label className="text-emerald-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label>
+                                <label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label>
                                 <span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span>
                             </div>
-                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-emerald-500 cursor-pointer" />
+                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-[#42B334] cursor-pointer" />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
@@ -597,12 +618,15 @@
                             </div>
                             <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} className="w-full h-12 accent-yellow-400 cursor-pointer" />
                         </div>
+                        
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => handleSliderChange('hr', 140) || handleSliderChange('spo2', 98)} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
-                            <button onClick={() => handleSliderChange('hr', 60) || handleSliderChange('spo2', 85)} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                            <button onClick={() => handleSliderChange('hr', 150) || handleSliderChange('spo2', 65)} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
-                            <button onClick={() => handleSliderChange('hr', 0) || handleSliderChange('spo2', 0)} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
+                            <button onClick={() => applyPreset('normal')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
+                            <button onClick={() => applyPreset('brady')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
+                            <button onClick={() => applyPreset('desat')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => applyPreset('vpp')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
+                            <button onClick={() => applyPreset('vpp_ct')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
                         </div>
+                        
                         <button onClick={() => onUpdate({ alarmMuted: !vitals.alarmMuted })} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>
                              {vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}
                         </button>
