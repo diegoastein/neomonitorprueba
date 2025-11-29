@@ -317,9 +317,21 @@
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
-                                <div className="flex gap-2">
-                                    <input type="number" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="Ej: 1234" className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-xl outline-none" />
-                                    <button onClick={() => setSessionId(Math.floor(1000 + Math.random() * 9000).toString())} className="px-4 py-2 bg-slate-700 rounded-lg text-sm hover:bg-slate-600">Generar</button>
+                                {/* CAMBIO DE DISEÑO: Botón debajo del input */}
+                                <div className="flex flex-col gap-3">
+                                    <input 
+                                        type="number" 
+                                        value={sessionId} 
+                                        onChange={(e) => setSessionId(e.target.value)} 
+                                        placeholder="Ej: 1234" 
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-xl outline-none focus:border-[#42B334] transition-colors" 
+                                    />
+                                    <button 
+                                        onClick={() => setSessionId(Math.floor(1000 + Math.random() * 9000).toString())} 
+                                        className="w-full px-4 py-3 bg-slate-700 rounded-lg text-sm hover:bg-slate-600 transition-all font-semibold text-slate-200"
+                                    >
+                                        Generar Código Nuevo
+                                    </button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -351,7 +363,7 @@
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
 
             const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
-            const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 85) pitch = 400; playBeep(pitch); };
+            const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
 
             useEffect(() => {
                 const timer = setInterval(() => setTime(new Date()), 1000);
@@ -360,8 +372,17 @@
 
             useEffect(() => {
                 let level = 'none';
-                if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
-                else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 90) level = 'warning';
+                // Lógica de Alarmas Actualizada
+                if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) {
+                    level = 'critical';
+                } else if (
+                    vitals.hr < 100 || 
+                    vitals.hr > 180 || 
+                    vitals.spo2 < 89 || // Alarma Baja Saturación
+                    vitals.spo2 > 95    // Alarma Alta Saturación
+                ) {
+                    level = 'warning';
+                }
                 setAlarmState(level);
                 const interval = setInterval(() => setFlash(p => !p), level === 'critical' ? 300 : 800);
                 return () => clearInterval(interval);
@@ -465,9 +486,10 @@
                             </div>
                             <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
                                 <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">SpO2</span>
+                                {/* ALARMAS SpO2 ACTUALIZADAS: 95 / 89 */}
                                 <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80">
-                                    <span style={{fontSize: '2.5vh'}}>100</span>
-                                    <span style={{fontSize: '2.5vh'}}>90</span>
+                                    <span style={{fontSize: '2.5vh'}}>95</span>
+                                    <span style={{fontSize: '2.5vh'}}>89</span>
                                 </div>
                                 <div className="flex items-baseline">
                                     <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '12vh'}}>{vitals.spo2}</span>
