@@ -4,63 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeoSim Monitor</title>
-    <!-- Tailwind CSS para diseño -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- React y ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel para traducir el código en el navegador -->
+    
+    <!-- Babel para traducir React -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- FIREBASE COMPAT (Funciona sin servidor local) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
         body { background-color: #0f172a; color: white; }
-        /* Animaciones personalizadas */
         @keyframes pulse-fast {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        .animate-pulse-fast {
-            animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
+        .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        /* Animación para el mensaje de error */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- Lógica de la Aplicación -->
-    <script type="text/babel" data-type="module">
-        // --- 1. CONFIGURACIÓN ---
-        // IMPORTANTE: Reemplaza esto con tus datos de Firebase Console
-        const YOUR_FIREBASE_CONFIG = {
-            apiKey: "TU_API_KEY_AQUI",
-            authDomain: "TU_PROYECTO.firebaseapp.com",
-            projectId: "TU_PROYECTO_ID",
-            storageBucket: "TU_PROYECTO.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
-        };
+    <script type="text/babel">
+        // ==========================================
+        // 1. CONFIGURACIÓN (PEGAR TUS LLAVES AQUÍ)
+        // ==========================================
+       const firebaseConfig = {
+  apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
+  authDomain: "monitor-36c41.firebaseapp.com",
+  projectId: "monitor-36c41",
+  storageBucket: "monitor-36c41.firebasestorage.app",
+  messagingSenderId: "830562769122",
+  appId: "1:830562769122:web:1db7060de0c80556db66bb"
+};
+        // ==========================================
 
-        // --- 2. IMPORTACIONES DE FIREBASE (Versión Web Modular) ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
-        // Inicializar Firebase
-        // Si detectamos que no se han puesto las llaves, usaremos un modo "demo" local (sin red real) para que no falle al abrir.
-        const isConfigured = YOUR_FIREBASE_CONFIG.apiKey !== "TU_API_KEY_AQUI";
+        // Inicialización de Firebase (Modo Compatibilidad)
         let db, auth;
-        
-        if (isConfigured) {
-            const app = initializeApp(YOUR_FIREBASE_CONFIG);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } else {
-            console.warn("Firebase no configurado. Modo Demo Local (Sin sincronización entre dispositivos).");
+        // CORRECCIÓN: Usamos firebaseConfig en lugar de YOUR_FIREBASE_CONFIG
+        const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
+
+        if (isConfigured && typeof firebase !== 'undefined') {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+                auth = firebase.auth();
+                console.log("Firebase iniciado correctamente");
+            } catch (error) {
+                console.error("Error iniciando Firebase:", error);
+            }
         }
 
         const { useState, useEffect, useRef } = React;
 
-        // --- 3. ICONOS SVG (Simulando Lucide) ---
+        // --- ICONOS SVG ---
         const Icons = {
             Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
             Heart: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
@@ -75,7 +83,7 @@
 
         const DEFAULT_VITALS = { hr: 140, spo2: 98, resp: 45, alarmMuted: false, connected: true };
 
-        // --- 4. COMPONENTES ---
+        // --- COMPONENTES ---
 
         // Canvas de Ondas
         const WaveformCanvas = ({ color, speed, type, flatline }) => {
@@ -149,7 +157,7 @@
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
                         <div className="flex justify-center mb-6"><Icons.Activity /></div>
                         <h1 className="text-3xl font-bold text-center mb-2 text-emerald-400">NeoSim</h1>
-                        <p className="text-slate-400 text-center mb-8">Si no configuraste Firebase, funcionará en modo DEMO (sin conexión remota).</p>
+                        <p className="text-slate-400 text-center mb-8">Si no configuraste Firebase, funcionará en modo DEMO.</p>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
@@ -296,33 +304,50 @@
             const [vitals, setVitals] = useState(DEFAULT_VITALS);
             const [user, setUser] = useState(null);
 
+            // Manejo de Error: Si no pusiste las llaves
+            if (!isConfigured) {
+                return (
+                    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center fade-in">
+                        <Icons.AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
+                        <h1 className="text-3xl font-bold mb-4">Falta Configuración</h1>
+                        <p className="text-slate-400 max-w-md mb-8">
+                            Para usar este monitor, debes abrir el archivo <code>index.html</code> con un editor de texto y pegar tus credenciales de Firebase donde dice <code>TU_API_KEY_AQUI</code>.
+                        </p>
+                        <div className="bg-slate-800 p-4 rounded text-left font-mono text-xs text-emerald-400 w-full max-w-md overflow-auto">
+                            const YOUR_FIREBASE_CONFIG = &#123;<br/>
+                            &nbsp;&nbsp;apiKey: "PEGAR_AQUI",<br/>
+                            &nbsp;&nbsp;...<br/>
+                            &#125;
+                        </div>
+                    </div>
+                );
+            }
+
             useEffect(() => {
-                if (!isConfigured) {
-                    setUser({ uid: 'demo-user' }); // Modo Demo
-                    return;
-                }
-                signInAnonymously(auth).catch(console.error);
-                return onAuthStateChanged(auth, setUser);
+                auth.signInAnonymously().catch(err => console.error("Error Auth:", err));
+                const unsubscribe = auth.onAuthStateChanged(setUser);
+                return () => unsubscribe();
             }, []);
 
             useEffect(() => {
-                if (!sessionId || !user || !isConfigured) return;
+                if (!sessionId || !user) return;
                 
-                // Usamos onSnapshot para escuchar cambios reales
-                const unsub = onSnapshot(doc(db, "sessions", sessionId), (doc) => {
-                    if (doc.exists()) setVitals({...doc.data(), connected: true});
-                });
-                return () => unsub();
+                // Firestore Listen (Compat syntax)
+                const unsubscribe = db.collection("sessions").doc(sessionId)
+                    .onSnapshot((doc) => {
+                        if (doc.exists) setVitals({...doc.data(), connected: true});
+                    }, (error) => console.log("Esperando conexión...", error));
+
+                return () => unsubscribe();
             }, [sessionId, user]);
 
             const handleUpdate = async (newVitals) => {
                 const updated = { ...vitals, ...newVitals };
-                setVitals(updated); // Actualización local inmediata (optimistic)
+                setVitals(updated);
                 
-                if (isConfigured && sessionId) {
-                    const ref = doc(db, "sessions", sessionId);
-                    // Usamos setDoc con merge para crear si no existe
-                    await setDoc(ref, updated, { merge: true });
+                if (sessionId) {
+                    // Firestore Write (Compat syntax)
+                    await db.collection("sessions").doc(sessionId).set(updated, { merge: true });
                 }
             };
 
@@ -331,7 +356,7 @@
                 setSessionId(id);
             };
 
-            if (!user) return <div className="h-screen w-full flex items-center justify-center text-white bg-slate-900">Cargando...</div>;
+            if (!user) return <div className="h-screen w-full flex items-center justify-center text-white bg-slate-900">Conectando...</div>;
 
             return (
                 <div className="font-sans antialiased">
