@@ -137,82 +137,99 @@
 
         // --- COMPONENTES ---
 
-        // Canvas de Ondas (Lógica Mejorada)
+        // Canvas de Ondas (Lógica de Tiempo Real para evitar "bradicardia" por lag)
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
             const frameRef = useRef(0);
-            const hasBeepedRef = useRef(false);
+            const lastTimeRef = useRef(performance.now()); // Tiempo preciso
 
             useEffect(() => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                if (dataRef.current.length === 0) dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                
+                if (dataRef.current.length === 0) {
+                    dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                }
 
-                const draw = () => {
+                const draw = (time) => {
+                    // Cálculo de Delta Time (Tiempo entre cuadros)
+                    // Si el PC es lento, dt es grande y avanzamos más la onda para compensar.
+                    // Esto garantiza que el ritmo sea constante en el tiempo.
+                    const deltaTime = (time - lastTimeRef.current) / 1000;
+                    lastTimeRef.current = time;
+
+                    // Evitar saltos gigantes si se minimiza la pestaña
+                    if (deltaTime > 0.1) {
+                         frameRef.current = requestAnimationFrame(draw);
+                         return;
+                    }
+
                     if (canvas.width !== canvas.offsetWidth) {
                         canvas.width = canvas.offsetWidth;
                         canvas.height = canvas.offsetHeight;
                         dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
                     }
 
-                    // Baseline más estable (Mitad de pantalla)
                     let newValue = canvas.height / 2;
                     const amplitude = canvas.height / 3;
                     
                     if (!flatline) {
-                        // Velocidad ajustada
-                        const speedFactor = (speed / 60) * 0.15; 
-                        phaseRef.current += speedFactor;
-                        const p = phaseRef.current % (2 * Math.PI);
+                        // Lógica basada en TIEMPO, no en FRAMES
+                        // HR / 60 = beats/seg. * 2PI = radianes/seg.
+                        const beatsPerSecond = speed / 60;
+                        const angularSpeed = beatsPerSecond * 2 * Math.PI;
+                        const phaseIncrement = angularSpeed * deltaTime;
 
-                        // --- LÓGICA DE BEAT Y AUDIO ---
-                        // El pico de la onda R suele estar cerca de PI en nuestra fase simulada
-                        if (type === 'ecg' && p > 3.0 && p < 3.2 && !hasBeepedRef.current) {
-                            if (onBeat) onBeat(); // Disparar sonido
-                            hasBeepedRef.current = true;
+                        const prevPhase = phaseRef.current;
+                        phaseRef.current += phaseIncrement;
+
+                        // Mantener fase acotada (0 a 2PI)
+                        if (phaseRef.current >= 2 * Math.PI) {
+                            phaseRef.current -= 2 * Math.PI;
                         }
-                        if (p > 4.0 || p < 1.0) hasBeepedRef.current = false; // Reset beat flag
+
+                        const p = phaseRef.current;
+
+                        // DETECCIÓN DE LATIDO (Audio y visualización)
+                        // Disparamos si cruzamos el pico R (aprox en PI)
+                        if (type === 'ecg' && onBeat) {
+                             const threshold = Math.PI;
+                             // Verificar cruce normal O cruce por reinicio de ciclo (wrap)
+                             if ((prevPhase < threshold && p >= threshold) || 
+                                 (prevPhase > p && prevPhase < threshold)) { 
+                                 onBeat();
+                             }
+                        }
 
                         if (type === 'ecg') {
-                            // Algoritmo ECG Derivación II Realista
-                            // Baseline plana con onda P pequeña, QRS grande y T mediana
-                            
-                            // QRS Complex (El pico principal) - Ocurre alrededor de 3.14 (PI)
-                            // Hacemos que sea una subida brusca (valor Y disminuye)
+                            // Algoritmo ECG Derivación II Realista (Usando fase continua)
+                            // Pico R en PI (3.14)
                             if (p > 3.0 && p < 3.28) {
-                                // Pico R (Hacia arriba en monitor medico = Hacia abajo en Y canvas)
-                                const spike = Math.sin((p - 3.14) * 20); 
-                                // Invertimos spike para que vaya hacia arriba visualmente (Y negativo)
-                                // Multiplicamos por amplitud grande
-                                // Usamos Math.exp para hacerla angosta
-                                newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - 3.14, 2) * 50));
+                                newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50));
                             } 
-                            // Onda T (Post latido)
+                            // Onda T
                             else if (p > 3.5 && p < 4.5) {
                                 newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
                             }
-                            // Onda P (Pre latido)
+                            // Onda P
                             else if (p > 2.5 && p < 2.9) {
                                 newValue = (canvas.height / 2) - (amplitude * 0.15 * Math.sin((p - 2.5) * 5));
                             }
                             else {
-                                // Ruido basal mínimo
                                 newValue = (canvas.height / 2) + (Math.random() * 1.5 - 0.75);
                             }
 
                         } else {
-                            // Pletismografía (SpO2)
+                            // Pletismografía
                             const wave = Math.sin(p) + 0.5 * Math.sin(2 * p + 0.5);
                             newValue = (canvas.height / 2) - (wave * amplitude * 0.6);
                         }
                     } else {
-                        // Asistolia con ruido
                         newValue = (canvas.height / 2) + (Math.random() * 2 - 1);
                     }
 
-                    // Clamp para evitar que se salga de pantalla (valores negativos matemáticos)
                     if (newValue < 5) newValue = 5;
                     if (newValue > canvas.height - 5) newValue = canvas.height - 5;
 
@@ -220,7 +237,7 @@
                     dataRef.current.shift();
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.lineWidth = 2; // Linea un poco más fina para precisión
+                    ctx.lineWidth = 2;
                     ctx.strokeStyle = color;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
