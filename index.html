@@ -26,11 +26,12 @@
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
+        /* Error Log no intrusivo */
         #debug-log {
-            display: none; position: fixed; bottom: 0; left: 0; width: 100%;
-            background: rgba(220, 38, 38, 0.95); color: white; padding: 1rem;
-            font-family: monospace; z-index: 9999; max-height: 50vh; overflow: auto;
-            border-top: 2px solid white;
+            display: none; position: fixed; top: 0; right: 0; width: 300px;
+            background: rgba(220, 38, 38, 0.9); color: white; padding: 0.5rem;
+            font-family: monospace; font-size: 0.8rem; z-index: 9999; 
+            border-bottom-left-radius: 8px; pointer-events: none;
         }
         
         .soft-key {
@@ -63,23 +64,37 @@
     <div id="debug-log"></div>
 
     <script>
+        // Manejador de errores MENOS INTRUSIVO
         function showError(title, details) {
+            // Ignoramos errores de red comunes para no bloquear la pantalla
+            if (details.includes('network') || details.includes('fetch') || details.includes('offline')) return;
+            
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
-            log.innerHTML += `<div style="margin-bottom:10px;"><strong>${title}</strong><br/><small>${details}</small></div>`;
+            log.innerHTML = `<strong>${title}</strong><br/>${details}`;
+            // Ocultar después de 5 segundos si no es crítico
+            setTimeout(() => { log.style.display = 'none'; }, 5000);
         }
+
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             if (msg.includes('ResizeObserver')) return false;
-            let details = `${url}:${lineNo}`;
-            if (msg === 'Script error.') details += '<br/>(Error externo bloqueado. Revisa la consola)';
-            showError('ERROR DE SCRIPT:', `${msg} <br/> ${details}`);
+            if (msg === 'Script error.') return false; // Ignorar errores de scripts externos por seguridad
+            showError('Aviso:', msg);
             return false;
         };
+
         window.onunhandledrejection = function(event) {
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            if (message.toString().includes('offline') || message.toString().includes('network')) return;
-            if(message.toString().includes('auth/unauthorized-domain')) message = "BLOQUEADO POR FIREBASE: Dominio no autorizado.";
-            showError('ERROR DE CONEXIÓN:', message);
+            // Filtro agresivo para errores de conexión Firebase (se reconecta solo)
+            if (message.toString().toLowerCase().includes('client is offline') || 
+                message.toString().includes('network') || 
+                message.toString().includes('internet')) {
+                return; 
+            }
+            if(message.toString().includes('auth/unauthorized-domain')) {
+                message = "BLOQUEADO: Dominio no autorizado en Firebase.";
+                showError('Configuración:', message);
+            }
         };
     </script>
 
@@ -104,7 +119,7 @@
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
-                db.enablePersistence().catch(err => console.log("Persistencia no disponible:", err.code));
+                db.enablePersistence({ synchronizeTabs: true }).catch(err => console.log("Persistencia local:", err.code));
             } catch (error) { console.error("Error iniciando Firebase:", error); }
         }
 
@@ -239,10 +254,12 @@
                     lastTimeRef.current = time;
                     if (deltaTime > 0.1) { frameRef.current = requestAnimationFrame(draw); return; }
 
-                    if (canvas.width !== canvas.offsetWidth) {
+                    // Responsividad del Canvas
+                    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
                         canvas.width = canvas.offsetWidth;
                         canvas.height = canvas.offsetHeight;
-                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                        // Reset simple para evitar parpadeos, idealmente se escala el buffer
+                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2); 
                     }
 
                     let newValue = canvas.height / 2;
@@ -427,7 +444,8 @@
                         </div>
                     )}
 
-                    <div className="flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800" style={{minHeight: '35px'}}>
+                    {/* TOP BAR - Flexible Height */}
+                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 min-h-[40px]">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
                         <div className="flex gap-2 items-center">
                              {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-emerald-500 w-4 h-4" />}
@@ -435,7 +453,8 @@
                         </div>
                     </div>
 
-                    <div className="flex-1 grid grid-rows-[1fr_1fr_1fr] divide-y divide-slate-800" style={{height: 'calc(100vh - 90px)'}}>
+                    {/* MAIN CONTENT - Grow to fill space */}
+                    <div className="flex-1 min-h-0 grid grid-rows-[1fr_1fr_1fr] divide-y divide-slate-800">
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">II</span>
@@ -482,7 +501,8 @@
                         </div>
                     </div>
 
-                    <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16 shrink-0">
+                    {/* BOTTOM BAR - Fixed Height */}
+                    <div className="flex-none bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16">
                         <div className="flex gap-2 h-full">
                             <div className="soft-key w-24">Menú<br/>Principal</div>
                             <div className="soft-key w-24">Silenciar<br/>Alarmas</div>
