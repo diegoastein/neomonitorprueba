@@ -308,6 +308,22 @@
 
         const RoleSelection = ({ onSelect }) => {
             const [sessionId, setSessionId] = useState('');
+
+            // FUNCIÓN PARA PANTALLA COMPLETA
+            const enterFullScreen = () => {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen().catch(err => console.log(err));
+                } else if (elem.webkitRequestFullscreen) { /* Safari */
+                    elem.webkitRequestFullscreen();
+                }
+            };
+
+            const handleSelect = (mode) => {
+                if (mode === 'monitor') enterFullScreen();
+                onSelect(mode, sessionId);
+            };
+
             return (
                 <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
@@ -335,11 +351,11 @@
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => sessionId && onSelect('monitor', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
+                                <button onClick={() => sessionId && handleSelect('monitor')} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
                                     <Icons.Monitor className="w-8 h-8 mb-3 text-[#42B334]" />
                                     <span className="font-semibold">Monitor</span>
                                 </button>
-                                <button onClick={() => sessionId && onSelect('control', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
+                                <button onClick={() => sessionId && handleSelect('control')} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
                                     <Icons.Smartphone className="w-8 h-8 mb-3 text-blue-400" />
                                     <span className="font-semibold">Control</span>
                                 </button>
