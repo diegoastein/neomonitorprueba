@@ -1,483 +1,349 @@
 <!DOCTYPE html>
-<html lang="en">
-
-  <head>
-    <meta charset="UTF-8">
-    <title>nacimientos2</title>
-    <link rel="stylesheet" href="./style.css">
-
-  </head>
-    
-  <body>
-  <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Nacimientos</title>
-    
-    <!-- Tailwind CSS -->
+    <title>NeoSim Monitor</title>
+    <!-- Tailwind CSS para diseño -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React y ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para traducir el código en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Estilos personalizados -->
-    <link rel="stylesheet" href="styles.css">
-    
-    <!-- Lógica de la App -->
-    <script type="module" src="app.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; }
+        /* Animaciones personalizadas */
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
 </head>
+<body>
+    <div id="root"></div>
 
-<body class="bg-sky-50 text-gray-900">
+    <!-- Lógica de la Aplicación -->
+    <script type="text/babel" data-type="module">
+        // --- 1. CONFIGURACIÓN ---
+        // IMPORTANTE: Reemplaza esto con tus datos de Firebase Console
+        const YOUR_FIREBASE_CONFIG = {
+            apiKey: "TU_API_KEY_AQUI",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROYECTO_ID",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
 
-    <!-- Vista de Carga -->
-    <div id="loading-view" class="flex items-center justify-center min-h-screen">
-        <div class="text-xl font-semibold title-text">Cargando...</div>
-    </div>
+        // --- 2. IMPORTACIONES DE FIREBASE (Versión Web Modular) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    <!-- Vista de Login -->
-    <div id="login-view" class="hidden min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div class="max-w-md w-full bg-white p-8 rounded-lg shadow-xl">
-            <h1 class="text-3xl font-bold text-center title-text mb-8">Registro de Nacimientos</h1>
-            
-            <form id="login-form">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Iniciar Sesión</h2>
-                <div class="mb-4">
-                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input type="email" id="email" name="email" class="form-input mt-1" required>
-                </div>
-                <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                    <input type="password" id="password" name="password" class="form-input mt-1" required>
-                </div>
-                <button type="submit" class="btn-primary w-full">Ingresar</button>
-                <p class="text-sm text-center mt-4">
-                    ¿No tienes cuenta? <a href="#" id="show-signup" class="font-medium text-blue-600 hover:text-blue-500">Regístrate aquí</a>
-                </p>
-            </form>
+        // Inicializar Firebase
+        // Si detectamos que no se han puesto las llaves, usaremos un modo "demo" local (sin red real) para que no falle al abrir.
+        const isConfigured = YOUR_FIREBASE_CONFIG.apiKey !== "TU_API_KEY_AQUI";
+        let db, auth;
+        
+        if (isConfigured) {
+            const app = initializeApp(YOUR_FIREBASE_CONFIG);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } else {
+            console.warn("Firebase no configurado. Modo Demo Local (Sin sincronización entre dispositivos).");
+        }
 
-            <form id="signup-form" class="hidden">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Crear Cuenta</h2>
-                <div class="mb-4">
-                    <label for="signup-email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input type="email" id="signup-email" name="signup-email" class="form-input mt-1" required>
-                </div>
-                <div class="mb-6">
-                    <label for="signup-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                    <input type="password" id="signup-password" name="signup-password" class="form-input mt-1" required>
-                </div>
-                <button type="submit" class="btn-primary w-full">Registrarse</button>
-                <p class="text-sm text-center mt-4">
-                    ¿Ya tienes cuenta? <a href="#" id="show-login" class="font-medium text-blue-600 hover:text-blue-500">Inicia sesión</a>
-                </p>
-            </form>
-        </div>
-    </div>
+        const { useState, useEffect, useRef } = React;
 
-    <!-- App Principal -->
-    <div id="app-view" class="hidden">
-        <header class="bg-blue-600 text-white shadow-lg p-4">
-            <div class="container mx-auto flex justify-between items-center">
-                <h1 class="text-2xl font-bold">Registro de Nacimientos</h1>
-                <div class="flex items-center">
-                    <span id="user-email" class="text-sm mr-4 hidden md:block"></span>
-                    <button id="logout-button" class="bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow hover:bg-blue-100 transition">Cerrar Sesión</button>
-                </div>
-            </div>
-        </header>
+        // --- 3. ICONOS SVG (Simulando Lucide) ---
+        const Icons = {
+            Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+            Heart: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Wind: ({className, style}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>,
+            Monitor: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>,
+            Smartphone: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>,
+            AlertTriangle: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
+            Wifi: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
+            Volume2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>,
+            VolumeX: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>
+        };
 
-        <nav class="container mx-auto px-4 sm:px-8 mt-8">
-            <div class="flex gap-x-2 border-b border-gray-200 bg-gray-100 rounded-t-lg p-2">
-                <button id="tab-ingreso" class="tab-btn active">Ingreso de Pacientes</button>
-                <button id="tab-consultas" class="tab-btn inactive">Consultas</button>
-            </div>
-        </nav>
+        const DEFAULT_VITALS = { hr: 140, spo2: 98, resp: 45, alarmMuted: false, connected: true };
 
-        <main class="container mx-auto px-4 sm:px-8 mb-12">
-            <!-- Pestaña Ingreso -->
-            <div id="ingreso-view" class="p-8 bg-white shadow-lg rounded-b-lg">
-                <h2 class="text-2xl font-semibold title-text mb-6">Nuevo Ingreso de Paciente</h2>
-                
-                <form id="ingreso-form" class="space-y-6">
+        // --- 4. COMPONENTES ---
+
+        // Canvas de Ondas
+        const WaveformCanvas = ({ color, speed, type, flatline }) => {
+            const canvasRef = useRef(null);
+            const dataRef = useRef([]);
+            const phaseRef = useRef(0);
+            const frameRef = useRef(0);
+
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                if (dataRef.current.length === 0) dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+
+                const draw = () => {
+                    if (canvas.width !== canvas.offsetWidth) {
+                        canvas.width = canvas.offsetWidth;
+                        canvas.height = canvas.offsetHeight;
+                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                    }
+
+                    let newValue = canvas.height / 2;
+                    const amplitude = canvas.height / 3;
                     
-                    <h3 class="text-lg font-semibold title-text border-b pb-2">Datos del Paciente</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div><label for="apellido" class="block text-sm font-medium text-gray-700">Apellido</label><input type="text" id="apellido" name="apellido" class="form-input mt-1" required></div>
-                        <div><label for="nombre" class="block text-sm font-medium text-gray-700">Nombre</label><input type="text" id="nombre" name="nombre" class="form-input mt-1" required></div>
-                        <div><label for="fecha_nacimiento" class="block text-sm font-medium text-gray-700">Fecha de Nacimiento</label><input type="date" id="fecha_nacimiento" name="fecha_nacimiento" class="form-input mt-1" required></div>
-                        <div><label for="hora_nacimiento" class="block text-sm font-medium text-gray-700">Hora Nac.</label><input type="time" id="hora_nacimiento" name="hora_nacimiento" class="form-input mt-1" required></div>
-                    </div>
-                    
-                    <hr>
+                    if (!flatline) {
+                        const speedFactor = (speed / 60) * 0.15;
+                        phaseRef.current += speedFactor;
+                        const p = phaseRef.current % (2 * Math.PI);
 
-                    <h3 class="text-lg font-semibold title-text border-b pb-2">Datos Maternos</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div><label for="edad_materna" class="block text-sm font-medium text-gray-700">Edad Materna</label><input type="number" id="edad_materna" name="edad_materna" class="form-input mt-1" min="10"></div>
-                        <div><label for="g" class="block text-sm font-medium text-gray-700">G</label><input type="number" id="g" name="g" class="form-input mt-1" min="0" max="9"></div>
-                        <div><label for="p" class="block text-sm font-medium text-gray-700">P</label><input type="number" id="p" name="p" class="form-input mt-1" min="0" max="9"></div>
-                        <div><label for="a" class="block text-sm font-medium text-gray-700">A</label><input type="number" id="a" name="a" class="form-input mt-1" min="0" max="9"></div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 gap-6 items-center">
-                        <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                            <div class="flex items-center space-x-4">
-                                <label for="controlada" class="block text-sm font-medium text-gray-700">Controlada</label>
-                                <label class="switch"><input type="checkbox" id="controlada" name="controlada"><span class="slider"></span></label>
-                            </div>
-                            <div class="flex-1 min-w-[150px]">
-                                <label for="num_controles" class="block text-sm font-medium text-gray-700">N° de Controles</label>
-                                <input type="number" id="num_controles" name="num_controles" class="form-input mt-1" min="0" max="99">
-                            </div>
-                        </div>
-                    </div>
+                        if (type === 'ecg') {
+                            if (p > 2.8 && p < 3.2) {
+                                newValue = (canvas.height / 2) - (Math.sin((p - 3) * 20) * amplitude * 1.5 * Math.exp(-Math.pow(p - 3, 2) * 100));
+                            } else {
+                                newValue = (canvas.height / 2) + (Math.sin(p) * (amplitude * 0.1)) + (Math.random() * 2);
+                            }
+                        } else {
+                            const wave = Math.sin(p) + 0.5 * Math.sin(2 * p + 0.5);
+                            newValue = (canvas.height / 2) - (wave * amplitude * 0.6);
+                        }
+                    } else {
+                        newValue = (canvas.height / 2) + (Math.random() * 2 - 1);
+                    }
 
-                    <!-- Serologías -->
-                    <details>
-                        <summary>Serologías Maternas</summary>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div><label class="block text-sm font-medium text-gray-700">VDRL</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="vdrl_fecha" class="form-input col-span-2"><select name="vdrl_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div><label class="block text-sm font-medium text-gray-700">HIV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="hiv_fecha" class="form-input col-span-2"><select name="hiv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div><label class="block text-sm font-medium text-gray-700">Chagas</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="chagas_fecha" class="form-input col-span-2"><select name="chagas_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div><label class="block text-sm font-medium text-gray-700">HBV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="hbv_fecha" class="form-input col-span-2"><select name="hbv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div><label class="block text-sm font-medium text-gray-700">Toxoplasmosis</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="toxo_fecha" class="form-input col-span-2"><select name="toxo_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div><label class="block text-sm font-medium text-gray-700">CMV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="cmv_fecha" class="form-input col-span-2"><select name="cmv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                            <div class="md:col-span-3"><label for="serologias_notas" class="block text-sm font-medium text-gray-700">Notas de Serologías</label><textarea id="serologias_notas" name="serologias_notas" class="form-input mt-1" rows="2"></textarea></div>
-                        </div>
-                    </details>
-                    
-                    <!-- Grupo/Rh -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div><label for="grupo_materno" class="block text-sm font-medium text-gray-700">Grupo Materno</label><select id="grupo_materno" name="grupo_materno" class="form-input mt-1"><option value="">Seleccionar...</option><option value="A">A</option><option value="B">B</option><option value="AB">AB</option><option value="0">0</option></select></div>
-                        <div><label for="rh_materno" class="block text-sm font-medium text-gray-700">Rh Materno</label><select id="rh_materno" name="rh_materno" class="form-input mt-1"><option value="">Seleccionar...</option><option value="+">+</option><option value="-">-</option></select></div>
-                        <div><label for="grupo_paciente" class="block text-sm font-medium text-gray-700">Grupo Paciente</label><select id="grupo_paciente" name="grupo_paciente" class="form-input mt-1"><option value="">Seleccionar...</option><option value="A">A</option><option value="B">B</option><option value="AB">AB</option><option value="0">0</option></select></div>
-                        <div><label for="rh_paciente" class="block text-sm font-medium text-gray-700">Rh Paciente</label><select id="rh_paciente" name="rh_paciente" class="form-input mt-1"><option value="">Seleccionar...</option><option value="+">+</option><option value="-">-</option></select></div>
-                    </div>
+                    dataRef.current.push(newValue);
+                    dataRef.current.shift();
 
-                    <!-- PCD y PCI -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                        <div><label for="pcd" class="block text-sm font-medium text-gray-700">PCD</label><select id="pcd" name="pcd" class="form-input mt-1"><option value="">Seleccionar...</option><option value="negativo">Negativo</option><option value="positivo">Positivo</option></select></div>
-                        <div><label for="pci" class="block text-sm font-medium text-gray-700">PCI</label><select id="pci" name="pci" class="form-input mt-1"><option value="">Seleccionar...</option><option value="negativo">Negativo</option><option value="positivo">Positivo</option></select></div>
-                    </div>
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    for (let i = 0; i < dataRef.current.length; i++) {
+                        if (i === 0) ctx.moveTo(i, dataRef.current[i]);
+                        else ctx.lineTo(i, dataRef.current[i]);
+                    }
+                    ctx.stroke();
+                    frameRef.current = requestAnimationFrame(draw);
+                };
+                frameRef.current = requestAnimationFrame(draw);
+                return () => cancelAnimationFrame(frameRef.current);
+            }, [color, speed, type, flatline]);
 
-                    <!-- Antecedentes Patológicos -->
-                    <details>
-                        <summary>Antecedentes Patológicos</summary>
-                        <div class="pt-4">
-                            <label for="antPatologicos" class="block text-sm font-medium text-gray-700">Selección de Antecedentes (múltiple)</label>
-                            <select id="antPatologicos" name="antPatologicos" class="form-input mt-1" multiple size="8">
-                                <option value="ninguno">Ninguno</option><option value="hta">HTA</option><option value="dbt">DBT</option><option value="dbt_gestacional">DBT gestacional</option><option value="hipotiroidismo">Hipotiroidismo</option><option value="hipertiroidismo">Hipertiroidismo</option><option value="infeccion_urinaria">Infección Urinaria</option><option value="consumo_problematico">Consumo Problemático</option><option value="otras">Otras</option>
-                            </select>
-                            <small class="text-gray-500">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
-                        </div>
-                    </details>
-                    
-                    <hr>
-                    <h3 class="text-lg font-semibold title-text border-b pb-2">Condiciones del Parto</h3>
-                    
-                    <!-- NUEVA SECCIÓN: Tipo, Membranas, Líquido, Evolución -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="tipo_nacimiento" class="block text-sm font-medium text-gray-700">Tipo de Nacimiento</label>
-                            <select id="tipo_nacimiento" name="tipo_nacimiento" class="form-input mt-1">
-                                <option value="">Seleccionar...</option><option value="parto">Parto</option><option value="cesarea">Cesárea</option>
-                            </select>
-                        </div>
-                        <!-- Membranas -->
-                        <div>
-                            <label for="membranas" class="block text-sm font-medium text-gray-700">Membranas</label>
-                            <select id="membranas" name="membranas" class="form-input mt-1">
-                                <option value="">Seleccionar...</option><option value="rotura_espontanea">Rotura espontánea</option><option value="rotura_artificial">Rotura artificial</option><option value="rotura_prematura">Rotura prematura</option>
-                            </select>
-                        </div>
-                        <!-- Líquido Amniótico -->
-                        <div>
-                            <label for="liquido_amniotico" class="block text-sm font-medium text-gray-700">Líquido Amniótico</label>
-                            <select id="liquido_amniotico" name="liquido_amniotico" class="form-input mt-1">
-                                <option value="">Seleccionar...</option><option value="claro">Claro</option><option value="meconial">Meconial</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="evolucion" class="block text-sm font-medium text-gray-700">Evolución</label>
-                            <select id="evolucion" name="evolucion" class="form-input mt-1">
-                                <option value="">Seleccionar...</option><option value="internacion_conjunta">Internación conjunta</option><option value="utin">UTIN</option><option value="obito">Óbito</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <hr>
-                    <h3 class="text-lg font-semibold title-text border-b pb-2">Datos del Recién Nacido</h3>
+            return <canvas ref={canvasRef} className="w-full h-full block"></canvas>;
+        };
 
-                    <!-- Comienza con Peso, Talla, PC -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label for="peso" class="block text-sm font-medium text-gray-700">Peso (gr)</label><input type="number" id="peso" name="peso" class="form-input mt-1" min="0"></div>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div><label for="talla" class="block text-sm font-medium text-gray-700">Talla (cm)</label><input type="number" id="talla" name="talla" class="form-input mt-1" min="0" step="0.1"></div>
-                            <div><label for="pc" class="block text-sm font-medium text-gray-700">PC (cm)</label><input type="number" id="pc" name="pc" class="form-input mt-1" min="0" step="0.1"></div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label for="eg" class="block text-sm font-medium text-gray-700">EG (semanas)</label><input type="number" id="eg" name="eg" class="form-input mt-1" min="20" max="45"></div>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div><label for="apgar1" class="block text-sm font-medium text-gray-700">Apgar 1</label><input type="number" id="apgar1" name="apgar1" class="form-input mt-1" min="0" max="10"></div>
-                            <div><label for="apgar5" class="block text-sm font-medium text-gray-700">Apgar 5</label><input type="number" id="apgar5" name="apgar5" class="form-input mt-1" min="0" max="10"></div>
-                        </div>
-                    </div>
-                    
-                    <hr>
-                    
-                    <details>
-                        <summary>Diagnóstico</summary>
-                        <div class="pt-4">
-                            <label for="diagnostico" class="block text-sm font-medium text-gray-700">Selección de Diagnósticos (múltiple)</label>
-                            <select id="diagnostico" name="diagnostico" class="form-input mt-1" multiple size="8">
-                                <option value="rnt_paeg">RNT-PAEG</option><option value="rnt_apeg">RNT-APEG</option><option value="rnt_bpeg">RNT-BPEG</option><option value="rnpt_paeg">RNPT-PAEG</option><option value="rnpt_bpeg">RNPT-BPEG</option><option value="rnpt_apeg">RNPT-APEG</option><option value="rnpost_paeg">RNPOST-PAEG</option><option value="rnpost_bpeg">RNPOST-BPEG</option><option value="rnpost_apeg">RNPOST-APEG</option><option value="asfixia">Asfixia neonatal</option><option value="dif_respiratoria">Dif. respiratoria</option><option value="causa_social">Causa Social</option><option value="hijo_madre_consumo">Hijo de madre con consumo problemático</option><option value="otros">Otros</option>
-                            </select>
-                            <small class="text-gray-500">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
-                        </div>
-                        <div id="diagnostico_otros_wrapper" class="hidden mt-4">
-                            <label for="diagnostico_otros" class="block text-sm font-medium text-gray-700">Otros Diagnósticos</label>
-                            <input type="text" id="diagnostico_otros" name="diagnostico_otros" class="form-input mt-1">
-                        </div>
-                    </details>
-
-                    <hr>
-                    <h3 class="text-lg font-semibold title-text border-b pb-2">Notas Adicionales</h3>
-                    <div><label for="notas" class="block text-sm font-medium text-gray-700">Notas</label><textarea id="notas" name="notas" class="form-input mt-1" rows="4"></textarea></div>
-
-                    <div class="pt-4 text-right">
-                        <button type="submit" class="btn-primary">Guardar Paciente</button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- Pestaña Consultas -->
-            <div id="consultas-view" class="p-8 bg-white shadow-lg rounded-b-lg hidden">
-                
-                <!-- Panel de Búsqueda y Acciones -->
-                <div class="bg-blue-50 p-6 rounded-lg shadow-inner mb-8 border border-blue-200">
-                    <h2 class="text-2xl font-semibold title-text mb-6">Consultas y Reportes</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                        <!-- Filtros de Búsqueda -->
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold title-text">Filtrar Pacientes</h3>
-                            <div><label for="search-apellido" class="block text-sm font-medium text-gray-700">Apellido</label><input type="text" id="search-apellido" class="form-input mt-1" placeholder="Buscar por apellido..."></div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div><label for="search-fecha-desde" class="block text-sm font-medium text-gray-700">Nacido desde</label><input type="date" id="search-fecha-desde" class="form-input mt-1"></div>
-                                <div><label for="search-fecha-hasta" class="block text-sm font-medium text-gray-700">Nacido hasta</label><input type="date" id="search-fecha-hasta" class="form-input mt-1"></div>
-                            </div>
-                            <div class="flex gap-4 pt-2">
-                                <button id="search-button" class="btn-primary flex-1">Buscar</button>
-                                <button id="clear-search-button" class="btn-secondary flex-1">Limpiar</button>
-                            </div>
-                        </div>
-
-                        <!-- Fila de Exportación y Contador -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                            <!-- Exportación -->
+        // Pantalla Selección
+        const RoleSelection = ({ onSelect }) => {
+            const [sessionId, setSessionId] = useState('');
+            return (
+                <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+                    <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
+                        <div className="flex justify-center mb-6"><Icons.Activity /></div>
+                        <h1 className="text-3xl font-bold text-center mb-2 text-emerald-400">NeoSim</h1>
+                        <p className="text-slate-400 text-center mb-8">Si no configuraste Firebase, funcionará en modo DEMO (sin conexión remota).</p>
+                        <div className="space-y-6">
                             <div>
-                                <h3 class="text-lg font-semibold title-text mb-3">Exportar a Hoja de Cálculo (.csv)</h3>
-                                <div class="flex flex-col sm:flex-row gap-4">
-                                    <button id="export-filtered-button" class="btn-secondary">Exportar solo <b>filtrados</b></button>
-                                    <button id="export-all-button" class="btn-secondary">Exportar <b>todos</b></button>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
+                                <div className="flex gap-2">
+                                    <input type="number" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="Ej: 1234" className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-xl outline-none" />
+                                    <button onClick={() => setSessionId(Math.floor(1000 + Math.random() * 9000).toString())} className="px-4 py-2 bg-slate-700 rounded-lg text-sm hover:bg-slate-600">Generar</button>
                                 </div>
                             </div>
-                            <!-- Contador -->
-                            <div class="text-right">
-                                 <h3 class="text-lg font-semibold title-text mb-3">Total de Nacimientos</h3>
-                                 <p class="text-4xl font-bold text-blue-600"><span id="total-nacimientos">0</span></p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button onClick={() => sessionId && onSelect('monitor', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
+                                    <Icons.Monitor className="w-8 h-8 mb-3 text-emerald-400" />
+                                    <span className="font-semibold">Monitor</span>
+                                </button>
+                                <button onClick={() => sessionId && onSelect('control', sessionId)} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
+                                    <Icons.Smartphone className="w-8 h-8 mb-3 text-blue-400" />
+                                    <span className="font-semibold">Control</span>
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+            );
+        };
 
-                <!-- Tabla de Resultados -->
-                <h2 class="text-xl font-semibold title-text mb-4">Resultados de la Búsqueda</h2>
-                <div class="overflow-x-auto bg-white rounded-lg shadow">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="p-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Apellido</th>
-                                <th class="p-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nombre</th>
-                                <th class="p-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha Nac.</th>
-                                <th class="p-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Diagnóstico</th>
-                                <th class="p-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pacientes-tbody" class="divide-y divide-gray-200">
-                            <tr><td colspan="5" class="p-4 text-center text-gray-500">Realice una búsqueda por Apellido o Fecha para ver los resultados.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        // Pantalla Monitor
+        const MonitorScreen = ({ sessionId, vitals }) => {
+            const [alarmState, setAlarmState] = useState('none');
+            const [flash, setFlash] = useState(false);
 
-        </main>
-    </div>
-
-    <!-- Modal de Edición -->
-    <div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            
-            <header class="flex justify-between items-center p-6 border-b">
-                <h2 class="text-2xl font-semibold title-text">Editar Paciente</h2>
-                <button id="close-edit-modal" class="text-gray-400 hover:text-gray-600 text-3xl">&times;</button>
-            </header>
-
-            <form id="edit-form" class="p-8 space-y-6">
-                <h3 class="text-lg font-semibold title-text border-b pb-2">Datos del Paciente</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div><label class="block text-sm font-medium text-gray-700">Apellido</label><input type="text" name="apellido" class="form-input mt-1" required></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Nombre</label><input type="text" name="nombre" class="form-input mt-1" required></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Fecha de Nacimiento</label><input type="date" name="fecha_nacimiento" class="form-input mt-1" required></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Hora Nac.</label><input type="time" name="hora_nacimiento" class="form-input mt-1" required></div>
-                </div>
+            useEffect(() => {
+                let level = 'none';
+                if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
+                else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 90) level = 'warning';
+                setAlarmState(level);
                 
-                <hr>
-                <h3 class="text-lg font-semibold title-text border-b pb-2">Datos Maternos</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div><label class="block text-sm font-medium text-gray-700">Edad Materna</label><input type="number" name="edad_materna" class="form-input mt-1" min="10"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">G</label><input type="number" name="g" class="form-input mt-1" min="0" max="9"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">P</label><input type="number" name="p" class="form-input mt-1" min="0" max="9"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">A</label><input type="number" name="a" class="form-input mt-1" min="0" max="9"></div>
-                </div>
-                
-                <div class="grid grid-cols-1 gap-6 items-center">
-                    <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                        <div class="flex items-center space-x-4">
-                            <label class="block text-sm font-medium text-gray-700">Controlada</label>
-                            <label class="switch"><input type="checkbox" name="controlada"><span class="slider"></span></label>
-                        </div>
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-sm font-medium text-gray-700">N° de Controles</label>
-                            <input type="number" name="num_controles" class="form-input mt-1" min="0" max="99">
+                const interval = setInterval(() => setFlash(p => !p), level === 'critical' ? 300 : 800);
+                return () => clearInterval(interval);
+            }, [vitals.hr, vitals.spo2]);
+
+            const getBorderColor = () => {
+                if (alarmState === 'none' || vitals.alarmMuted) return 'border-transparent';
+                if (alarmState === 'critical') return flash ? 'border-red-600 bg-red-900/20' : 'border-red-900';
+                return flash ? 'border-yellow-500 bg-yellow-900/20' : 'border-yellow-900';
+            };
+
+            const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
+
+            return (
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden`}>
+                    <div className="flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800">
+                        <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
+                        <div className="flex gap-2 items-center">
+                             {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
+                             <span>ID: {sessionId}</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- Serologías -->
-                <details>
-                    <summary>Serologías Maternas</summary>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div><label class="block text-sm font-medium text-gray-700">VDRL</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="vdrl_fecha" class="form-input col-span-2"><select name="vdrl_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div><label class="block text-sm font-medium text-gray-700">HIV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="hiv_fecha" class="form-input col-span-2"><select name="hiv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div><label class="block text-sm font-medium text-gray-700">Chagas</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="chagas_fecha" class="form-input col-span-2"><select name="chagas_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div><label class="block text-sm font-medium text-gray-700">HBV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="hbv_fecha" class="form-input col-span-2"><select name="hbv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div><label class="block text-sm font-medium text-gray-700">Toxoplasmosis</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="toxo_fecha" class="form-input col-span-2"><select name="toxo_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div><label class="block text-sm font-medium text-gray-700">CMV</label><div class="grid grid-cols-3 gap-2 mt-1"><input type="date" name="cmv_fecha" class="form-input col-span-2"><select name="cmv_resultado" class="form-input"><option value="-">-</option><option value="+">+</option></select></div></div>
-                        <div class="md:col-span-3"><label class="block text-sm font-medium text-gray-700">Notas de Serologías</label><textarea name="serologias_notas" class="form-input mt-1" rows="2"></textarea></div>
-                    </div>
-                </details>
-                
-                <!-- Grupo/Rh -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div><label class="block text-sm font-medium text-gray-700">Grupo Materno</label><select name="grupo_materno" class="form-input mt-1"><option value="">Seleccionar...</option><option value="A">A</option><option value="B">B</option><option value="AB">AB</option><option value="0">0</option></select></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Rh Materno</label><select name="rh_materno" class="form-input mt-1"><option value="">Seleccionar...</option><option value="+">+</option><option value="-">-</option></select></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Grupo Paciente</label><select name="grupo_paciente" class="form-input mt-1"><option value="">Seleccionar...</option><option value="A">A</option><option value="B">B</option><option value="AB">AB</option><option value="0">0</option></select></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Rh Paciente</label><select name="rh_paciente" class="form-input mt-1"><option value="">Seleccionar...</option><option value="+">+</option><option value="-">-</option></select></div>
-                </div>
-
-                <!-- PCD y PCI en modal -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                    <div><label class="block text-sm font-medium text-gray-700">PCD</label><select name="pcd" class="form-input mt-1"><option value="">Seleccionar...</option><option value="negativo">Negativo</option><option value="positivo">Positivo</option></select></div>
-                    <div><label class="block text-sm font-medium text-gray-700">PCI</label><select name="pci" class="form-input mt-1"><option value="">Seleccionar...</option><option value="negativo">Negativo</option><option value="positivo">Positivo</option></select></div>
-                </div>
-
-                <!-- Antecedentes Patológicos -->
-                <details>
-                    <summary>Antecedentes Patológicos</summary>
-                    <div class="pt-4">
-                        <label class="block text-sm font-medium text-gray-700">Selección de Antecedentes (múltiple)</label>
-                        <select name="antPatologicos" class="form-input mt-1" multiple size="8">
-                            <option value="ninguno">Ninguno</option><option value="hta">HTA</option><option value="dbt">DBT</option><option value="dbt_gestacional">DBT gestacional</option><option value="hipotiroidismo">Hipotiroidismo</option><option value="hipertiroidismo">Hipertiroidismo</option><option value="infeccion_urinaria">Infeccion Urinaria</option><option value="consumo_problematico">Consumo Problemático</option><option value="otras">Otras</option>
-                        </select>
-                        <small class="text-gray-500">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
-                    </div>
-                </details>
-                
-                <hr>
-                <h3 class="text-lg font-semibold title-text border-b pb-2">Condiciones del Parto</h3>
-                
-                <!-- LAYOUT 2x2: Tipo, Membranas, Líquido, Evolución en MODAL -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Tipo de Nacimiento</label>
-                        <select name="tipo_nacimiento" class="form-input mt-1">
-                            <option value="">Seleccionar...</option><option value="parto">Parto</option><option value="cesarea">Cesárea</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Membranas</label>
-                        <select name="membranas" class="form-input mt-1">
-                            <option value="">Seleccionar...</option><option value="rotura_espontanea">Rotura espontánea</option><option value="rotura_artificial">Rotura artificial</option><option value="rotura_prematura">Rotura prematura</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Líquido Amniótico</label>
-                        <select name="liquido_amniotico" class="form-input mt-1">
-                            <option value="">Seleccionar...</option><option value="claro">Claro</option><option value="meconial">Meconial</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Evolución</label>
-                        <select name="evolucion" class="form-input mt-1">
-                            <option value="">Seleccionar...</option><option value="internacion_conjunta">Internación conjunta</option><option value="utin">UTIN</option><option value="obito">Óbito</option>
-                        </select>
+                    <div className="flex-1 grid grid-rows-3 divide-y divide-slate-800">
+                        {/* ECG */}
+                        <div className="grid grid-cols-[70%_30%] h-full">
+                            <div className="relative h-full border-r border-slate-800 bg-black">
+                                <span className="absolute top-2 left-2 text-emerald-500 font-bold text-sm z-10">II</span>
+                                <WaveformCanvas color="#10b981" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} />
+                            </div>
+                            <div className="flex flex-col justify-center items-end pr-8 relative">
+                                <span className="absolute top-2 right-2 text-emerald-500 font-bold text-lg">FC</span>
+                                <span className={`text-[6rem] lg:text-[8rem] leading-none font-mono font-bold ${getTextColor('text-emerald-500')}`}>{vitals.hr}</span>
+                            </div>
+                        </div>
+                        {/* SpO2 */}
+                        <div className="grid grid-cols-[70%_30%] h-full">
+                            <div className="relative h-full border-r border-slate-800 bg-black">
+                                <span className="absolute top-2 left-2 text-cyan-500 font-bold text-sm z-10">Pleth</span>
+                                <WaveformCanvas color="#06b6d4" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
+                            </div>
+                            <div className="flex flex-col justify-center items-end pr-8 relative">
+                                <span className="absolute top-2 right-2 text-cyan-500 font-bold text-lg">SpO2</span>
+                                <span className={`text-[6rem] lg:text-[8rem] leading-none font-mono font-bold ${getTextColor('text-cyan-500')}`}>{vitals.spo2}<span className="text-4xl ml-2">%</span></span>
+                            </div>
+                        </div>
+                        {/* Other */}
+                        <div className="grid grid-cols-2 h-full divide-x divide-slate-800">
+                             <div className="flex flex-col justify-center items-end pr-8 relative">
+                                <span className="absolute top-2 left-4 text-yellow-500 font-bold text-lg">RESP</span>
+                                <div className="flex items-center gap-4">
+                                    <Icons.Wind className={`w-8 h-8 text-slate-600 ${vitals.hr > 0 ? 'animate-pulse-fast' : ''}`} />
+                                    <span className="text-[5rem] lg:text-[6rem] leading-none font-mono font-bold text-yellow-500">{vitals.resp}</span>
+                                </div>
+                             </div>
+                             <div className="flex flex-col justify-center pl-8 relative">
+                                <span className="absolute top-2 left-4 text-white font-bold text-lg">PNI</span>
+                                <span className="text-[4rem] font-mono font-bold text-white">{vitals.hr > 0 ? '65/42' : '--/--'}</span>
+                                <span className="text-slate-500">(51)</span>
+                             </div>
+                        </div>
                     </div>
                 </div>
+            );
+        };
 
-                <hr>
-                <h3 class="text-lg font-semibold title-text border-b pb-2">Datos del Recién Nacido</h3>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="block text-sm font-medium text-gray-700">Peso (gr)</label><input type="number" name="peso" class="form-input mt-1" min="0"></div>
-                    <div class="grid grid-cols-2 gap-6">
-                        <div><label class="block text-sm font-medium text-gray-700">Talla (cm)</label><input type="number" name="talla" class="form-input mt-1" min="0" step="0.1"></div>
-                        <div><label class="block text-sm font-medium text-gray-700">PC (cm)</label><input type="number" name="pc" class="form-input mt-1" min="0" step="0.1"></div>
+        // Pantalla Controlador
+        const ControllerScreen = ({ sessionId, vitals, onUpdate }) => {
+            return (
+                <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
+                    <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
+                        <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2>
+                        <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    </header>
+                    
+                    <div className="space-y-6 max-w-lg mx-auto">
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-4">
+                                <label className="text-emerald-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {vitals.hr}</label>
+                            </div>
+                            <input type="range" min="0" max="250" value={vitals.hr} onChange={(e) => onUpdate({hr: parseInt(e.target.value)})} className="w-full h-12 accent-emerald-500 cursor-pointer" />
+                        </div>
+
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-4">
+                                <label className="text-cyan-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {vitals.spo2}%</label>
+                            </div>
+                            <input type="range" min="0" max="100" value={vitals.spo2} onChange={(e) => onUpdate({spo2: parseInt(e.target.value)})} className="w-full h-12 accent-cyan-500 cursor-pointer" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => onUpdate({hr: 140, spo2: 98, resp: 45})} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
+                            <button onClick={() => onUpdate({hr: 60, spo2: 85, resp: 20})} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
+                            <button onClick={() => onUpdate({hr: 150, spo2: 65, resp: 60})} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => onUpdate({hr: 0, spo2: 0, resp: 0})} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
+                        </div>
+                        
+                        <button onClick={() => onUpdate({ alarmMuted: !vitals.alarmMuted })} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>
+                             {vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}
+                        </button>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="block text-sm font-medium text-gray-700">EG (semanas)</label><input type="number" name="eg" class="form-input mt-1" min="20" max="45"></div>
-                    <div class="grid grid-cols-2 gap-6">
-                        <div><label class="block text-sm font-medium text-gray-700">Apgar 1</label><input type="number" name="apgar1" class="form-input mt-1" min="0" max="10"></div>
-                        <div><label class="block text-sm font-medium text-gray-700">Apgar 5</label><input type="number" name="apgar5" class="form-input mt-1" min="0" max="10"></div>
-                    </div>
+            );
+        };
+
+        // App Principal
+        const App = () => {
+            const [mode, setMode] = useState('select');
+            const [sessionId, setSessionId] = useState('');
+            const [vitals, setVitals] = useState(DEFAULT_VITALS);
+            const [user, setUser] = useState(null);
+
+            useEffect(() => {
+                if (!isConfigured) {
+                    setUser({ uid: 'demo-user' }); // Modo Demo
+                    return;
+                }
+                signInAnonymously(auth).catch(console.error);
+                return onAuthStateChanged(auth, setUser);
+            }, []);
+
+            useEffect(() => {
+                if (!sessionId || !user || !isConfigured) return;
+                
+                // Usamos onSnapshot para escuchar cambios reales
+                const unsub = onSnapshot(doc(db, "sessions", sessionId), (doc) => {
+                    if (doc.exists()) setVitals({...doc.data(), connected: true});
+                });
+                return () => unsub();
+            }, [sessionId, user]);
+
+            const handleUpdate = async (newVitals) => {
+                const updated = { ...vitals, ...newVitals };
+                setVitals(updated); // Actualización local inmediata (optimistic)
+                
+                if (isConfigured && sessionId) {
+                    const ref = doc(db, "sessions", sessionId);
+                    // Usamos setDoc con merge para crear si no existe
+                    await setDoc(ref, updated, { merge: true });
+                }
+            };
+
+            const onSelect = (m, id) => {
+                setMode(m);
+                setSessionId(id);
+            };
+
+            if (!user) return <div className="h-screen w-full flex items-center justify-center text-white bg-slate-900">Cargando...</div>;
+
+            return (
+                <div className="font-sans antialiased">
+                    {mode === 'select' && <RoleSelection onSelect={onSelect} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
                 </div>
-                
-                <hr>
-                
-                <details>
-                    <summary>Diagnóstico</summary>
-                    <div class="pt-4">
-                        <label class="block text-sm font-medium text-gray-700">Selección de Diagnósticos (múltiple)</label>
-                        <select name="diagnostico" class="form-input mt-1" multiple size="8">
-                            <option value="rnt_paeg">RNT-PAEG</option><option value="rnt_apeg">RNT-APEG</option><option value="rnt_bpeg">RNT-BPEG</option><option value="rnpt_paeg">RNPT-PAEG</option><option value="rnpt_bpeg">RNPT-BPEG</option><option value="rnpt_apeg">RNPT-APEG</option><option value="rnpost_paeg">RNPOST-PAEG</option><option value="rnpost_bpeg">RNPOST-BPEG</option><option value="rnpost_apeg">RNPOST-APEG</option><option value="asfixia">Asfixia neonatal</option><option value="dif_respiratoria">Dif. respiratoria</option><option value="causa_social">Causa Social</option><option value="hijo_madre_consumo">Hijo de madre con consumo problemático</option><option value="otros">Otros</option>
-                        </select>
-                        <small class="text-gray-500">Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
-                    </div>
-    
-                    <div id="edit_diagnostico_otros_wrapper" class="hidden mt-4">
-                        <label class="block text-sm font-medium text-gray-700">Otros Diagnósticos</label>
-                        <input type="text" name="diagnostico_otros" class="form-input mt-1">
-                    </div>
-                </details>
+            );
+        };
 
-                <hr>
-                <h3 class="text-lg font-semibold title-text border-b pb-2">Notas Adicionales</h3>
-                <div><label class="block text-sm font-medium text-gray-700">Notas</label><textarea name="notas" class="form-input mt-1" rows="4"></textarea></div>
-                
-                <footer class="flex justify-end gap-4 pt-4">
-                    <button type="button" class="btn-secondary" id="cancel-edit-button">Cancelar</button>
-                    <button type="submit" class="btn-primary">Guardar Cambios</button>
-                </footer>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Toast / Notificación -->
-    <div id="toast"></div>
-
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
-</html>
-    <script type="module" src="./script.js"></script>
-
-  </body>
-  
 </html>
