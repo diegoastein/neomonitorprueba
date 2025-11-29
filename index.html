@@ -165,7 +165,7 @@
              }
         };
 
-        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS
+        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (MEJORADO V3 - Wah-Wah)
         const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
@@ -648,8 +648,20 @@
 
             const handleDemoStart = () => {
                 setIsDemoMode(true);
-                // Usuario ficticio para bypass auth
-                setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
+                
+                // INTENTO DE LOGIN ANÓNIMO PARA HABILITAR FIRESTORE EN DEMO
+                if (auth) {
+                    auth.signInAnonymously().then(u => {
+                        // Si funciona, usamos el usuario real anónimo
+                        setUser(u.user);
+                    }).catch(err => {
+                        console.warn("Auth anónima falló, usando usuario local falso. Remoto podría no funcionar si las reglas de DB son estrictas.", err);
+                        // Fallback
+                        setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
+                    });
+                } else {
+                    setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
+                }
             };
 
             useEffect(() => {
@@ -668,19 +680,21 @@
 
             useEffect(() => {
                 if (!sessionId || !user || !db) return;
-                // Si es demo, no conectamos a Firestore real para evitar escribir basura
-                if (isDemoMode) {
-                    // Mock connection for demo
-                    setIsConnected(true);
-                    return; 
-                }
-
                 let unsubscribe;
                 const connect = () => {
                     try {
                         unsubscribe = db.collection("sessions").doc(sessionId).onSnapshot(
                             (doc) => { if (doc.exists) { setVitals({...doc.data(), connected: true}); setIsConnected(true); } }, 
-                            (error) => { console.log("Reconectando...", error); setIsConnected(false); setTimeout(connect, 2000); }
+                            (error) => { 
+                                console.log("Reconectando...", error); 
+                                // En modo demo, no mostramos error fatal si falla la conexión por permisos
+                                if (isDemoMode) {
+                                   setIsConnected(true); 
+                                } else {
+                                   setIsConnected(false); 
+                                   setTimeout(connect, 2000); 
+                                }
+                            }
                         );
                     } catch(e) { setIsConnected(false); }
                 };
@@ -689,11 +703,17 @@
             }, [sessionId, user, isDemoMode]);
 
             const handleUpdate = async (newVitals) => { 
-                if (isDemoMode) {
-                    // En modo demo solo actualizamos estado local
+                // Intentar escribir en DB
+                if (sessionId && db) {
+                    try {
+                        await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); 
+                    } catch (e) {
+                        // Si falla escritura (ej: permisos en demo), actualizar local
+                         if (isDemoMode) setVitals(prev => ({...prev, ...newVitals}));
+                    }
+                } else if (isDemoMode) {
+                    // Fallback local puro
                     setVitals(prev => ({...prev, ...newVitals}));
-                } else if (sessionId && db) {
-                    await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); 
                 }
             };
             const onSelect = (m, id) => { setMode(m); setSessionId(id); };
