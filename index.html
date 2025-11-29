@@ -680,7 +680,15 @@
             const [user, setUser] = useState(null);
             const [isConnected, setIsConnected] = useState(true);
 
-            if (!isConfigured) return <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center fade-in"><Icons.AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" /><h1 className="text-3xl font-bold mb-4">Falta Configuración</h1><p className="text-slate-400 max-w-md mb-8">Para usar este monitor, debes abrir el archivo <code>index.html</code> con un editor de texto y pegar tus credenciales de Firebase donde dice <code>TU_API_KEY_AQUI</code>.</p><div className="bg-slate-800 p-4 rounded text-left font-mono text-xs text-emerald-400 w-full max-w-md overflow-auto">const YOUR_FIREBASE_CONFIG = &#123;<br/>&nbsp;&nbsp;apiKey: "PEGAR_AQUI",<br/>&nbsp;&nbsp;...<br/>&#125;</div></div>;
+            if (!isConfigured) return <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center fade-in">
+                {/* SIN AVISO DE CUADRO ROJO */}
+                <Icons.AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
+                <h1 className="text-3xl font-bold mb-4">Cargando...</h1>
+                <p className="text-slate-400 max-w-md mb-8">Conectando con el servidor...</p>
+                <div className="bg-slate-800 p-4 rounded text-left font-mono text-xs text-emerald-400 w-full max-w-md overflow-auto opacity-50">
+                    const YOUR_FIREBASE_CONFIG = &#123;<br/>&nbsp;&nbsp;apiKey: "PEGAR_AQUI",<br/>&nbsp;&nbsp;...<br/>&#125;
+                </div>
+            </div>;
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -733,7 +741,7 @@
 
             const onSelect = (m, id) => { setMode(m); setSessionId(id); };
 
-            if (!user) return <div style={{height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "white"}}>Cargando... (Verifica el cuadro rojo si aparece)</div>;
+            if (!user) return <div style={{height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "white"}}>Cargando...</div>;
 
             return (
                 <div className="font-sans antialiased">
