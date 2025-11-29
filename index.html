@@ -7,17 +7,17 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React y ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React y ReactDOM (Con Crossorigin para ver errores reales) -->
+    <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Babel para traducir React -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- FIREBASE COMPAT -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- FIREBASE COMPAT (Con Crossorigin) -->
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
         body { background-color: #0f172a; color: white; margin: 0; overflow: hidden; }
@@ -33,13 +33,13 @@
             display: none;
             position: fixed;
             bottom: 0; left: 0; width: 100%;
-            background: rgba(220, 38, 38, 0.9);
+            background: rgba(220, 38, 38, 0.95);
             color: white; padding: 1rem;
             font-family: monospace; z-index: 9999;
             max-height: 50vh; overflow: auto;
+            border-top: 2px solid white;
         }
         
-        /* Estilo de botones "Soft Key" médicos */
         .soft-key {
             background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
             border: 1px solid #475569;
@@ -64,6 +64,7 @@
 <body>
     <div id="root">
         <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #10b981; font-family: sans-serif;">
+            <!-- Loading Spinner -->
             <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -75,19 +76,39 @@
     <div id="debug-log"></div>
 
     <script>
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
+        // Manejador de errores global mejorado
+        function showError(title, details) {
             const log = document.getElementById('debug-log');
             log.style.display = 'block';
-            log.innerHTML += `<div><strong>ERROR:</strong> ${msg} <br/><small>${url}:${lineNo}</small></div><br/>`;
+            log.innerHTML += `<div style="margin-bottom:10px;"><strong>${title}</strong><br/><small>${details}</small></div>`;
+        }
+
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            // Ignorar errores de redimensionamiento (ResizeObserver) que son inofensivos
+            if (msg.includes('ResizeObserver')) return false;
+            
+            let details = `${url}:${lineNo}`;
+            if (msg === 'Script error.') {
+                details += '<br/>(Error externo bloqueado por seguridad. Revisa la consola F12 o asegúrate de usar HTTPS)';
+            }
+            showError('ERROR DE SCRIPT:', `${msg} <br/> ${details}`);
             return false;
         };
+
         window.onunhandledrejection = function(event) {
-            const log = document.getElementById('debug-log');
-            log.style.display = 'block';
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            if(message.includes('auth/unauthorized-domain')) message = "BLOQUEADO: Dominio no autorizado en Firebase.";
-            log.innerHTML += `<div style="border-top: 1px solid white; padding-top: 5px; margin-top: 5px;"><strong>ERROR DE CONEXIÓN:</strong> <br/>${message}</div>`;
+            if(message.toString().includes('auth/unauthorized-domain')) {
+                message = "BLOQUEADO POR FIREBASE: Dominio no autorizado.<br/>Ve a Firebase Console -> Authentication -> Settings -> Dominios y agrega tu URL.";
+            }
+            showError('ERROR DE CONEXIÓN:', message);
         };
+
+        // Capturar errores de carga de recursos (scripts que no bajan)
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'SCRIPT') {
+                showError('ERROR DE CARGA:', `No se pudo cargar el archivo: ${e.target.src}. Revisa tu conexión a internet.`);
+            }
+        }, true);
     </script>
 
     <script type="text/babel">
@@ -111,31 +132,44 @@
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
-            } catch (error) { console.error("Error iniciando Firebase:", error); throw error; }
+            } catch (error) { 
+                console.error("Error iniciando Firebase:", error); 
+                // No lanzamos el error aquí para permitir que la UI cargue y muestre el mensaje bonito
+            }
         }
 
         const { useState, useEffect, useRef } = React;
 
-        // --- SISTEMA DE AUDIO (Web Audio API) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // --- SISTEMA DE AUDIO (Web Audio API) Seguro ---
+        let audioCtx;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                audioCtx = new AudioContext();
+            }
+        } catch (e) {
+            console.warn("AudioContext no soportado o bloqueado:", e);
+        }
         
         const playBeep = (pitch = 800) => {
-            if (audioCtx.state === 'suspended') return;
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.value = pitch;
-            const now = audioCtx.currentTime;
-            gainNode.gain.setValueAtTime(0.2, now); 
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-            oscillator.start(now);
-            oscillator.stop(now + 0.15);
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.value = pitch;
+                const now = audioCtx.currentTime;
+                gainNode.gain.setValueAtTime(0.2, now); 
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                oscillator.start(now);
+                oscillator.stop(now + 0.15);
+            } catch (e) { console.error("Error audio:", e); }
         };
 
         const playAlarmSequence = (type) => {
-             if (audioCtx.state === 'suspended') return;
+             if (!audioCtx || audioCtx.state === 'suspended') return;
              const now = audioCtx.currentTime;
              const createTone = (freq, start, duration) => {
                  const osc = audioCtx.createOscillator();
@@ -302,7 +336,7 @@
             // --- DETECCION DE ENTORNO PREVIEW ---
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
 
-            const enableAudio = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
+            const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
             const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 85) pitch = 400; playBeep(pitch); };
 
             useEffect(() => {
@@ -529,6 +563,46 @@
                     setSessionId(urlSession);
                 }
 
-                auth.signInAnonymously().catch(err => console.error("Error Auth:", err));
-                const unsubscribe = auth.onAuthStateChanged(setUser);
-                return ()
+                if (auth) {
+                    auth.signInAnonymously().catch(err => console.error("Error Auth:", err));
+                    const unsubscribe = auth.onAuthStateChanged(setUser);
+                    return () => unsubscribe();
+                } else {
+                    // Fallback para UI sin Firebase (Demo Mode visual si falla carga)
+                    console.warn("Firebase no cargó, iniciando modo visual limitado");
+                    setUser({uid: 'demo'});
+                }
+            }, []);
+
+            useEffect(() => {
+                if (!sessionId || !user || !db) return;
+                try {
+                    const unsubscribe = db.collection("sessions").doc(sessionId).onSnapshot((doc) => { if (doc.exists) setVitals({...doc.data(), connected: true}); }, (error) => console.log("Esperando conexión...", error));
+                    return () => unsubscribe();
+                } catch(e) { console.error("Error Firestore:", e); }
+            }, [sessionId, user]);
+
+            const handleUpdate = async (newVitals) => {
+                const updated = { ...vitals, ...newVitals };
+                setVitals(updated);
+                if (sessionId && db) await db.collection("sessions").doc(sessionId).set(updated, { merge: true });
+            };
+
+            const onSelect = (m, id) => { setMode(m); setSessionId(id); };
+
+            if (!user) return <div style={{height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "white"}}>Cargando... (Verifica el cuadro rojo si aparece)</div>;
+
+            return (
+                <div className="font-sans antialiased">
+                    {mode === 'select' && <RoleSelection onSelect={onSelect} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
