@@ -165,7 +165,7 @@
              }
         };
 
-        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (SOLO QUEJIDO)
+        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS
         const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
@@ -182,7 +182,7 @@
                 osc.frequency.linearRampToValueAtTime(120, now + 0.3);
                 
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); // Volumen ajustado
+                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); 
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                 
                 osc.start(now);
@@ -215,8 +215,8 @@
 
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
 
-        // --- LOGIN SCREEN (Nuevo) ---
-        const LoginScreen = () => {
+        // --- LOGIN SCREEN (Modificado) ---
+        const LoginScreen = ({ onDemoStart }) => {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [error, setError] = useState('');
@@ -240,7 +240,7 @@
                         <div className="flex justify-center mb-6 text-[#42B334]">
                             <Icons.Lock className="w-12 h-12" />
                         </div>
-                        <h2 className="text-2xl font-bold text-center mb-6 text-white">Acceso Restringido</h2>
+                        <h2 className="text-2xl font-bold text-center mb-6 text-white">NeoMonitor Professional</h2>
                         <form onSubmit={handleLogin} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
@@ -255,7 +255,12 @@
                                 {loading ? 'Verificando...' : 'Ingresar'}
                             </button>
                         </form>
-                        <p className="mt-6 text-xs text-center text-slate-500">NeoMonitor Professional</p>
+                        
+                        <div className="mt-6 pt-6 border-t border-slate-700">
+                            <button onClick={onDemoStart} className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium text-slate-300 transition-colors">
+                                Probar Demo (5 min)
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -623,10 +628,36 @@
             const [vitals, setVitals] = useState(DEFAULT_VITALS);
             const [isConnected, setIsConnected] = useState(true);
 
+            // NUEVO: ESTADOS PARA DEMO
+            const [isDemoMode, setIsDemoMode] = useState(false);
+            const [demoTimeLeft, setDemoTimeLeft] = useState(300); // 300 segundos = 5 minutos
+
+            // EFECTO PARA EL TIMER DEMO
             useEffect(() => {
-                const unsub = auth.onAuthStateChanged(setUser);
+                let interval = null;
+                if (isDemoMode && demoTimeLeft > 0) {
+                    interval = setInterval(() => {
+                        setDemoTimeLeft(prev => prev - 1);
+                    }, 1000);
+                } else if (demoTimeLeft === 0) {
+                    // Tiempo agotado
+                    clearInterval(interval);
+                }
+                return () => clearInterval(interval);
+            }, [isDemoMode, demoTimeLeft]);
+
+            const handleDemoStart = () => {
+                setIsDemoMode(true);
+                // Usuario ficticio para bypass auth
+                setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
+            };
+
+            useEffect(() => {
+                const unsub = auth.onAuthStateChanged((u) => {
+                    if (!isDemoMode) setUser(u);
+                });
                 return () => unsub();
-            }, []);
+            }, [isDemoMode]);
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -637,6 +668,13 @@
 
             useEffect(() => {
                 if (!sessionId || !user || !db) return;
+                // Si es demo, no conectamos a Firestore real para evitar escribir basura
+                if (isDemoMode) {
+                    // Mock connection for demo
+                    setIsConnected(true);
+                    return; 
+                }
+
                 let unsubscribe;
                 const connect = () => {
                     try {
@@ -648,15 +686,58 @@
                 };
                 connect();
                 return () => unsubscribe && unsubscribe();
-            }, [sessionId, user]);
+            }, [sessionId, user, isDemoMode]);
 
-            const handleUpdate = async (newVitals) => { if (sessionId && db) await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); };
+            const handleUpdate = async (newVitals) => { 
+                if (isDemoMode) {
+                    // En modo demo solo actualizamos estado local
+                    setVitals(prev => ({...prev, ...newVitals}));
+                } else if (sessionId && db) {
+                    await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); 
+                }
+            };
             const onSelect = (m, id) => { setMode(m); setSessionId(id); };
 
-            if (!user) return <LoginScreen />;
+            if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
+
+            // PANTALLA DE TIEMPO AGOTADO (PAYWALL)
+            if (isDemoMode && demoTimeLeft === 0) {
+                return (
+                    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
+                        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-600 max-w-md">
+                            <div className="flex justify-center mb-4 text-yellow-400">
+                                <Icons.Clock className="w-16 h-16" />
+                            </div>
+                            <h1 className="text-3xl font-bold text-white mb-4">¡Tiempo de Prueba Agotado!</h1>
+                            <p className="text-slate-300 mb-6">
+                                Has disfrutado de los 5 minutos de demostración gratuita de NeoMonitor.
+                            </p>
+                            <div className="bg-slate-900 p-4 rounded-lg mb-6 border border-slate-700">
+                                <p className="text-sm text-slate-400 mb-2">Para acceso ilimitado y funciones profesionales:</p>
+                                <button className="w-full py-3 bg-[#42B334] hover:bg-green-600 text-black font-bold rounded-lg transition-colors">
+                                    Adquirir Licencia Pro
+                                </button>
+                            </div>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="text-slate-400 hover:text-white text-sm underline"
+                            >
+                                Volver al inicio
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
-                <div className="font-sans antialiased">
+                <div className="font-sans antialiased relative">
+                    {/* INDICADOR DE TIEMPO RESTANTE DEMO */}
+                    {isDemoMode && (
+                        <div className="fixed top-0 right-0 bg-yellow-500 text-black font-bold px-3 py-1 rounded-bl-lg z-50 text-xs shadow-lg">
+                            Demo: {Math.floor(demoTimeLeft / 60)}:{(demoTimeLeft % 60).toString().padStart(2, '0')}
+                        </div>
+                    )}
+
                     {mode === 'select' && <RoleSelection onSelect={onSelect} />}
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} connectionStatus={isConnected} />}
                     {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
