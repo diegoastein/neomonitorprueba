@@ -78,14 +78,13 @@
 
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             if (msg.includes('ResizeObserver')) return false;
-            if (msg === 'Script error.') return false; // Ignorar errores de scripts externos por seguridad
+            if (msg === 'Script error.') return false; 
             showError('Aviso:', msg);
             return false;
         };
 
         window.onunhandledrejection = function(event) {
             let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            // Filtro agresivo para errores de conexión Firebase (se reconecta solo)
             if (message.toString().toLowerCase().includes('client is offline') || 
                 message.toString().includes('network') || 
                 message.toString().includes('internet')) {
@@ -258,7 +257,6 @@
                     if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
                         canvas.width = canvas.offsetWidth;
                         canvas.height = canvas.offsetHeight;
-                        // Reset simple para evitar parpadeos, idealmente se escala el buffer
                         dataRef.current = new Array(canvas.width).fill(canvas.height / 2); 
                     }
 
@@ -531,21 +529,38 @@
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(0);
+            
+            // LOCAL STATE FOR SLIDERS
+            const [targets, setTargets] = useState(currentVitals);
 
-            const handleVitalsChange = (newValues) => {
+            // Sync with server if needed
+            useEffect(() => {
+                setTargets(prev => ({
+                    ...prev,
+                    hr: currentVitals.hr,
+                    spo2: currentVitals.spo2,
+                    resp: currentVitals.resp
+                }));
+            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
+
+            const handleSliderChange = (field, value) => {
+                const newTargets = { ...targets, [field]: value };
+                setTargets(newTargets); // Immediate update
+
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
+                
                 const updateData = {
-                    ...newValues,
+                    ...newTargets,
                     transition: (durationMs > 0) ? {
                         startTime: now,
                         duration: durationMs,
                         startHr: vitals.hr,
-                        targetHr: newValues.hr !== undefined ? newValues.hr : vitals.hr,
+                        targetHr: newTargets.hr,
                         startSpo2: vitals.spo2,
-                        targetSpo2: newValues.spo2 !== undefined ? newValues.spo2 : vitals.spo2,
+                        targetSpo2: newTargets.spo2,
                         startResp: vitals.resp,
-                        targetResp: newValues.resp !== undefined ? newValues.resp : vitals.resp
+                        targetResp: newTargets.resp || 45
                     } : null
                 };
                 onUpdate(updateData);
@@ -568,23 +583,23 @@
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
-                                <label className="text-yellow-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {currentVitals.hr}</label>
+                                <label className="text-yellow-400 font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label>
                                 <span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span>
                             </div>
-                            <input type="range" min="0" max="200" value={currentVitals.hr} onChange={(e) => handleVitalsChange({hr: parseInt(e.target.value)})} className="w-full h-12 accent-yellow-400 cursor-pointer" />
+                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-yellow-400 cursor-pointer" />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2">
-                                <label className="text-cyan-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {currentVitals.spo2}%</label>
+                                <label className="text-cyan-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label>
                                 <span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span>
                             </div>
-                            <input type="range" min="0" max="100" value={currentVitals.spo2} onChange={(e) => handleVitalsChange({spo2: parseInt(e.target.value)})} className="w-full h-12 accent-cyan-500 cursor-pointer" />
+                            <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} className="w-full h-12 accent-cyan-500 cursor-pointer" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => handleVitalsChange({hr: 140, spo2: 98, resp: 45})} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
-                            <button onClick={() => handleVitalsChange({hr: 60, spo2: 85, resp: 20})} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                            <button onClick={() => handleVitalsChange({hr: 150, spo2: 65, resp: 60})} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
-                            <button onClick={() => handleVitalsChange({hr: 0, spo2: 0, resp: 0})} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
+                            <button onClick={() => handleSliderChange('hr', 140) || handleSliderChange('spo2', 98)} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
+                            <button onClick={() => handleSliderChange('hr', 60) || handleSliderChange('spo2', 85)} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
+                            <button onClick={() => handleSliderChange('hr', 150) || handleSliderChange('spo2', 65)} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => handleSliderChange('hr', 0) || handleSliderChange('spo2', 0)} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> PARO</button>
                         </div>
                         <button onClick={() => onUpdate({ alarmMuted: !vitals.alarmMuted })} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>
                              {vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}
