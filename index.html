@@ -165,43 +165,12 @@
              }
         };
 
-        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (MEJORADO V3 - Wah-Wah)
+        // SISTEMA DE SÍNTESIS DE SONIDOS CLÍNICOS (SOLO QUEJIDO)
         const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
 
-            if (type === 'cry') {
-                // Simulación de Llanto estilo "Wah" (Filtro dinámico)
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                const filter = audioCtx.createBiquadFilter();
-
-                osc.connect(filter);
-                filter.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.type = 'sawtooth'; 
-                
-                // Tono fundamental (cae ligeramente al final)
-                osc.frequency.setValueAtTime(500, now);
-                osc.frequency.exponentialRampToValueAtTime(400, now + 0.8);
-                
-                // Filtro Wah-Wah (Simula apertura de boca)
-                filter.type = 'lowpass';
-                filter.Q.value = 5; // Resonancia vocal
-                filter.frequency.setValueAtTime(400, now);
-                filter.frequency.linearRampToValueAtTime(1200, now + 0.2); // Waa
-                filter.frequency.linearRampToValueAtTime(400, now + 0.8);  // ...ah
-                
-                // Volumen (Corto y definido)
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.3, now + 0.1); 
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8); 
-                
-                osc.start(now);
-                osc.stop(now + 0.9);
-            } 
-            else if (type === 'grunt') {
+            if (type === 'grunt') {
                 // Simulación de Quejido (Corto y grave)
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -213,7 +182,7 @@
                 osc.frequency.linearRampToValueAtTime(120, now + 0.3);
                 
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.5, now + 0.05); 
+                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); // Volumen ajustado
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                 
                 osc.start(now);
@@ -757,13 +726,10 @@
                             <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
                         </div>
 
-                        {/* SECCIÓN SONIDOS */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => triggerSound('cry', 'Llanto')} className="p-3 bg-pink-900/40 border border-pink-500/50 rounded-lg text-pink-400 font-bold flex items-center justify-center gap-2">
-                                <Icons.Music className="w-4 h-4"/> Llanto
-                            </button>
-                            <button onClick={() => triggerSound('grunt', 'Quejido')} className="p-3 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2">
-                                <Icons.Activity className="w-4 h-4"/> Quejido
+                        {/* SECCIÓN SONIDOS (MODIFICADO: SOLO QUEJIDO) */}
+                        <div className="w-full">
+                            <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all">
+                                <Icons.Activity className="w-5 h-5"/> Reproducir Quejido
                             </button>
                         </div>
 
