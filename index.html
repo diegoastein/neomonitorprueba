@@ -205,7 +205,7 @@
             Play: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
             Battery: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
             Menu: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
-            QrCode: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
+            QrCode: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 3h6v6H3z"/><path d="M15 3h6v6h-6z"/><path d="M3 15h6v6H3z"/><path d="M14 14h3v3h-3z"/><path d="M17 17h3v3h-3z"/><path d="M14 19h3v3h-3z"/><path d="M20 14h3v3h-3z"/></svg>,
             X: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
             Clock: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
             List: ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
@@ -390,7 +390,7 @@
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
                         <div className="flex justify-center mb-6"><Icons.Activity className="w-16 h-16 text-[#42B334]"/></div>
                         <h1 className="text-3xl font-bold text-center mb-2 text-[#42B334]">NeoMonitor</h1>
-                        <p className="text-slate-400 text-center mb-8 italic text-sm">aplicación hecha con muchas ganas pero poco conocimiento.<br/>Uselo bajo su exclusiva responsabilidad.</p>
+                        <p className="text-slate-400 text-center mb-8 italic text-sm">Software para fines educativos exclusivamente.<br/>Usar solo en entornos de simulación.</p>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
@@ -530,7 +530,10 @@
                     <div className="flex-none bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16">
                         <div className="flex gap-2 h-full">
                             <div className="soft-key w-24">Menú<br/>Principal</div><div className="soft-key w-24">Silenciar<br/>Alarmas</div><div className="soft-key w-24">Tendencias</div>
-                            <div onClick={() => setShowQR(true)} className="soft-key w-24 bg-blue-900/30 text-blue-200 border-blue-800 hover:bg-blue-800/50">C. Remoto<br/><Icons.QrCode className="inline w-3 h-3 ml-1"/></div>
+                            <div onClick={() => setShowQR(true)} className="soft-key w-24 bg-blue-600/20 text-blue-200 border-blue-600/50 hover:bg-blue-600/30 flex-col !gap-0 p-1">
+                                <Icons.QrCode className="w-6 h-6 mb-1" />
+                                <span className="text-[9px] font-bold uppercase">Vincular</span>
+                            </div>
                         </div>
                         <div className="flex gap-2 h-full"><div className="soft-key w-24 text-slate-500 border-slate-800 cursor-not-allowed">PNI<br/>Inicio/Parada</div><div className="soft-key w-24 text-slate-500 border-slate-800 cursor-not-allowed">Cero<br/>PNI</div></div>
                         <div className="flex items-center gap-4 px-4 text-slate-400 font-mono text-sm border-l border-slate-700 ml-4">
@@ -637,13 +640,24 @@
             useEffect(() => {
                 let interval = null;
                 if (isDemoMode && demoTimeLeft > 0) {
-                    interval = setInterval(() => { setDemoTimeLeft(prev => prev - 1); }, 1000);
+                    interval = setInterval(() => { 
+                        const newTime = demoTimeLeft - 1;
+                        setDemoTimeLeft(newTime);
+                        localStorage.setItem('neosim_demo_timer', newTime);
+                    }, 1000);
                 } else if (demoTimeLeft === 0) { clearInterval(interval); }
                 return () => clearInterval(interval);
             }, [isDemoMode, demoTimeLeft]);
 
             const handleDemoStart = () => {
                 setIsDemoMode(true);
+                const savedTime = localStorage.getItem('neosim_demo_timer');
+                if (savedTime && parseInt(savedTime) > 0) {
+                    setDemoTimeLeft(parseInt(savedTime));
+                } else {
+                    setDemoTimeLeft(300);
+                    localStorage.setItem('neosim_demo_timer', 300);
+                }
                 if (auth) {
                     auth.signInAnonymously().then(u => { setUser(u.user); }).catch(err => {
                         console.warn("Auth anónima falló, usando usuario local.", err);
@@ -656,17 +670,29 @@
                 auth.signOut().then(() => {
                     setUser(null);
                     setIsDemoMode(false);
-                    setDemoTimeLeft(300);
+                    localStorage.removeItem('neosim_demo_timer'); 
                     setMode('select');
                 });
             };
 
             useEffect(() => {
                 const unsub = auth.onAuthStateChanged((u) => {
-                    if (!isDemoMode) setUser(u);
+                    if (u) {
+                        if (u.isAnonymous) {
+                            setIsDemoMode(true);
+                            const savedTime = localStorage.getItem('neosim_demo_timer');
+                            if (savedTime) setDemoTimeLeft(parseInt(savedTime));
+                            setUser(u);
+                        } else {
+                            setIsDemoMode(false);
+                            setUser(u);
+                        }
+                    } else {
+                        setUser(null);
+                    }
                 });
                 return () => unsub();
-            }, [isDemoMode]);
+            }, []);
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -714,7 +740,11 @@
                                 <p className="text-sm text-slate-400 mb-2">Para acceso ilimitado y funciones profesionales:</p>
                                 <button className="w-full py-3 bg-[#42B334] hover:bg-green-600 text-black font-bold rounded-lg transition-colors">Adquirir Licencia Pro</button>
                             </div>
-                            <button onClick={() => window.location.reload()} className="text-slate-400 hover:text-white text-sm underline">Volver al inicio</button>
+                            <button onClick={() => {
+                                localStorage.removeItem('neosim_demo_timer'); 
+                                auth.signOut();
+                                window.location.reload();
+                            }} className="text-slate-400 hover:text-white text-sm underline">Volver al inicio</button>
                         </div>
                     </div>
                 );
