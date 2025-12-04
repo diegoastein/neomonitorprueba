@@ -2,7 +2,7 @@ name: Deploy Beta
 on:
   push:
     branches:
-      - beta # Esto se activa solo cuando subís a la rama 'beta'
+      - beta
 jobs:
   web-deploy:
     name: 🎉 Deploy to Beta
@@ -17,6 +17,6 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        # IMPORTANTE: Cambiá la ruta de abajo por la de TU Hostinger
-        # Generalmente es ./domains/TU-DOMINIO/public_html/carpeta_beta/
-      server-dir: server-dir: ./beta/
+        server-dir: ./beta/
+        protocol: ftps
+        security: loose  # <--- ESTA ES LA CLAVE PARA HOSTINGER
