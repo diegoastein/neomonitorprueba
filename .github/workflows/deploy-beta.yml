@@ -19,4 +19,4 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         # IMPORTANTE: Cambiá la ruta de abajo por la de TU Hostinger
         # Generalmente es ./domains/TU-DOMINIO/public_html/carpeta_beta/
-        server-dir: https://srv1889-files.hstgr.io/49a51733d6723913/files/public_html/beta/
+      server-dir: ./public_html/beta/
