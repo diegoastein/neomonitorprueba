@@ -690,6 +690,7 @@
             const [isConnected, setIsConnected] = useState(true);
             const [isDemoMode, setIsDemoMode] = useState(false);
             const [demoTimeLeft, setDemoTimeLeft] = useState(300);
+            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
 
             useEffect(() => {
                 let interval = null;
@@ -742,37 +743,22 @@
                             // === VERIFICACIÓN DE LICENCIA ===
                             // ----------------------------------------------------------------
                             try {
-                                // 1. Buscar el documento del usuario en Firestore
                                 const doc = await db.collection('usuarios').doc(u.uid).get();
-                                
                                 if (doc.exists) {
                                     const data = doc.data();
-                                    
-                                    // 2. Revisar si tiene fecha de vencimiento
                                     if (data.fecha_vencimiento) {
                                         const vencimiento = data.fecha_vencimiento.toDate();
                                         const hoy = new Date();
-
-                                        // 3. Comparar fechas
+                                        // Si venció, activamos el bloqueo pero dejamos setUser(u) 
+                                        // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
                                         if (hoy > vencimiento) {
-                                            alert("⛔ Tu licencia anual ha vencido. Por favor, renová tu suscripción.");
-                                            
-                                            // Expulsar usuario
-                                            await auth.signOut();
-                                            
-                                            // Redirigir a landing de pago
-                                            window.location.href = "https://www.getneomonitor.pro"; 
-                                            return; // Detener ejecución
+                                            setLicenseExpired(true);
                                         }
                                     }
                                 }
                             } catch (error) {
                                 console.error("Error verificando licencia:", error);
-                                // Opcional: Si falla la conexión a Firestore, ¿lo dejamos entrar o no?
-                                // Por ahora lo dejamos pasar para no bloquear por errores de red.
                             }
-
-                            // Si todo está bien, entra
                             setIsDemoMode(false);
                             setUser(u);
                         }
@@ -818,22 +804,41 @@
 
             if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
 
-            if (isDemoMode && demoTimeLeft === 0) {
+            // --- PANTALLA DE BLOQUEO UNIFICADA (DEMO / LICENCIA) ---
+            if (licenseExpired || (isDemoMode && demoTimeLeft === 0)) {
+                const title = licenseExpired ? "Licencia No Válida" : "Tiempo de Prueba Agotado";
+                const message = licenseExpired 
+                    ? "Tu licencia de NeoMonitor ha caducado o no es válida."
+                    : "Has disfrutado de los 5 minutos de demostración gratuita.";
+
                 return (
                     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-                        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-600 max-w-md">
-                            <div className="flex justify-center mb-4 text-yellow-400"><Icons.Clock className="w-16 h-16" /></div>
-                            <h1 className="text-3xl font-bold text-white mb-4">¡Tiempo de Prueba Agotado!</h1>
-                            <p className="text-slate-300 mb-6">Has disfrutado de los 5 minutos de demostración gratuita.</p>
-                            <div className="bg-slate-900 p-4 rounded-lg mb-6 border border-slate-700">
-                                <p className="text-sm text-slate-400 mb-2">Para acceso ilimitado y funciones profesionales:</p>
-                                <button className="w-full py-3 bg-[#42B334] hover:bg-green-600 text-black font-bold rounded-lg transition-colors">Adquirir Licencia Pro</button>
+                        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-600 max-w-md w-full">
+                            <div className="flex justify-center mb-6 text-red-500">
+                                {licenseExpired ? <Icons.Lock className="w-20 h-20" /> : <Icons.Clock className="w-20 h-20 text-yellow-400" />}
                             </div>
+                            
+                            <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
+                            <p className="text-slate-300 mb-8 text-lg">{message}</p>
+                            
+                            <div className="bg-slate-900 p-6 rounded-xl mb-6 border border-slate-700">
+                                <p className="text-sm text-slate-400 mb-3">Para continuar utilizando el simulador profesionalmente:</p>
+                                <button 
+                                    onClick={() => window.location.href = "https://www.getneomonitor.pro"} 
+                                    className="w-full py-4 bg-[#42B334] hover:bg-green-600 text-black font-bold text-lg rounded-lg transition-transform transform hover:scale-105 shadow-lg"
+                                >
+                                    {licenseExpired ? "Renovar Licencia Ahora" : "Comprar Licencia Pro"}
+                                </button>
+                            </div>
+
                             <button onClick={() => {
                                 localStorage.removeItem('neosim_demo_timer'); 
+                                setLicenseExpired(false);
                                 auth.signOut();
                                 window.location.reload();
-                            }} className="text-slate-400 hover:text-white text-sm underline">Volver al inicio</button>
+                            }} className="text-slate-500 hover:text-white text-sm underline mt-4">
+                                Volver a la pantalla de inicio
+                            </button>
                         </div>
                     </div>
                 );
@@ -857,5 +862,4 @@
         root.render(<App />);
     </script>
 </body>
-    <p>Prueba deeee conexión</p>
 </html>
