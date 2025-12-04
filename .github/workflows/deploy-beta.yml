@@ -1,0 +1,22 @@
+name: Deploy Beta
+on:
+  push:
+    branches:
+      - develop # Esto se activa solo cuando subís a la rama 'develop'
+jobs:
+  web-deploy:
+    name: 🎉 Deploy to Beta
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v4
+    
+    - name: 📂 Sync files
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        # IMPORTANTE: Cambiá la ruta de abajo por la de TU Hostinger
+        # Generalmente es ./domains/TU-DOMINIO/public_html/carpeta_beta/
+        server-dir: https://srv1889-files.hstgr.io/49a51733d6723913/files/public_html/beta/
