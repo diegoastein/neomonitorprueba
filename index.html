@@ -599,7 +599,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
+const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(10);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -657,17 +657,38 @@
                     <div className="space-y-6 max-w-lg mx-auto">
                         <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2"><label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Tiempo Transición</label><span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span></div>
-                            <input type="range" min="0" max="90" step="10" value={transitionDuration} onChange={(e) => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider cursor-pointer" />
+                            <input 
+                                type="range" min="0" max="90" step="10" 
+                                value={transitionDuration} 
+                                onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
+                                onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
+                                onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
+                                className="w-full h-8 time-slider cursor-pointer" 
+                            />
                             <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
                         </div>
                         <div className="w-full"><button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all"><Icons.Activity className="w-5 h-5"/> Reproducir Quejido</button></div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2"><label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span></div>
-                            <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} className="w-full h-12 accent-[#42B334] cursor-pointer" />
+                            <input 
+                                type="range" min="0" max="200" 
+                                value={targets.hr} 
+                                onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
+                                onMouseUp={() => logAction(`Cambio manual FC: ${targets.hr} lpm`)}
+                                onTouchEnd={() => logAction(`Cambio manual FC: ${targets.hr} lpm`)}
+                                className="w-full h-12 accent-[#42B334] cursor-pointer" 
+                            />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                             <div className="flex justify-between mb-2"><label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span></div>
-                            <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} className="w-full h-12 accent-yellow-400 cursor-pointer" />
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={targets.spo2} 
+                                onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
+                                onMouseUp={() => logAction(`Cambio manual SpO2: ${targets.spo2}%`)}
+                                onTouchEnd={() => logAction(`Cambio manual SpO2: ${targets.spo2}%`)}
+                                className="w-full h-12 accent-yellow-400 cursor-pointer" 
+                            />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
@@ -681,7 +702,6 @@
                 </div>
             );
         };
-
         const App = () => {
             const [user, setUser] = useState(null);
             const [mode, setMode] = useState('select');
