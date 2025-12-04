@@ -2,7 +2,7 @@ name: Deploy Beta
 on:
   push:
     branches:
-      - develop # Esto se activa solo cuando subís a la rama 'develop'
+      - beta # Esto se activa solo cuando subís a la rama 'beta'
 jobs:
   web-deploy:
     name: 🎉 Deploy to Beta
