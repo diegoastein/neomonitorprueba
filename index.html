@@ -521,12 +521,12 @@
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
+                <div className={`w-full h-screen bg-black flex flex-col border-[6px] md:border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
                     {!audioEnabled && !showQR && (
                         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
-                            <button onClick={enableAudio} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 px-12 rounded-2xl text-2xl flex items-center gap-4 animate-bounce">
-                                <Icons.Play className="w-8 h-8 fill-current" /> Click para Iniciar Monitor y Sonido
+                            <button onClick={enableAudio} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-8 md:py-6 md:px-12 rounded-2xl text-xl md:text-2xl flex items-center gap-4 animate-bounce">
+                                <Icons.Play className="w-8 h-8 fill-current" /> Iniciar
                             </button>
                         </div>
                     )}
@@ -543,36 +543,47 @@
                             </div>
                         </div>
                     )}
-                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 min-h-[40px]">
-                        <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
-                        <div className="flex gap-2 items-center">{vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}<span>ID: {sessionId}</span></div>
+                    {/* TOP BAR: Compacta en móvil */}
+                    <div className="flex-none flex justify-between px-2 md:px-4 py-1 md:py-2 bg-slate-900/50 text-slate-400 text-xs md:text-sm font-mono border-b border-slate-800 min-h-[30px] md:min-h-[40px] items-center">
+                        <div className="flex gap-2 md:gap-4"><span>NEO</span><span className="hidden md:inline">CAMA: 01</span></div>
+                        <div className="flex gap-3 items-center">
+                            {/* Botón QR solo para móvil (ya que ocultamos el menú inferior) */}
+                            <div onClick={() => setShowQR(true)} className="md:hidden p-1 bg-slate-800 rounded text-slate-300 active:bg-slate-700"><Icons.QrCode className="w-3 h-3"/></div>
+                            {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-3 h-3 md:w-4 md:h-4" /> : <Icons.Volume2 className="text-[#42B334] w-3 h-3 md:w-4 md:h-4" />}
+                            <span>ID: {sessionId}</span>
+                        </div>
                     </div>
-                    <div className="flex-1 min-h-0 grid grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
+                    
+                    {/* MAIN GRID: 2 filas en móvil, 3 en desktop */}
+                    <div className="flex-1 min-h-0 grid grid-rows-2 md:grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
+                        {/* Fila 1: ECG */}
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
+                                <span className="absolute top-2 left-2 text-[#42B334] font-bold text-xs md:text-sm z-10">II</span>
                                 <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
-                            <div className="flex flex-col justify-center items-end pr-16 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-[#42B334] font-bold text-lg">FC</span>
-                                <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}><span style={{fontSize: '2.5vh'}}>180</span><span style={{fontSize: '2.5vh'}}>100</span></div>
+                            <div className="flex flex-col justify-center items-end pr-4 md:pr-16 relative min-w-0">
+                                <span className="absolute top-2 right-2 text-[#42B334] font-bold text-sm md:text-lg">FC</span>
+                                <div className="absolute top-8 md:top-10 right-2 text-emerald-600 font-mono text-sm md:text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}><span style={{fontSize: '2.5vh'}}>180</span><span style={{fontSize: '2.5vh'}}>100</span></div>
                                 <span className={`leading-none font-mono font-bold`} style={{fontSize: '14.4vh', color: getTextColor('#42B334')}}>{vitals.hr || '--'}</span>
                             </div>
                         </div>
+                        {/* Fila 2: SpO2 */}
                         <div className="grid grid-cols-[70%_30%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">Pleth</span>
+                                <span className="absolute top-2 left-2 text-yellow-400 font-bold text-xs md:text-sm z-10">Pleth</span>
                                 <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
                             </div>
-                            <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">SpO2</span>
-                                <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80"><span style={{fontSize: '2.5vh'}}>95</span><span style={{fontSize: '2.5vh'}}>89</span></div>
+                            <div className="flex flex-col justify-center items-end pr-2 md:pr-4 relative min-w-0">
+                                <span className="absolute top-2 right-2 text-yellow-400 font-bold text-sm md:text-lg">SpO2</span>
+                                <div className="absolute top-8 md:top-10 right-2 text-yellow-600 font-mono text-sm md:text-xl flex flex-col items-end leading-tight opacity-80"><span style={{fontSize: '2.5vh'}}>95</span><span style={{fontSize: '2.5vh'}}>89</span></div>
                                 <div className="flex items-baseline">
-                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '14.4vh'}}>{vitals.spo2 || '--'}</span><span className={`ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '6vh'}}>%</span>
+                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '14.4vh'}}>{vitals.spo2 || '--'}</span><span className={`ml-1 md:ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '5vh'}}>%</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 h-full divide-x divide-slate-800 min-h-0">
+                        {/* Fila 3: RESP/PNI (OCULTA EN MOVIL) */}
+                        <div className="hidden md:grid grid-cols-2 h-full divide-x divide-slate-800 min-h-0">
                              <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
                                 <span className="absolute top-2 left-4 text-slate-500 font-bold text-lg">RESP</span>
                                 <div className="flex items-center gap-4"><span className="leading-none font-mono font-bold text-slate-600" style={{fontSize: '10vh'}}>---</span></div>
@@ -584,7 +595,8 @@
                              </div>
                         </div>
                     </div>
-                    <div className="flex-none bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16">
+                    {/* BOTTOM BAR: (OCULTA EN MOVIL) */}
+                    <div className="hidden md:flex flex-none bg-slate-900 border-t border-slate-700 p-2 justify-between items-center h-16">
                         <div className="flex gap-2 h-full">
                             <div className="soft-key w-24">Menú<br/>Principal</div><div className="soft-key w-24">Silenciar<br/>Alarmas</div><div className="soft-key w-24">Tendencias</div>
                             <div onClick={() => setShowQR(true)} className="soft-key w-24 bg-blue-900/30 text-blue-200 border-blue-800 hover:bg-blue-800/50">C. Remoto<br/><Icons.QrCode className="inline w-3 h-3 ml-1"/></div>
@@ -599,7 +611,7 @@
             );
         };
 
-const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(10);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -702,6 +714,7 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
                 </div>
             );
         };
+
         const App = () => {
             const [user, setUser] = useState(null);
             const [mode, setMode] = useState('select');
@@ -710,7 +723,7 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const [isConnected, setIsConnected] = useState(true);
             const [isDemoMode, setIsDemoMode] = useState(false);
             const [demoTimeLeft, setDemoTimeLeft] = useState(300);
-            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
+            const [licenseExpired, setLicenseExpired] = useState(false);
 
             useEffect(() => {
                 let interval = null;
@@ -769,8 +782,6 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
                                     if (data.fecha_vencimiento) {
                                         const vencimiento = data.fecha_vencimiento.toDate();
                                         const hoy = new Date();
-                                        // Si venció, activamos el bloqueo pero dejamos setUser(u) 
-                                        // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
                                         if (hoy > vencimiento) {
                                             setLicenseExpired(true);
                                         }
