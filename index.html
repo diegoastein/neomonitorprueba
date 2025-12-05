@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -83,7 +82,6 @@
         input[type=range].cyan-slider { accent-color: #06b6d4; }
         input[type=range].time-slider { accent-color: #f59e0b; }
         input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
-        input[type=range].volume-slider { accent-color: #a8a29e; } /* Gris para volumen */
 
         /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
         .force-landscape-container {
@@ -192,114 +190,6 @@
 
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- DATA DE ESCENARIOS (GUIONES) ---
-        // Aquí definimos la lógica de "Elige tu propia aventura"
-        const SCENARIOS_DATA = {
-            'asfixia': {
-                title: "RN con Asfixia Perinatal",
-                description: "RN 40 semanas, parto distócico, líquido meconial.",
-                startNode: 'inicio',
-                nodes: {
-                    'inicio': {
-                        label: "Nacimiento",
-                        text: "El bebé nace hipotónico, no respira, cianótico.",
-                        vitals: { hr: 60, spo2: 40, resp: 0 },
-                        options: [
-                            { label: "Secar y Estimular (Correcto)", next: 'estimulacion', time: 10 },
-                            { label: "No hace nada (Incorrecto)", next: 'deterioro_1', time: 15 }
-                        ]
-                    },
-                    'estimulacion': {
-                        label: "Post-Estimulación",
-                        text: "Mejora levemente FC, pero sigue en apnea.",
-                        vitals: { hr: 90, spo2: 55, resp: 10 },
-                        options: [
-                            { label: "VPP con Máscara (Correcto)", next: 'vpp_exitosa', time: 20 },
-                            { label: "Solo O2 flujo libre (Incorrecto)", next: 'deterioro_2', time: 20 }
-                        ]
-                    },
-                    'vpp_exitosa': {
-                        label: "Recuperación",
-                        text: "FC sube, comienza esfuerzo respiratorio.",
-                        vitals: { hr: 140, spo2: 88, resp: 45 },
-                        options: [
-                            { label: "Cuidados Post-Reanimación", next: 'estabilizado', time: 30 }
-                        ]
-                    },
-                    'deterioro_1': {
-                        label: "Bradicardia Severa",
-                        text: "FC cae por falta de intervención.",
-                        vitals: { hr: 40, spo2: 30, resp: 0 },
-                        options: [
-                            { label: "Iniciar VPP Inmediata", next: 'recuperacion_lenta', time: 20 },
-                            { label: "Sigue sin actuar", next: 'paro', time: 10 }
-                        ]
-                    },
-                    'deterioro_2': {
-                        label: "Falla Ventilación",
-                        text: "FC no sube. El O2 libre no sirve en apnea.",
-                        vitals: { hr: 50, spo2: 45, resp: 0 },
-                        options: [
-                            { label: "Corregir VPP (MR SOPA)", next: 'vpp_exitosa', time: 25 },
-                            { label: "Masaje Cardíaco", next: 'recuperacion_lenta', time: 30 }
-                        ]
-                    },
-                    'recuperacion_lenta': {
-                        label: "Recuperación Lenta",
-                        text: "Respuesta tardía. Sube FC lentamente.",
-                        vitals: { hr: 110, spo2: 70, resp: 20 },
-                        options: [
-                            { label: "Optimizar Ventilación", next: 'vpp_exitosa', time: 20 }
-                        ]
-                    },
-                    'estabilizado': {
-                        label: "Estabilizado",
-                        text: "Paciente rosado y vigoroso.",
-                        vitals: { hr: 150, spo2: 96, resp: 50 },
-                        options: [] // Fin del camino
-                    },
-                    'paro': {
-                        label: "Paro Cardíaco",
-                        text: "Ausencia de latidos audibles.",
-                        vitals: { hr: 0, spo2: 0, resp: 0 },
-                        options: [
-                            { label: "Adrenalina + Masaje", next: 'recuperacion_lenta', time: 45 }
-                        ]
-                    }
-                }
-            },
-            'sdr': {
-                title: "SDR Prematuro",
-                description: "RN 32 semanas, quejido audible.",
-                startNode: 'inicio',
-                nodes: {
-                    'inicio': {
-                        label: "Minuto 5",
-                        text: "RN con dificultad respiratoria, quejido.",
-                        vitals: { hr: 130, spo2: 82, resp: 70 },
-                        options: [
-                            { label: "CPAP Precoz (Correcto)", next: 'cpap', time: 20 },
-                            { label: "O2 al 100% (Tóxico)", next: 'hiperoxia', time: 15 }
-                        ]
-                    },
-                    'cpap': {
-                        label: "Estable en CPAP",
-                        text: "Disminuye trabajo respiratorio.",
-                        vitals: { hr: 140, spo2: 92, resp: 50 },
-                        options: []
-                    },
-                    'hiperoxia': {
-                        label: "Hiperoxia",
-                        text: "Saturación excesiva, riesgo retinopatía.",
-                        vitals: { hr: 150, spo2: 100, resp: 60 },
-                        options: [
-                            { label: "Titular O2 a la baja", next: 'cpap', time: 30 }
-                        ]
-                    }
-                }
-            }
-        };
-
         // --- AUDIO & NO-SLEEP VIDEO HACK ---
         let audioCtx;
         try {
@@ -310,8 +200,7 @@
         // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
         const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
 
-        // --- SISTEMA DE AUDIO CON VOLUMEN DINÁMICO ---
-        const playBeep = (pitch = 800, volume = 1.0) => {
+        const playBeep = (pitch = 800) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             try {
                 const oscillator = audioCtx.createOscillator();
@@ -321,18 +210,14 @@
                 oscillator.type = 'sine';
                 oscillator.frequency.value = pitch;
                 const now = audioCtx.currentTime;
-                
-                // Volumen base 0.2 multiplicado por el volumen maestro
-                const finalVol = 0.2 * volume;
-                
-                gainNode.gain.setValueAtTime(finalVol, now); 
+                gainNode.gain.setValueAtTime(0.2, now); 
                 gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
                 oscillator.start(now);
                 oscillator.stop(now + 0.15);
             } catch (e) {}
         };
 
-        const playAlarmSequence = (type, volume = 1.0) => {
+        const playAlarmSequence = (type) => {
              if (!audioCtx || audioCtx.state === 'suspended') return;
              const now = audioCtx.currentTime;
              const createTone = (freq, start, duration) => {
@@ -342,11 +227,7 @@
                  gain.connect(audioCtx.destination);
                  osc.type = 'square'; 
                  osc.frequency.value = freq;
-                 
-                 // Volumen base 0.1 multiplicado por el volumen maestro
-                 const finalVol = 0.1 * volume;
-
-                 gain.gain.setValueAtTime(finalVol, start);
+                 gain.gain.setValueAtTime(0.1, start);
                  gain.gain.setValueAtTime(0, start + duration);
                  osc.start(start);
                  osc.stop(start + duration);
@@ -361,7 +242,7 @@
              }
         };
 
-        const playClinicalSound = (type, volume = 1.0) => {
+        const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
             if (type === 'grunt') {
@@ -372,12 +253,8 @@
                 osc.type = 'sawtooth'; 
                 osc.frequency.setValueAtTime(180, now);
                 osc.frequency.linearRampToValueAtTime(120, now + 0.3);
-                
-                // Volumen base máximo de 0.75 ajustado por volumen maestro
-                const maxVol = 0.75 * volume;
-                
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(maxVol, now + 0.05); 
+                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); 
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                 osc.start(now);
                 osc.stop(now + 0.4);
@@ -406,11 +283,10 @@
             Music: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
             Lock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
             Maximize: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
-            LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-            Book: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, volume: 1.0 };
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
 
         // --- LOGIN SCREEN ---
         const LoginScreen = ({ onDemoStart }) => {
@@ -709,22 +585,10 @@
                 }
             };
 
-            const handleBeat = () => { 
-                if (!audioEnabled || vitals.alarmMuted) return; 
-                let pitch = 800; 
-                if (vitals.spo2 < 89) pitch = 400; 
-                // Pasamos el volumen configurado o 1.0 por defecto
-                playBeep(pitch, vitals.volume ?? 1.0); 
-            };
+            const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
 
             useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
-            useEffect(() => { 
-                try { 
-                    if (vitals.soundTimestamp > 0 && vitals.soundType) {
-                        playClinicalSound(vitals.soundType, vitals.volume ?? 1.0); 
-                    }
-                } catch (e) {} 
-            }, [vitals.soundTimestamp, vitals.soundType]);
+            useEffect(() => { try { if (vitals.soundTimestamp > 0 && vitals.soundType) playClinicalSound(vitals.soundType); } catch (e) {} }, [vitals.soundTimestamp, vitals.soundType]);
             
             useEffect(() => {
                 let level = 'none';
@@ -738,12 +602,10 @@
             useEffect(() => {
                 let interval;
                 if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none') {
-                    // Pasamos volumen a la alarma
-                    const vol = vitals.volume ?? 1.0;
-                    playAlarmSequence(alarmState, vol);
-                    interval = setInterval(() => playAlarmSequence(alarmState, vol), alarmState === 'critical' ? 2500 : 4000);
+                    playAlarmSequence(alarmState);
+                    interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
                 } return () => clearInterval(interval);
-            }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.volume]);
+            }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
                 if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
@@ -956,56 +818,60 @@
 
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
-            const [transitionDuration, setTransitionDuration] = useState(5); 
+            const [transitionDuration, setTransitionDuration] = useState(5); // DEFAULT 5 SEGUNDOS
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            const [tabMode, setTabMode] = useState('manual'); // 'manual' | 'scenario'
             
-            // Estado para el sistema de Escenarios
-            const [activeScenario, setActiveScenario] = useState(null);
-            const [currentNodeId, setCurrentNodeId] = useState(null);
-
+            // --- CORRECCIÓN DE SINCRONIZACIÓN ---
+            // Usamos una referencia para mantener el valor más reciente de los sliders
+            // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
             const targetsRef = useRef(currentVitals);
-            const isDraggingRef = useRef(false);
+            const isDraggingRef = useRef(false); // EVITAR CONFLICTOS DE SYNC
 
             useEffect(() => {
+                // Solo sincronizamos si NO estamos arrastrando para evitar que el slider "salte"
                 if (!isDraggingRef.current) {
                     const newTargets = {
-                        ...targets, 
+                        ...targets, // Mantenemos estado local
                         hr: currentVitals.hr, 
                         spo2: currentVitals.spo2, 
-                        resp: currentVitals.resp,
-                        volume: currentVitals.volume ?? 1.0
+                        resp: currentVitals.resp
                     };
                     setTargets(newTargets);
                     targetsRef.current = newTargets;
                 }
-            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp, currentVitals.volume]);
+            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
+            // OPTIMIZADO: Actualiza tanto el estado (para render) como la referencia (para lógica inmediata)
             const handleSliderChange = (field, value) => {
                 const newTargets = { ...targets, [field]: value };
                 setTargets(newTargets);
                 targetsRef.current = newTargets;
             };
 
-            const handleSliderStart = () => { isDraggingRef.current = true; };
+            const handleSliderStart = () => {
+                isDraggingRef.current = true;
+            };
 
+            // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
             const handleCommitChange = (field) => {
                 isDraggingRef.current = false;
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
+                
+                // Usamos targetsRef.current en lugar de targets
                 const currentTargets = targetsRef.current;
 
+                // Logging
                 if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
                 if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
-                if (field === 'volume') logAction(`Cambio volumen: ${Math.round(currentTargets.volume * 100)}%`);
 
                 onUpdate({ 
                     ...currentTargets, 
-                    transition: (durationMs > 0 && field !== 'volume') ? { 
+                    transition: (durationMs > 0) ? { 
                         startTime: now, 
                         duration: durationMs, 
                         startHr: vitals.hr, 
@@ -1038,192 +904,15 @@
                 logAction(`Escenario: ${name}`);
             };
 
-            // --- Lógica de Escenarios ---
-            const startScenario = (key) => {
-                const scenario = SCENARIOS_DATA[key];
-                setActiveScenario(scenario);
-                setCurrentNodeId(scenario.startNode);
-                const startNode = scenario.nodes[scenario.startNode];
-                
-                // Aplicar estado inicial
-                const newTargets = { ...targets, ...startNode.vitals };
-                setTargets(newTargets);
-                targetsRef.current = newTargets;
-                onUpdate({ ...startNode.vitals, transition: null }); // Cambio inmediato al inicio
-                logAction(`Inicio Escenario: ${scenario.title}`);
-            };
-
-            const handleScenarioDecision = (option) => {
-                const scenario = activeScenario;
-                const nextNode = scenario.nodes[option.next];
-                
-                // Aplicar transición
-                const now = Date.now();
-                const durationMs = option.time * 1000;
-                
-                // Actualizar estado local para que los sliders se muevan
-                const newTargets = { ...targets, ...nextNode.vitals };
-                setTargets(newTargets);
-                targetsRef.current = newTargets;
-
-                onUpdate({
-                    ...nextNode.vitals,
-                    transition: {
-                        startTime: now,
-                        duration: durationMs,
-                        startHr: vitals.hr,
-                        targetHr: nextNode.vitals.hr,
-                        startSpo2: vitals.spo2,
-                        targetSpo2: nextNode.vitals.spo2,
-                        startResp: vitals.resp,
-                        targetResp: nextNode.vitals.resp
-                    }
-                });
-
-                setCurrentNodeId(option.next);
-                logAction(`Decisión: ${option.label} -> (En ${option.time}s)`);
-            };
-
-            const exitScenario = () => {
-                setActiveScenario(null);
-                setCurrentNodeId(null);
-                logAction("Fin de Escenario");
-            };
-
             return (
-                <div className="h-screen overflow-y-auto bg-slate-900 text-white pb-20 flex flex-col">
-                    {/* Header Fijo */}
-                    <div className="sticky top-0 z-20 bg-slate-900 p-4 border-b border-slate-700 shadow-xl">
-                        <header className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-2">
-                                <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control</h2>
-                                <button onClick={() => setShowDebrief(true)} className="ml-2 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Log</button>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
-                                <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            </div>
-                        </header>
-                        
-                        {/* Tabs de Modo */}
-                        <div className="flex bg-slate-800 p-1 rounded-lg">
-                            <button onClick={() => setTabMode('manual')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${tabMode === 'manual' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Manual</button>
-                            <button onClick={() => setTabMode('scenario')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${tabMode === 'scenario' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Escenarios</button>
+                <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
+                    <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
+                        <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
+                            <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         </div>
-                    </div>
-
-                    {/* Contenido Scrollable */}
-                    <div className="p-4 space-y-6 max-w-lg mx-auto w-full flex-1">
-                        
-                        {tabMode === 'manual' ? (
-                            <>
-                                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-2"><label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Transición</label><span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span></div>
-                                    <input type="range" min="0" max="90" step="10" value={transitionDuration} onChange={(e) => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider cursor-pointer touch-none" />
-                                    <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Ya</span><span>90s</span></div>
-                                </div>
-                                <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all"><Icons.Activity className="w-5 h-5"/> Reproducir Quejido</button>
-                                
-                                <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-2"><label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span></div>
-                                    <input type="range" min="0" max="200" value={targets.hr} onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))} onMouseDown={handleSliderStart} onTouchStart={handleSliderStart} onMouseUp={() => handleCommitChange('hr')} onTouchEnd={() => handleCommitChange('hr')} onClick={() => handleCommitChange('hr')} className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" />
-                                </div>
-                                
-                                <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-2"><label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span></div>
-                                    <input type="range" min="0" max="100" value={targets.spo2} onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} onMouseDown={handleSliderStart} onTouchStart={handleSliderStart} onMouseUp={() => handleCommitChange('spo2')} onTouchEnd={() => handleCommitChange('spo2')} onClick={() => handleCommitChange('spo2')} className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
-                                    <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                                    <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
-                                    <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
-                                    <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
-                                </div>
-
-                                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-2"><label className="text-slate-300 font-bold flex gap-2"><Icons.Volume2 className="w-5 h-5"/> Volumen</label><span className="text-slate-400 font-mono">{Math.round((targets.volume ?? 1.0) * 100)}%</span></div>
-                                    <input type="range" min="0" max="1" step="0.1" value={targets.volume ?? 1.0} onChange={(e) => handleSliderChange('volume', parseFloat(e.target.value))} onMouseDown={handleSliderStart} onTouchStart={handleSliderStart} onMouseUp={() => handleCommitChange('volume')} onTouchEnd={() => handleCommitChange('volume')} className="w-full h-10 volume-slider cursor-pointer touch-none" />
-                                </div>
-
-                                <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
-                            </>
-                        ) : (
-                            // --- MODO ESCENARIOS ---
-                            <div className="space-y-6">
-                                {!activeScenario ? (
-                                    <div className="grid gap-4">
-                                        <h3 className="text-slate-400 uppercase text-xs font-bold tracking-wider">Seleccionar Guion</h3>
-                                        {Object.keys(SCENARIOS_DATA).map(key => (
-                                            <button key={key} onClick={() => startScenario(key)} className="bg-slate-800 border border-slate-700 p-4 rounded-xl text-left hover:bg-slate-700 hover:border-purple-500 transition-all group">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="font-bold text-purple-400 group-hover:text-purple-300">{SCENARIOS_DATA[key].title}</span>
-                                                    <Icons.Book className="w-4 h-4 text-slate-500"/>
-                                                </div>
-                                                <p className="text-xs text-slate-400">{SCENARIOS_DATA[key].description}</p>
-                                            </button>
-                                        ))}
-                                        <div className="p-4 bg-blue-900/20 border border-blue-800 rounded-lg text-xs text-blue-300">
-                                            Selecciona un caso clínico para comenzar la simulación guiada.
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col h-full">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="font-bold text-purple-400 text-lg line-clamp-1">{activeScenario.title}</h3>
-                                            <button onClick={exitScenario} className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-800">Salir</button>
-                                        </div>
-
-                                        {/* Nodo Actual */}
-                                        <div className="bg-slate-800 border-l-4 border-purple-500 p-6 rounded-r-xl shadow-lg mb-6">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
-                                                    <span className="text-xs font-bold text-purple-300 uppercase tracking-widest">Estado Actual</span>
-                                                    <h2 className="text-2xl font-bold text-white mt-1">{activeScenario.nodes[currentNodeId].label}</h2>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-xs text-slate-400">Target</div>
-                                                    <div className="font-mono font-bold text-sm text-[#42B334]">FC: {activeScenario.nodes[currentNodeId].vitals.hr}</div>
-                                                    <div className="font-mono font-bold text-sm text-yellow-400">SpO2: {activeScenario.nodes[currentNodeId].vitals.spo2}%</div>
-                                                </div>
-                                            </div>
-                                            <p className="text-slate-300 text-lg leading-relaxed border-t border-slate-700 pt-4">
-                                                "{activeScenario.nodes[currentNodeId].text}"
-                                            </p>
-                                        </div>
-
-                                        {/* Opciones de Decisión */}
-                                        <div className="space-y-3">
-                                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Acciones del Alumno (Decisiones)</h4>
-                                            {activeScenario.nodes[currentNodeId].options.length > 0 ? (
-                                                activeScenario.nodes[currentNodeId].options.map((option, idx) => (
-                                                    <button 
-                                                        key={idx} 
-                                                        onClick={() => handleScenarioDecision(option)}
-                                                        className="w-full p-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-left transition-all flex justify-between items-center group active:scale-95"
-                                                    >
-                                                        <span className="font-bold text-slate-200 group-hover:text-white">{option.label}</span>
-                                                        <span className="text-xs font-mono bg-black/30 px-2 py-1 rounded text-slate-400">
-                                                            {option.time}s
-                                                        </span>
-                                                    </button>
-                                                ))
-                                            ) : (
-                                                <div className="text-center p-8 bg-slate-800/50 rounded-xl border border-slate-800 text-slate-500">
-                                                    <Icons.Activity className="w-8 h-8 mx-auto mb-2 opacity-50"/>
-                                                    <p>Fin del Escenario</p>
-                                                    <button onClick={exitScenario} className="mt-4 text-sm text-purple-400 hover:underline">Volver al menú</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    
-                    {/* Log Modal */}
+                    </header>
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full">
@@ -1235,6 +924,57 @@
                             </div>
                         </div>
                     )}
+                    <div className="space-y-6 max-w-lg mx-auto">
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-2"><label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Tiempo Transición</label><span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span></div>
+                            <input 
+                                type="range" min="0" max="90" step="10" 
+                                value={transitionDuration} 
+                                onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
+                                onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
+                                onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
+                                className="w-full h-8 time-slider cursor-pointer touch-none" 
+                            />
+                            <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
+                        </div>
+                        <div className="w-full"><button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all"><Icons.Activity className="w-5 h-5"/> Reproducir Quejido</button></div>
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-2"><label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span></div>
+                            <input 
+                                type="range" min="0" max="200" 
+                                value={targets.hr} 
+                                onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
+                                onMouseUp={() => handleCommitChange('hr')}
+                                onTouchEnd={() => handleCommitChange('hr')}
+                                onClick={() => handleCommitChange('hr')}
+                                className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" 
+                            />
+                        </div>
+                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                            <div className="flex justify-between mb-2"><label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span></div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={targets.spo2} 
+                                onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
+                                onMouseUp={() => handleCommitChange('spo2')}
+                                onTouchEnd={() => handleCommitChange('spo2')}
+                                onClick={() => handleCommitChange('spo2')}
+                                className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" 
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
+                            <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
+                            <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
+                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
+                        </div>
+                        <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
+                    </div>
                 </div>
             );
         };
