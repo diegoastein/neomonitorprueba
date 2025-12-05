@@ -264,6 +264,7 @@
             List: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
             Music: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
             Lock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+            Maximize: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
             LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         };
 
@@ -525,7 +526,16 @@
                 return () => window.removeEventListener('resize', checkSize);
             }, []);
 
-            const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
+            const enableAudio = () => { 
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+                setAudioEnabled(true);
+                
+                // Intento de pantalla completa al iniciar audio (gesto de usuario)
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+            };
+
             const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
 
             useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
@@ -610,8 +620,8 @@
                                             {vitals.hr || '--'}
                                         </span>
                                     </div>
-                                    {/* Waveform Area */}
-                                    <div className="h-1/3 w-full bg-black relative">
+                                    {/* Waveform Area - REDUCIDO DE TAMAÑO (h-1/5) */}
+                                    <div className="h-1/5 w-full bg-black relative">
                                         <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
                                     </div>
                                 </div>
@@ -622,12 +632,23 @@
                                 <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
                                     <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
                                 </div>
-                                <button 
-                                    onClick={() => setShowQR(!showQR)}
-                                    className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${showQR ? 'bg-white text-black' : 'bg-blue-900/50 text-blue-300 border border-blue-800'}`}
-                                >
-                                    <Icons.QrCode className="w-3 h-3"/> {showQR ? 'Ocultar' : 'Conectar'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => {
+                                        if (!document.fullscreenElement) {
+                                            document.documentElement.requestFullscreen().catch(() => {});
+                                        } else {
+                                            document.exitFullscreen().catch(() => {});
+                                        }
+                                    }} className="p-2 bg-slate-800 rounded text-slate-400">
+                                        <Icons.Maximize className="w-3 h-3" />
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowQR(!showQR)}
+                                        className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${showQR ? 'bg-white text-black' : 'bg-blue-900/50 text-blue-300 border border-blue-800'}`}
+                                    >
+                                        <Icons.QrCode className="w-3 h-3"/> {showQR ? 'Ocultar' : 'Conectar'}
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Overlays (QR y Audio) */}
@@ -744,39 +765,56 @@
             const [transitionDuration, setTransitionDuration] = useState(10);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
+            
+            // --- CORRECCIÓN DE SINCRONIZACIÓN ---
+            // Usamos una referencia para mantener el valor más reciente de los sliders
+            // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
+            const targetsRef = useRef(currentVitals);
 
             useEffect(() => {
-                setTargets(prev => ({...prev, hr: currentVitals.hr, spo2: currentVitals.spo2, resp: currentVitals.resp}));
+                const newTargets = {
+                    ...targets, // Mantenemos estado local
+                    hr: currentVitals.hr, 
+                    spo2: currentVitals.spo2, 
+                    resp: currentVitals.resp
+                };
+                setTargets(newTargets);
+                targetsRef.current = newTargets;
             }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
-            // OPTIMIZADO: Solo actualiza el estado local visual
+            // OPTIMIZADO: Actualiza tanto el estado (para render) como la referencia (para lógica inmediata)
             const handleSliderChange = (field, value) => {
-                setTargets(prev => ({ ...prev, [field]: value }));
+                const newTargets = { ...targets, [field]: value };
+                setTargets(newTargets);
+                targetsRef.current = newTargets;
             };
 
-            // OPTIMIZADO: Envía los datos y calcula transición SOLO al soltar
+            // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
             const handleCommitChange = (field) => {
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
                 
+                // Usamos targetsRef.current en lugar de targets
+                const currentTargets = targetsRef.current;
+
                 // Logging
-                if (field === 'hr') logAction(`Cambio manual FC: ${targets.hr} lpm`);
-                if (field === 'spo2') logAction(`Cambio manual SpO2: ${targets.spo2}%`);
+                if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
+                if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
 
                 onUpdate({ 
-                    ...targets, 
+                    ...currentTargets, 
                     transition: (durationMs > 0) ? { 
                         startTime: now, 
                         duration: durationMs, 
                         startHr: vitals.hr, 
-                        targetHr: targets.hr, 
+                        targetHr: currentTargets.hr, 
                         startSpo2: vitals.spo2, 
-                        targetSpo2: targets.spo2, 
+                        targetSpo2: currentTargets.spo2, 
                         startResp: vitals.resp, 
-                        targetResp: targets.resp || 45 
+                        targetResp: currentTargets.resp || 45 
                     } : null 
                 });
             };
@@ -792,7 +830,10 @@
                     case 'vpp': presetValues = { hr: 88, spo2: 84, resp: 40 }; break;
                     case 'vpp_ct': presetValues = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
-                setTargets(prev => ({ ...prev, ...presetValues }));
+                const newTargets = { ...targets, ...presetValues };
+                setTargets(newTargets);
+                targetsRef.current = newTargets;
+
                 const now = Date.now(); const durationMs = transitionDuration * 1000;
                 onUpdate({ ...presetValues, transition: (durationMs > 0) ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: presetValues.hr, startSpo2: vitals.spo2, targetSpo2: presetValues.spo2, startResp: vitals.resp, targetResp: presetValues.resp } : null });
                 logAction(`Escenario: ${name}`);
@@ -802,7 +843,10 @@
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
                     <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
                         <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
-                        <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
+                            <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        </div>
                     </header>
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
