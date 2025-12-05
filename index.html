@@ -50,7 +50,7 @@
     
     <style>
         /* Fondo Negro Absoluto */
-        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; }
+        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; }
         
         @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
@@ -82,6 +82,41 @@
         input[type=range].cyan-slider { accent-color: #06b6d4; }
         input[type=range].time-slider { accent-color: #f59e0b; }
         input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
+
+        /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
+        .force-landscape-container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Si es pantalla pequeña y está en vertical, rotamos */
+        @media screen and (max-width: 900px) and (orientation: portrait) {
+            .force-landscape {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100vh; /* Intercambiamos dimensiones */
+                height: 100vw;
+                transform: translate(-50%, -50%) rotate(90deg);
+                transform-origin: center center;
+                overflow: hidden;
+            }
+        }
+        /* En horizontal o pantallas grandes, se comporta normal */
+        @media screen and (min-width: 901px), (orientation: landscape) {
+            .force-landscape {
+                width: 100%;
+                height: 100%;
+            }
+        }
+        
+        /* Optimización GPU para tablets viejas */
+        .hardware-accelerated {
+            transform: translateZ(0);
+            will-change: transform, opacity;
+        }
     </style>
 </head>
 <body>
@@ -132,27 +167,39 @@
           appId: "1:830562769122:web:1db7060de0c80556db66bb"
         };
 
-        let db, auth;
+        let db = null;
+        let auth = null;
+        // NOTA: Eliminada variable 'app' para evitar ReferenceError. Firebase gestiona la instancia internamente.
         const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
         if (isConfigured && typeof firebase !== 'undefined') {
             try {
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                // Inicialización segura de Firebase
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                } 
+                // Usamos las instancias globales
                 db = firebase.firestore();
                 auth = firebase.auth();
-                db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+                
+                if (db) {
+                    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+                }
             } catch (error) { console.error("Error iniciando Firebase:", error); }
         }
 
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- AUDIO ---
+        // --- AUDIO & NO-SLEEP VIDEO HACK ---
         let audioCtx;
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) audioCtx = new AudioContext();
         } catch (e) {}
         
+        // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
+        const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
+
         const playBeep = (pitch = 800) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             try {
@@ -235,6 +282,7 @@
             List: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
             Music: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
             Lock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+            Maximize: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
             LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         };
 
@@ -249,6 +297,10 @@
 
             const handleLogin = async (e) => {
                 e.preventDefault();
+                if (!auth) {
+                    setError("Error: Firebase no está inicializado.");
+                    return;
+                }
                 setLoading(true);
                 setError('');
                 try {
@@ -292,27 +344,47 @@
         const useInterpolatedVitals = (targetVitals) => {
             const [currentVitals, setCurrentVitals] = useState(targetVitals);
             const requestRef = useRef();
-            
+            const syncRef = useRef({ originalStart: 0, localStart: 0 }); // Para sincronización de reloj
+
             useEffect(() => {
                 const animate = () => {
                     const now = Date.now();
                     const t = targetVitals.transition;
+
                     if (t && t.duration > 0) {
-                        const elapsed = now - t.startTime;
-                        let progress = elapsed / t.duration;
-                        if (elapsed < -2000) progress = 0; 
+                        // Lógica de Sincronización de Relojes (Clock Skew Fix)
+                        // Si detectamos una nueva transición (cambio de startTime), recalculamos el punto de partida local
+                        if (syncRef.current.originalStart !== t.startTime) {
+                            const timeDiff = now - t.startTime;
+                            // Si la diferencia de hora es mayor a 2 segundos (por relojes desajustados),
+                            // forzamos que la animación empiece AHORA en este dispositivo.
+                            // Esto arregla el delay de 30s en tablets viejas.
+                            const useLocalTime = Math.abs(timeDiff) > 2000;
+                            syncRef.current = {
+                                originalStart: t.startTime,
+                                localStart: useLocalTime ? now : t.startTime
+                            };
+                        }
+
+                        const startTime = syncRef.current.localStart;
+                        const elapsed = now - startTime;
+                        const progress = elapsed / t.duration;
                         const safeProgress = Math.max(0, Math.min(1, progress));
-                        const ease = safeProgress;
+
                         if (safeProgress < 1) {
                             setCurrentVitals({
                                 ...targetVitals,
-                                hr: Math.round(t.startHr + (t.targetHr - t.startHr) * ease),
-                                spo2: Math.round(t.startSpo2 + (t.targetSpo2 - t.startSpo2) * ease),
-                                resp: Math.round(t.startResp + (t.targetResp - t.startResp) * ease),
+                                hr: Math.round(t.startHr + (t.targetHr - t.startHr) * safeProgress),
+                                spo2: Math.round(t.startSpo2 + (t.targetSpo2 - t.startSpo2) * safeProgress),
+                                resp: Math.round(t.startResp + (t.targetResp - t.startResp) * safeProgress),
                             });
                             requestRef.current = requestAnimationFrame(animate);
-                        } else { setCurrentVitals(targetVitals); }
-                    } else { setCurrentVitals(targetVitals); }
+                        } else { 
+                            setCurrentVitals(targetVitals); 
+                        }
+                    } else { 
+                        setCurrentVitals(targetVitals); 
+                    }
                 };
                 requestRef.current = requestAnimationFrame(animate);
                 return () => cancelAnimationFrame(requestRef.current);
@@ -480,9 +552,39 @@
             const [time, setTime] = useState(new Date());
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
+            const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
+            const videoRef = useRef(null); // Ref para el video invisible
+            
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
             
-            const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
+            // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
+            useEffect(() => {
+                const checkSize = () => {
+                    // Usamos 900px como punto de corte razonable para tablets verticales/celulares
+                    // O si la altura es mayor que el ancho (portrait) en desktop tambien podria aplicar
+                    // Pero nos ceñimos al ancho del viewport para determinar "dispositivo chico"
+                    setIsSmallScreen(window.innerWidth < 900);
+                };
+                checkSize();
+                window.addEventListener('resize', checkSize);
+                return () => window.removeEventListener('resize', checkSize);
+            }, []);
+
+            const enableAudio = () => { 
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+                setAudioEnabled(true);
+                
+                // Intento de pantalla completa al iniciar audio (gesto de usuario)
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+
+                // HACK: Reproducir video invisible para evitar throttle en tablets viejas
+                if (videoRef.current) {
+                    videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
+                }
+            };
+
             const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
 
             useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
@@ -506,12 +608,12 @@
             }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
-                if (showQR) {
+                if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
                     let baseUrl = window.location.origin + window.location.pathname;
                     if (!baseUrl.endsWith('/') && !baseUrl.endsWith('.html')) baseUrl += '/';
                     setQrUrl(`${baseUrl}?mode=control&session=${sessionId}`);
                 }
-            }, [showQR, sessionId]);
+            }, [showQR, sessionId, isSmallScreen]);
 
             const getBorderColor = () => {
                 if (alarmState === 'none' || vitals.alarmMuted) return 'border-transparent';
@@ -520,8 +622,122 @@
             };
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
+            // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
+            if (isSmallScreen) {
+                return (
+                    <div className="force-landscape-container bg-black text-white relative hardware-accelerated">
+                       {/* Video Hack Hidden */}
+                       <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
+                       
+                       <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
+                            {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
+                            
+                            {/* Header Minimalista */}
+                            <div className="flex justify-between items-center bg-slate-900 px-3 py-1 border-b border-slate-700">
+                                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                                    <span className="font-bold text-white">SpO2 MONITOR</span>
+                                    <span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-3 h-3" /> : <Icons.Volume2 className="text-[#42B334] w-3 h-3" />}
+                                    <div className="flex items-center gap-1">
+                                        <Icons.Battery className="w-3 h-3 text-green-500" />
+                                        <span className="text-[10px] text-green-500">FULL</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cuerpo Principal */}
+                            <div className="flex-1 grid grid-cols-2 divide-x divide-slate-800">
+                                {/* Columna Izq: SpO2 */}
+                                <div className="flex flex-col items-center justify-center relative p-2">
+                                    <span className="text-yellow-400 font-bold text-lg absolute top-2 left-2">%SpO2</span>
+                                    <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '25vh'}}>
+                                        {vitals.spo2 || '--'}
+                                    </span>
+                                    {/* Barra de Señal Simulada */}
+                                    <div className="absolute bottom-4 left-4 flex gap-0.5 h-12 items-end">
+                                        {[1,2,3,4,5,6,7].map(i => (
+                                            <div key={i} className={`w-2 rounded-sm ${i < (vitals.spo2 > 0 ? 6 : 1) ? 'bg-green-500' : 'bg-slate-700'}`} style={{height: `${i*14}%`}}></div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Columna Der: FC y Wave */}
+                                <div className="flex flex-col relative h-full">
+                                    {/* FC Value */}
+                                    <div className="flex-1 flex flex-col items-center justify-center p-2 relative border-b border-slate-800">
+                                        <span className="text-green-500 font-bold text-lg absolute top-2 left-2">PR bpm</span>
+                                        <span className={`font-mono font-bold leading-none ${getTextColor('text-green-500')}`} style={{fontSize: '20vh'}}>
+                                            {vitals.hr || '--'}
+                                        </span>
+                                    </div>
+                                    {/* Waveform Area - REDUCIDO DE TAMAÑO (h-1/5) */}
+                                    <div className="h-1/5 w-full bg-black relative">
+                                        <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer / Conexión QR */}
+                            <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center">
+                                <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
+                                    <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => {
+                                        if (!document.fullscreenElement) {
+                                            document.documentElement.requestFullscreen().catch(() => {});
+                                        } else {
+                                            document.exitFullscreen().catch(() => {});
+                                        }
+                                    }} className="p-2 bg-slate-800 rounded text-slate-400">
+                                        <Icons.Maximize className="w-3 h-3" />
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowQR(!showQR)}
+                                        className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${showQR ? 'bg-white text-black' : 'bg-blue-900/50 text-blue-300 border border-blue-800'}`}
+                                    >
+                                        <Icons.QrCode className="w-3 h-3"/> {showQR ? 'Ocultar' : 'Conectar'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Overlays (QR y Audio) */}
+                             {!audioEnabled && !showQR && (
+                                <div className="absolute inset-0 bg-black/90 z-40 flex items-center justify-center" onClick={enableAudio}>
+                                    <div className="text-center animate-pulse">
+                                        <Icons.Play className="w-12 h-12 text-white mx-auto mb-2" />
+                                        <span className="text-white font-bold text-sm">TOCAR PARA INICIAR</span>
+                                    </div>
+                                </div>
+                            )}
+
+                             {showQR && (
+                                <div className="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4" onClick={() => setShowQR(false)}>
+                                     <div className="bg-white p-4 rounded-lg flex flex-col items-center shadow-2xl">
+                                        <h3 className="text-black font-bold mb-2 text-sm">Conexión Remota</h3>
+                                        {isPreviewEnv ? (
+                                             <div className="bg-red-100 border border-red-500 text-red-700 p-2 rounded text-xs mb-2">Modo Preview</div>
+                                        ) : (
+                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`} className="w-32 h-32 border-2 border-black" />
+                                        )}
+                                        <p className="text-black text-[10px] mt-2">Escanea para controlar</p>
+                                     </div>
+                                     <span className="text-slate-500 text-xs mt-4">Toca para cerrar</span>
+                                </div>
+                            )}
+                       </div>
+                    </div>
+                );
+            }
+
+            // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative hardware-accelerated`}>
+                    {/* Video Hack Hidden */}
+                    <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
+
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
                     {!audioEnabled && !showQR && (
                         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
@@ -548,18 +764,19 @@
                         <div className="flex gap-2 items-center">{vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}<span>ID: {sessionId}</span></div>
                     </div>
                     <div className="flex-1 min-h-0 grid grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
-                        <div className="grid grid-cols-[70%_30%] h-full min-h-0">
+                        {/* AUMENTO DE ESPACIO PARA NÚMEROS (DE 30% A 45%) */}
+                        <div className="grid grid-cols-[55%_45%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
                                 <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
-                            <div className="flex flex-col justify-center items-end pr-16 relative min-w-0">
+                            <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
                                 <span className="absolute top-2 right-2 text-[#42B334] font-bold text-lg">FC</span>
                                 <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}><span style={{fontSize: '2.5vh'}}>180</span><span style={{fontSize: '2.5vh'}}>100</span></div>
-                                <span className={`leading-none font-mono font-bold`} style={{fontSize: '14.4vh', color: getTextColor('#42B334')}}>{vitals.hr || '--'}</span>
+                                <span className={`leading-none font-mono font-bold`} style={{fontSize: '22vh', color: getTextColor('#42B334')}}>{vitals.hr || '--'}</span>
                             </div>
                         </div>
-                        <div className="grid grid-cols-[70%_30%] h-full min-h-0">
+                        <div className="grid grid-cols-[55%_45%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">Pleth</span>
                                 <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
@@ -568,7 +785,7 @@
                                 <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">SpO2</span>
                                 <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80"><span style={{fontSize: '2.5vh'}}>95</span><span style={{fontSize: '2.5vh'}}>89</span></div>
                                 <div className="flex items-baseline">
-                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '14.4vh'}}>{vitals.spo2 || '--'}</span><span className={`ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '6vh'}}>%</span>
+                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '22vh'}}>{vitals.spo2 || '--'}</span><span className={`ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '8vh'}}>%</span>
                                 </div>
                             </div>
                         </div>
@@ -601,42 +818,68 @@
 
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
-            const [transitionDuration, setTransitionDuration] = useState(10);
+            const [transitionDuration, setTransitionDuration] = useState(5); // DEFAULT 5 SEGUNDOS
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
+            
+            // --- CORRECCIÓN DE SINCRONIZACIÓN ---
+            // Usamos una referencia para mantener el valor más reciente de los sliders
+            // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
+            const targetsRef = useRef(currentVitals);
+            const isDraggingRef = useRef(false); // EVITAR CONFLICTOS DE SYNC
 
             useEffect(() => {
-                setTargets(prev => ({...prev, hr: currentVitals.hr, spo2: currentVitals.spo2, resp: currentVitals.resp}));
+                // Solo sincronizamos si NO estamos arrastrando para evitar que el slider "salte"
+                if (!isDraggingRef.current) {
+                    const newTargets = {
+                        ...targets, // Mantenemos estado local
+                        hr: currentVitals.hr, 
+                        spo2: currentVitals.spo2, 
+                        resp: currentVitals.resp
+                    };
+                    setTargets(newTargets);
+                    targetsRef.current = newTargets;
+                }
             }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
-            // OPTIMIZADO: Solo actualiza el estado local visual
+            // OPTIMIZADO: Actualiza tanto el estado (para render) como la referencia (para lógica inmediata)
             const handleSliderChange = (field, value) => {
-                setTargets(prev => ({ ...prev, [field]: value }));
+                const newTargets = { ...targets, [field]: value };
+                setTargets(newTargets);
+                targetsRef.current = newTargets;
             };
 
-            // OPTIMIZADO: Envía los datos y calcula transición SOLO al soltar
+            const handleSliderStart = () => {
+                isDraggingRef.current = true;
+            };
+
+            // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
             const handleCommitChange = (field) => {
+                isDraggingRef.current = false;
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
                 
+                // Usamos targetsRef.current en lugar de targets
+                const currentTargets = targetsRef.current;
+
                 // Logging
-                if (field === 'hr') logAction(`Cambio manual FC: ${targets.hr} lpm`);
-                if (field === 'spo2') logAction(`Cambio manual SpO2: ${targets.spo2}%`);
+                if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
+                if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
 
                 onUpdate({ 
-                    ...targets, 
+                    ...currentTargets, 
                     transition: (durationMs > 0) ? { 
                         startTime: now, 
                         duration: durationMs, 
                         startHr: vitals.hr, 
-                        targetHr: targets.hr, 
+                        targetHr: currentTargets.hr, 
                         startSpo2: vitals.spo2, 
-                        targetSpo2: targets.spo2, 
+                        targetSpo2: currentTargets.spo2, 
                         startResp: vitals.resp, 
-                        targetResp: targets.resp || 45 
+                        targetResp: currentTargets.resp || 45 
                     } : null 
                 });
             };
@@ -652,17 +895,23 @@
                     case 'vpp': presetValues = { hr: 88, spo2: 84, resp: 40 }; break;
                     case 'vpp_ct': presetValues = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
-                setTargets(prev => ({ ...prev, ...presetValues }));
+                const newTargets = { ...targets, ...presetValues };
+                setTargets(newTargets);
+                targetsRef.current = newTargets;
+
                 const now = Date.now(); const durationMs = transitionDuration * 1000;
                 onUpdate({ ...presetValues, transition: (durationMs > 0) ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: presetValues.hr, startSpo2: vitals.spo2, targetSpo2: presetValues.spo2, startResp: vitals.resp, targetResp: presetValues.resp } : null });
                 logAction(`Escenario: ${name}`);
             };
 
             return (
-                <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
+                <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
                     <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
                         <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
-                        <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
+                            <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        </div>
                     </header>
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
@@ -684,7 +933,7 @@
                                 onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
                                 onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
                                 onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
-                                className="w-full h-8 time-slider cursor-pointer" 
+                                className="w-full h-8 time-slider cursor-pointer touch-none" 
                             />
                             <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
                         </div>
@@ -695,9 +944,12 @@
                                 type="range" min="0" max="200" 
                                 value={targets.hr} 
                                 onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
                                 onMouseUp={() => handleCommitChange('hr')}
                                 onTouchEnd={() => handleCommitChange('hr')}
-                                className="w-full h-12 accent-[#42B334] cursor-pointer" 
+                                onClick={() => handleCommitChange('hr')}
+                                className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" 
                             />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
@@ -706,9 +958,12 @@
                                 type="range" min="0" max="100" 
                                 value={targets.spo2} 
                                 onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
                                 onMouseUp={() => handleCommitChange('spo2')}
                                 onTouchEnd={() => handleCommitChange('spo2')}
-                                className="w-full h-12 accent-yellow-400 cursor-pointer" 
+                                onClick={() => handleCommitChange('spo2')}
+                                className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" 
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -763,15 +1018,21 @@
             };
 
             const handleLogout = () => {
-                auth.signOut().then(() => {
+                if (auth) {
+                    auth.signOut().then(() => {
+                        setUser(null);
+                        setIsDemoMode(false);
+                        localStorage.removeItem('neosim_demo_timer'); 
+                        setMode('select');
+                    });
+                } else {
                     setUser(null);
-                    setIsDemoMode(false);
-                    localStorage.removeItem('neosim_demo_timer'); 
                     setMode('select');
-                });
+                }
             };
 
             useEffect(() => {
+                if (!auth) return;
                 const unsub = auth.onAuthStateChanged(async (u) => {
                     if (u) {
                         if (u.isAnonymous) {
@@ -784,16 +1045,18 @@
                             // === VERIFICACIÓN DE LICENCIA ===
                             // ----------------------------------------------------------------
                             try {
-                                const doc = await db.collection('usuarios').doc(u.uid).get();
-                                if (doc.exists) {
-                                    const data = doc.data();
-                                    if (data.fecha_vencimiento) {
-                                        const vencimiento = data.fecha_vencimiento.toDate();
-                                        const hoy = new Date();
-                                        // Si venció, activamos el bloqueo pero dejamos setUser(u) 
-                                        // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
-                                        if (hoy > vencimiento) {
-                                            setLicenseExpired(true);
+                                if (db) {
+                                    const doc = await db.collection('usuarios').doc(u.uid).get();
+                                    if (doc.exists) {
+                                        const data = doc.data();
+                                        if (data.fecha_vencimiento) {
+                                            const vencimiento = data.fecha_vencimiento.toDate();
+                                            const hoy = new Date();
+                                            // Si venció, activamos el bloqueo pero dejamos setUser(u) 
+                                            // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
+                                            if (hoy > vencimiento) {
+                                                setLicenseExpired(true);
+                                            }
                                         }
                                     }
                                 }
@@ -875,7 +1138,7 @@
                             <button onClick={() => {
                                 localStorage.removeItem('neosim_demo_timer'); 
                                 setLicenseExpired(false);
-                                auth.signOut();
+                                if(auth) auth.signOut();
                                 window.location.reload();
                             }} className="text-slate-500 hover:text-white text-sm underline mt-4">
                                 Volver a la pantalla de inicio
