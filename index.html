@@ -111,6 +111,12 @@
                 height: 100%;
             }
         }
+        
+        /* Optimización GPU para tablets viejas */
+        .hardware-accelerated {
+            transform: translateZ(0);
+            will-change: transform, opacity;
+        }
     </style>
 </head>
 <body>
@@ -186,13 +192,16 @@
 
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- AUDIO ---
+        // --- AUDIO & NO-SLEEP VIDEO HACK ---
         let audioCtx;
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) audioCtx = new AudioContext();
         } catch (e) {}
         
+        // Video base64 ultra-corto en negro para mantener el navegador despierto
+        const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
+
         const playBeep = (pitch = 800) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             try {
@@ -526,6 +535,8 @@
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
             const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
+            const videoRef = useRef(null); // Ref para el video invisible
+            
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
             
             // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
@@ -549,6 +560,11 @@
                 const elem = document.documentElement;
                 if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
                 else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+
+                // HACK: Reproducir video invisible para evitar throttle en tablets viejas
+                if (videoRef.current) {
+                    videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
+                }
             };
 
             const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
@@ -591,7 +607,10 @@
             // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
             if (isSmallScreen) {
                 return (
-                    <div className="force-landscape-container bg-black text-white relative">
+                    <div className="force-landscape-container bg-black text-white relative hardware-accelerated">
+                       {/* Video Hack Hidden */}
+                       <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
+                       
                        <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
                             {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
                             
@@ -697,7 +716,10 @@
 
             // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative hardware-accelerated`}>
+                    {/* Video Hack Hidden */}
+                    <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
+
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
                     {!audioEnabled && !showQR && (
                         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
@@ -787,16 +809,20 @@
             // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
             const targetsRef = useRef(currentVitals);
+            const isDraggingRef = useRef(false); // EVITAR CONFLICTOS DE SYNC
 
             useEffect(() => {
-                const newTargets = {
-                    ...targets, // Mantenemos estado local
-                    hr: currentVitals.hr, 
-                    spo2: currentVitals.spo2, 
-                    resp: currentVitals.resp
-                };
-                setTargets(newTargets);
-                targetsRef.current = newTargets;
+                // Solo sincronizamos si NO estamos arrastrando para evitar que el slider "salte"
+                if (!isDraggingRef.current) {
+                    const newTargets = {
+                        ...targets, // Mantenemos estado local
+                        hr: currentVitals.hr, 
+                        spo2: currentVitals.spo2, 
+                        resp: currentVitals.resp
+                    };
+                    setTargets(newTargets);
+                    targetsRef.current = newTargets;
+                }
             }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
@@ -808,8 +834,13 @@
                 targetsRef.current = newTargets;
             };
 
+            const handleSliderStart = () => {
+                isDraggingRef.current = true;
+            };
+
             // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
             const handleCommitChange = (field) => {
+                isDraggingRef.current = false;
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
                 
@@ -884,7 +915,7 @@
                                 onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
                                 onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
                                 onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
-                                className="w-full h-8 time-slider cursor-pointer" 
+                                className="w-full h-8 time-slider cursor-pointer touch-none" 
                             />
                             <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
                         </div>
@@ -895,9 +926,12 @@
                                 type="range" min="0" max="200" 
                                 value={targets.hr} 
                                 onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
                                 onMouseUp={() => handleCommitChange('hr')}
                                 onTouchEnd={() => handleCommitChange('hr')}
-                                className="w-full h-12 accent-[#42B334] cursor-pointer" 
+                                onClick={() => handleCommitChange('hr')}
+                                className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" 
                             />
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
@@ -906,9 +940,12 @@
                                 type="range" min="0" max="100" 
                                 value={targets.spo2} 
                                 onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
+                                onMouseDown={handleSliderStart}
+                                onTouchStart={handleSliderStart}
                                 onMouseUp={() => handleCommitChange('spo2')}
                                 onTouchEnd={() => handleCommitChange('spo2')}
-                                className="w-full h-12 accent-yellow-400 cursor-pointer" 
+                                onClick={() => handleCommitChange('spo2')}
+                                className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" 
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
