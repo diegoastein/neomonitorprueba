@@ -1,2 +1,2 @@
-# pruebas
-repositorio de pruebas
+neomonitor.pro
+todos los derechos registrados
