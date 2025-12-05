@@ -50,7 +50,7 @@
     
     <style>
         /* Fondo Negro Absoluto */
-        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; }
+        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; }
         
         @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
@@ -521,7 +521,6 @@
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
             return (
-                // CAMBIO CLAVE: h-[100dvh] usa la altura dinámica del viewport móvil (evita que la barra de url corte la app)
                 <div className={`w-full h-[100dvh] bg-black flex flex-col border-[6px] md:border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
                     
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
@@ -568,18 +567,19 @@
                                 <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
                             </div>
                             
-                            {/* CAMBIO: Usamos flex para centrar verticalmente todo el bloque de números */}
-                            <div className="flex flex-col justify-center items-end pr-4 md:pr-16 relative min-w-0 h-full">
+                            {/* Panel Numérico FC (Con anclaje absoluto para evitar desbordes) */}
+                            <div className="relative h-full w-full bg-black overflow-hidden">
+                                {/* Etiqueta: Arriba Derecha */}
                                 <span className="absolute top-1 right-2 text-[#42B334] font-bold text-sm md:text-lg">FC</span>
                                 
-                                {/* Contenedor agrupado de Límites + Valor para centrado perfecto */}
-                                <div className="flex flex-col items-end mt-4 md:mt-0">
-                                    <div className="text-emerald-600 font-mono text-xs md:text-xl flex flex-col items-end leading-tight opacity-80 mb-1" style={{color: '#42B334'}}>
-                                        <span>180</span><span>100</span>
-                                    </div>
-                                    <span className={`leading-none font-mono font-bold`} style={{fontSize: 'min(14vh, 14vw)', color: getTextColor('#42B334')}}>
-                                        {vitals.hr || '--'}
-                                    </span>
+                                {/* Límites: Arriba Derecha (Debajo de la etiqueta) */}
+                                <div className="absolute top-6 right-2 text-emerald-600 font-mono text-xs md:text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}>
+                                    <span>180</span><span>100</span>
+                                </div>
+                                
+                                {/* Valor: Abajo Derecha (Pegado al piso) */}
+                                <div className="absolute bottom-1 right-2 leading-none font-mono font-bold" style={{fontSize: 'min(16vh, 16vw)', color: getTextColor('#42B334')}}>
+                                    {vitals.hr || '--'}
                                 </div>
                             </div>
                         </div>
@@ -591,20 +591,22 @@
                                 <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
                             </div>
                             
-                            {/* CAMBIO: Flexbox centrado vertical */}
-                            <div className="flex flex-col justify-center items-end pr-2 md:pr-4 relative min-w-0 h-full">
+                            {/* Panel Numérico SpO2 (Con anclaje absoluto) */}
+                            <div className="relative h-full w-full bg-black overflow-hidden">
+                                {/* Etiqueta */}
                                 <span className="absolute top-1 right-2 text-yellow-400 font-bold text-sm md:text-lg">SpO2</span>
                                 
-                                <div className="flex flex-col items-end mt-4 md:mt-0">
-                                    <div className="text-yellow-600 font-mono text-xs md:text-xl flex flex-col items-end leading-tight opacity-80 mb-1">
-                                        <span>95</span><span>89</span>
-                                    </div>
-                                    <div className="flex items-baseline">
-                                        <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: 'min(14vh, 14vw)'}}>
-                                            {vitals.spo2 || '--'}
-                                        </span>
-                                        <span className={`ml-1 md:ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '4vh'}}>%</span>
-                                    </div>
+                                {/* Límites */}
+                                <div className="absolute top-6 right-2 text-yellow-600 font-mono text-xs md:text-xl flex flex-col items-end leading-tight opacity-80">
+                                    <span>95</span><span>89</span>
+                                </div>
+                                
+                                {/* Valor + Porcentaje: Abajo Derecha */}
+                                <div className="absolute bottom-1 right-2 flex items-baseline leading-none">
+                                    <span className={`font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: 'min(16vh, 16vw)'}}>
+                                        {vitals.spo2 || '--'}
+                                    </span>
+                                    <span className={`ml-1 md:ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '4vh'}}>%</span>
                                 </div>
                             </div>
                         </div>
@@ -638,6 +640,7 @@
                 </div>
             );
         };
+
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(10);
