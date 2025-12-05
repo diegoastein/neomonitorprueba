@@ -169,18 +169,16 @@
 
         let db = null;
         let auth = null;
-        let app = null; // Variable global app definida
+        // NOTA: Eliminada variable 'app' para evitar ReferenceError. Firebase gestiona la instancia internamente.
         const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
         if (isConfigured && typeof firebase !== 'undefined') {
             try {
-                // Inicialización segura
+                // Inicialización segura de Firebase
                 if (!firebase.apps.length) {
-                    app = firebase.initializeApp(firebaseConfig);
-                } else {
-                    app = firebase.app();
-                }
-                
+                    firebase.initializeApp(firebaseConfig);
+                } 
+                // Usamos las instancias globales
                 db = firebase.firestore();
                 auth = firebase.auth();
                 
@@ -199,7 +197,7 @@
             if (AudioContext) audioCtx = new AudioContext();
         } catch (e) {}
         
-        // Video base64 ultra-corto en negro para mantener el navegador despierto
+        // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
         const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
 
         const playBeep = (pitch = 800) => {
@@ -977,6 +975,189 @@
                         </div>
                         <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
                     </div>
+                </div>
+            );
+        };
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [mode, setMode] = useState('select');
+            const [sessionId, setSessionId] = useState('');
+            const [vitals, setVitals] = useState(DEFAULT_VITALS);
+            const [isConnected, setIsConnected] = useState(true);
+            const [isDemoMode, setIsDemoMode] = useState(false);
+            const [demoTimeLeft, setDemoTimeLeft] = useState(300);
+            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
+
+            useEffect(() => {
+                let interval = null;
+                if (isDemoMode && demoTimeLeft > 0) {
+                    interval = setInterval(() => { 
+                        const newTime = demoTimeLeft - 1;
+                        setDemoTimeLeft(newTime);
+                        localStorage.setItem('neosim_demo_timer', newTime);
+                    }, 1000);
+                } else if (demoTimeLeft === 0) { clearInterval(interval); }
+                return () => clearInterval(interval);
+            }, [isDemoMode, demoTimeLeft]);
+
+            const handleDemoStart = () => {
+                setIsDemoMode(true);
+                const savedTime = localStorage.getItem('neosim_demo_timer');
+                if (savedTime && parseInt(savedTime) > 0) {
+                    setDemoTimeLeft(parseInt(savedTime));
+                } else {
+                    setDemoTimeLeft(300);
+                    localStorage.setItem('neosim_demo_timer', 300);
+                }
+                if (auth) {
+                    auth.signInAnonymously().then(u => { setUser(u.user); }).catch(err => {
+                        console.warn("Auth anónima falló, usando usuario local.", err);
+                        setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
+                    });
+                } else { setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' }); }
+            };
+
+            const handleLogout = () => {
+                if (auth) {
+                    auth.signOut().then(() => {
+                        setUser(null);
+                        setIsDemoMode(false);
+                        localStorage.removeItem('neosim_demo_timer'); 
+                        setMode('select');
+                    });
+                } else {
+                    setUser(null);
+                    setMode('select');
+                }
+            };
+
+            useEffect(() => {
+                if (!auth) return;
+                const unsub = auth.onAuthStateChanged(async (u) => {
+                    if (u) {
+                        if (u.isAnonymous) {
+                            setIsDemoMode(true);
+                            const savedTime = localStorage.getItem('neosim_demo_timer');
+                            if (savedTime) setDemoTimeLeft(parseInt(savedTime));
+                            setUser(u);
+                        } else {
+                            // ----------------------------------------------------------------
+                            // === VERIFICACIÓN DE LICENCIA ===
+                            // ----------------------------------------------------------------
+                            try {
+                                if (db) {
+                                    const doc = await db.collection('usuarios').doc(u.uid).get();
+                                    if (doc.exists) {
+                                        const data = doc.data();
+                                        if (data.fecha_vencimiento) {
+                                            const vencimiento = data.fecha_vencimiento.toDate();
+                                            const hoy = new Date();
+                                            // Si venció, activamos el bloqueo pero dejamos setUser(u) 
+                                            // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
+                                            if (hoy > vencimiento) {
+                                                setLicenseExpired(true);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error verificando licencia:", error);
+                            }
+                            setIsDemoMode(false);
+                            setUser(u);
+                        }
+                    } else {
+                        setUser(null);
+                    }
+                });
+                return () => unsub();
+            }, []);
+
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const urlMode = params.get('mode');
+                const urlSession = params.get('session');
+                if (urlMode && urlSession) { setMode(urlMode); setSessionId(urlSession); }
+            }, []);
+
+            useEffect(() => {
+                if (!sessionId || !user || !db) return;
+                let unsubscribe;
+                const connect = () => {
+                    try {
+                        unsubscribe = db.collection("sessions").doc(sessionId).onSnapshot(
+                            (doc) => { if (doc.exists) { setVitals({...doc.data(), connected: true}); setIsConnected(true); } }, 
+                            (error) => { 
+                                console.log("Reconectando...", error); 
+                                if (isDemoMode) { setIsConnected(true); } else { setIsConnected(false); setTimeout(connect, 2000); }
+                            }
+                        );
+                    } catch(e) { setIsConnected(false); }
+                };
+                connect();
+                return () => unsubscribe && unsubscribe();
+            }, [sessionId, user, isDemoMode]);
+
+            const handleUpdate = async (newVitals) => { 
+                if (sessionId && db) {
+                    try { await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); } 
+                    catch (e) { if (isDemoMode) setVitals(prev => ({...prev, ...newVitals})); }
+                } else if (isDemoMode) { setVitals(prev => ({...prev, ...newVitals})); }
+            };
+            const onSelect = (m, id) => { setMode(m); setSessionId(id); };
+
+            if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
+
+            // --- PANTALLA DE BLOQUEO UNIFICADA (DEMO / LICENCIA) ---
+            if (licenseExpired || (isDemoMode && demoTimeLeft === 0)) {
+                const title = licenseExpired ? "Licencia No Válida" : "Tiempo de Prueba Agotado";
+                const message = licenseExpired 
+                    ? "Tu licencia de NeoMonitor ha caducado o no es válida."
+                    : "Has disfrutado de los 5 minutos de demostración gratuita.";
+
+                return (
+                    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
+                        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-600 max-w-md w-full">
+                            <div className="flex justify-center mb-6 text-red-500">
+                                {licenseExpired ? <Icons.Lock className="w-20 h-20" /> : <Icons.Clock className="w-20 h-20 text-yellow-400" />}
+                            </div>
+                            
+                            <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
+                            <p className="text-slate-300 mb-8 text-lg">{message}</p>
+                            
+                            <div className="bg-slate-900 p-6 rounded-xl mb-6 border border-slate-700">
+                                <p className="text-sm text-slate-400 mb-3">Para continuar utilizando el simulador profesionalmente:</p>
+                                <button 
+                                    onClick={() => window.location.href = "https://www.getneomonitor.pro"} 
+                                    className="w-full py-4 bg-[#42B334] hover:bg-green-600 text-black font-bold text-lg rounded-lg transition-transform transform hover:scale-105 shadow-lg"
+                                >
+                                    {licenseExpired ? "Renovar Licencia Ahora" : "Comprar Licencia Pro"}
+                                </button>
+                            </div>
+
+                            <button onClick={() => {
+                                localStorage.removeItem('neosim_demo_timer'); 
+                                setLicenseExpired(false);
+                                if(auth) auth.signOut();
+                                window.location.reload();
+                            }} className="text-slate-500 hover:text-white text-sm underline mt-4">
+                                Volver a la pantalla de inicio
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="font-sans antialiased relative">
+                    {isDemoMode && (
+                        <div className="fixed top-0 right-0 bg-yellow-500 text-black font-bold px-3 py-1 rounded-bl-lg z-50 text-xs shadow-lg">
+                            Demo: {Math.floor(demoTimeLeft / 60)}:{(demoTimeLeft % 60).toString().padStart(2, '0')}
+                        </div>
+                    )}
+                    {mode === 'select' && <RoleSelection onSelect={onSelect} onLogout={handleLogout} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} connectionStatus={isConnected} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
                 </div>
             );
         };
