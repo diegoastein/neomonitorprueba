@@ -599,7 +599,7 @@
             );
         };
 
-const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(10);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -612,12 +612,33 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
+            // OPTIMIZADO: Solo actualiza el estado local visual
             const handleSliderChange = (field, value) => {
-                const newTargets = { ...targets, [field]: value };
-                setTargets(newTargets); 
+                setTargets(prev => ({ ...prev, [field]: value }));
+            };
+
+            // OPTIMIZADO: Envía los datos y calcula transición SOLO al soltar
+            const handleCommitChange = (field) => {
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
-                onUpdate({ ...newTargets, transition: (durationMs > 0) ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: newTargets.hr, startSpo2: vitals.spo2, targetSpo2: newTargets.spo2, startResp: vitals.resp, targetResp: newTargets.resp || 45 } : null });
+                
+                // Logging
+                if (field === 'hr') logAction(`Cambio manual FC: ${targets.hr} lpm`);
+                if (field === 'spo2') logAction(`Cambio manual SpO2: ${targets.spo2}%`);
+
+                onUpdate({ 
+                    ...targets, 
+                    transition: (durationMs > 0) ? { 
+                        startTime: now, 
+                        duration: durationMs, 
+                        startHr: vitals.hr, 
+                        targetHr: targets.hr, 
+                        startSpo2: vitals.spo2, 
+                        targetSpo2: targets.spo2, 
+                        startResp: vitals.resp, 
+                        targetResp: targets.resp || 45 
+                    } : null 
+                });
             };
 
             const triggerSound = (type, name) => { onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
@@ -674,8 +695,8 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
                                 type="range" min="0" max="200" 
                                 value={targets.hr} 
                                 onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
-                                onMouseUp={() => logAction(`Cambio manual FC: ${targets.hr} lpm`)}
-                                onTouchEnd={() => logAction(`Cambio manual FC: ${targets.hr} lpm`)}
+                                onMouseUp={() => handleCommitChange('hr')}
+                                onTouchEnd={() => handleCommitChange('hr')}
                                 className="w-full h-12 accent-[#42B334] cursor-pointer" 
                             />
                         </div>
@@ -685,8 +706,8 @@ const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
                                 type="range" min="0" max="100" 
                                 value={targets.spo2} 
                                 onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
-                                onMouseUp={() => logAction(`Cambio manual SpO2: ${targets.spo2}%`)}
-                                onTouchEnd={() => logAction(`Cambio manual SpO2: ${targets.spo2}%`)}
+                                onMouseUp={() => handleCommitChange('spo2')}
+                                onTouchEnd={() => handleCommitChange('spo2')}
                                 className="w-full h-12 accent-yellow-400 cursor-pointer" 
                             />
                         </div>
