@@ -50,7 +50,7 @@
     
     <style>
         /* Fondo Negro Absoluto */
-        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; }
+        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; }
         
         @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
@@ -82,6 +82,35 @@
         input[type=range].cyan-slider { accent-color: #06b6d4; }
         input[type=range].time-slider { accent-color: #f59e0b; }
         input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
+
+        /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
+        .force-landscape-container {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Si es pantalla pequeña y está en vertical, rotamos */
+        @media screen and (max-width: 900px) and (orientation: portrait) {
+            .force-landscape {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100vh; /* Intercambiamos dimensiones */
+                height: 100vw;
+                transform: translate(-50%, -50%) rotate(90deg);
+                transform-origin: center center;
+                overflow: hidden;
+            }
+        }
+        /* En horizontal o pantallas grandes, se comporta normal */
+        @media screen and (min-width: 901px), (orientation: landscape) {
+            .force-landscape {
+                width: 100%;
+                height: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -480,8 +509,22 @@
             const [time, setTime] = useState(new Date());
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
+            const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
             
+            // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
+            useEffect(() => {
+                const checkSize = () => {
+                    // Usamos 900px como punto de corte razonable para tablets verticales/celulares
+                    // O si la altura es mayor que el ancho (portrait) en desktop tambien podria aplicar
+                    // Pero nos ceñimos al ancho del viewport para determinar "dispositivo chico"
+                    setIsSmallScreen(window.innerWidth < 900);
+                };
+                checkSize();
+                window.addEventListener('resize', checkSize);
+                return () => window.removeEventListener('resize', checkSize);
+            }, []);
+
             const enableAudio = () => { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); setAudioEnabled(true); };
             const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
 
@@ -506,12 +549,12 @@
             }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
-                if (showQR) {
+                if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
                     let baseUrl = window.location.origin + window.location.pathname;
                     if (!baseUrl.endsWith('/') && !baseUrl.endsWith('.html')) baseUrl += '/';
                     setQrUrl(`${baseUrl}?mode=control&session=${sessionId}`);
                 }
-            }, [showQR, sessionId]);
+            }, [showQR, sessionId, isSmallScreen]);
 
             const getBorderColor = () => {
                 if (alarmState === 'none' || vitals.alarmMuted) return 'border-transparent';
@@ -520,6 +563,103 @@
             };
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
+            // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
+            if (isSmallScreen) {
+                return (
+                    <div className="force-landscape-container bg-black text-white relative">
+                       <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
+                            {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
+                            
+                            {/* Header Minimalista */}
+                            <div className="flex justify-between items-center bg-slate-900 px-3 py-1 border-b border-slate-700">
+                                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                                    <span className="font-bold text-white">SpO2 MONITOR</span>
+                                    <span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-3 h-3" /> : <Icons.Volume2 className="text-[#42B334] w-3 h-3" />}
+                                    <div className="flex items-center gap-1">
+                                        <Icons.Battery className="w-3 h-3 text-green-500" />
+                                        <span className="text-[10px] text-green-500">FULL</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cuerpo Principal */}
+                            <div className="flex-1 grid grid-cols-2 divide-x divide-slate-800">
+                                {/* Columna Izq: SpO2 */}
+                                <div className="flex flex-col items-center justify-center relative p-2">
+                                    <span className="text-yellow-400 font-bold text-lg absolute top-2 left-2">%SpO2</span>
+                                    <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '25vh'}}>
+                                        {vitals.spo2 || '--'}
+                                    </span>
+                                    {/* Barra de Señal Simulada */}
+                                    <div className="absolute bottom-4 left-4 flex gap-0.5 h-12 items-end">
+                                        {[1,2,3,4,5,6,7].map(i => (
+                                            <div key={i} className={`w-2 rounded-sm ${i < (vitals.spo2 > 0 ? 6 : 1) ? 'bg-green-500' : 'bg-slate-700'}`} style={{height: `${i*14}%`}}></div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Columna Der: FC y Wave */}
+                                <div className="flex flex-col relative h-full">
+                                    {/* FC Value */}
+                                    <div className="flex-1 flex flex-col items-center justify-center p-2 relative border-b border-slate-800">
+                                        <span className="text-green-500 font-bold text-lg absolute top-2 left-2">PR bpm</span>
+                                        <span className={`font-mono font-bold leading-none ${getTextColor('text-green-500')}`} style={{fontSize: '20vh'}}>
+                                            {vitals.hr || '--'}
+                                        </span>
+                                    </div>
+                                    {/* Waveform Area */}
+                                    <div className="h-1/3 w-full bg-black relative">
+                                        <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer / Conexión QR */}
+                            <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center">
+                                <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
+                                    <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
+                                </div>
+                                <button 
+                                    onClick={() => setShowQR(!showQR)}
+                                    className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${showQR ? 'bg-white text-black' : 'bg-blue-900/50 text-blue-300 border border-blue-800'}`}
+                                >
+                                    <Icons.QrCode className="w-3 h-3"/> {showQR ? 'Ocultar' : 'Conectar'}
+                                </button>
+                            </div>
+
+                            {/* Overlays (QR y Audio) */}
+                             {!audioEnabled && !showQR && (
+                                <div className="absolute inset-0 bg-black/90 z-40 flex items-center justify-center" onClick={enableAudio}>
+                                    <div className="text-center animate-pulse">
+                                        <Icons.Play className="w-12 h-12 text-white mx-auto mb-2" />
+                                        <span className="text-white font-bold text-sm">TOCAR PARA INICIAR</span>
+                                    </div>
+                                </div>
+                            )}
+
+                             {showQR && (
+                                <div className="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4" onClick={() => setShowQR(false)}>
+                                     <div className="bg-white p-4 rounded-lg flex flex-col items-center shadow-2xl">
+                                        <h3 className="text-black font-bold mb-2 text-sm">Conexión Remota</h3>
+                                        {isPreviewEnv ? (
+                                             <div className="bg-red-100 border border-red-500 text-red-700 p-2 rounded text-xs mb-2">Modo Preview</div>
+                                        ) : (
+                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`} className="w-32 h-32 border-2 border-black" />
+                                        )}
+                                        <p className="text-black text-[10px] mt-2">Escanea para controlar</p>
+                                     </div>
+                                     <span className="text-slate-500 text-xs mt-4">Toca para cerrar</span>
+                                </div>
+                            )}
+                       </div>
+                    </div>
+                );
+            }
+
+            // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative`}>
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
