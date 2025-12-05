@@ -82,7 +82,6 @@
         input[type=range].cyan-slider { accent-color: #06b6d4; }
         input[type=range].time-slider { accent-color: #f59e0b; }
         input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
-        input[type=range].volume-slider { accent-color: #a8a29e; } /* Gris para volumen */
 
         /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
         .force-landscape-container {
@@ -170,130 +169,335 @@
 
         let db = null;
         let auth = null;
-        // NOTA: Eliminada variable 'app' para evitar ReferenceError. Firebase gestiona la instancia internamente.
         const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
         if (isConfigured && typeof firebase !== 'undefined') {
             try {
-                // Inicialización segura de Firebase
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                } 
-                // Usamos las instancias globales
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
-                
-                if (db) {
-                    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-                }
+                if (db) db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
             } catch (error) { console.error("Error iniciando Firebase:", error); }
         }
 
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- DATA DE ESCENARIOS (GUIONES) ---
-        // Aquí definimos la lógica de "Elige tu propia aventura"
+        // --- SCENARIOS: GUIONES CLÍNICOS COMPLEJOS ---
         const SCENARIOS_DATA = {
-            'asfixia': {
-                title: "RN con Asfixia Perinatal",
-                description: "RN 40 semanas, parto distócico, líquido meconial.",
-                startNode: 'inicio',
+            'prematuro': {
+                title: "1. Prematuro Extremo (27 Sem)",
+                description: "Parto vaginal rápido. Apnea al nacer. Manejo térmico y respiratorio.",
+                startNode: 'nacimiento',
                 nodes: {
-                    'inicio': {
-                        label: "Nacimiento",
-                        text: "El bebé nace hipotónico, no respira, cianótico.",
-                        vitals: { hr: 60, spo2: 40, resp: 0 },
+                    'nacimiento': {
+                        label: "Nacimiento (T=0)",
+                        text: "RN 27 semanas, 900g. Nace flácido, apnea, cianosis generalizada.",
+                        vitals: { hr: 70, spo2: 40, resp: 0 },
                         options: [
-                            { label: "Secar y Estimular (Correcto)", next: 'estimulacion', time: 10 },
-                            { label: "No hace nada (Incorrecto)", next: 'deterioro_1', time: 15 }
+                            { label: "Bolsa Plástica + CPAP + O2 30% (Correcto)", next: 'estabilizacion_inicial', time: 30 },
+                            { label: "Secar con paños + O2 100% (Incorrecto)", next: 'hipotermia_deterioro', time: 30 }
                         ]
                     },
-                    'estimulacion': {
-                        label: "Post-Estimulación",
-                        text: "Mejora levemente FC, pero sigue en apnea.",
-                        vitals: { hr: 90, spo2: 55, resp: 10 },
+                    'estabilizacion_inicial': {
+                        label: "Minuto 1-2 (CPAP)",
+                        text: "En CPAP 5cmH2O. FC sube, pero inicia quejido y tiraje severo. SpO2 75%.",
+                        vitals: { hr: 120, spo2: 75, resp: 65 },
                         options: [
-                            { label: "VPP con Máscara (Correcto)", next: 'vpp_exitosa', time: 20 },
-                            { label: "Solo O2 flujo libre (Incorrecto)", next: 'deterioro_2', time: 20 }
+                            { label: "Aumentar PEEP a 7 y FiO2", next: 'apnea_secundaria', time: 45 },
+                            { label: "Mantener observación", next: 'apnea_secundaria', time: 45 }
                         ]
                     },
-                    'vpp_exitosa': {
-                        label: "Recuperación",
-                        text: "FC sube, comienza esfuerzo respiratorio.",
-                        vitals: { hr: 140, spo2: 88, resp: 45 },
+                    'hipotermia_deterioro': {
+                        label: "Deterioro por Frío",
+                        text: "RN hipotérmico. FC cae a 80. Esfuerzo respiratorio débil.",
+                        vitals: { hr: 80, spo2: 50, resp: 20 },
                         options: [
-                            { label: "Cuidados Post-Reanimación", next: 'estabilizado', time: 30 }
+                            { label: "Iniciar VPP con Máscara", next: 'falla_vpp', time: 20 }
                         ]
                     },
-                    'deterioro_1': {
-                        label: "Bradicardia Severa",
-                        text: "FC cae por falta de intervención.",
-                        vitals: { hr: 40, spo2: 30, resp: 0 },
+                    'apnea_secundaria': {
+                        label: "Minuto 3: Apnea",
+                        text: "Hace apnea prolongada. FC comienza a caer. No responde a estímulo.",
+                        vitals: { hr: 70, spo2: 60, resp: 0 },
                         options: [
-                            { label: "Iniciar VPP Inmediata", next: 'recuperacion_lenta', time: 20 },
-                            { label: "Sigue sin actuar", next: 'paro', time: 10 }
+                            { label: "VPP con Neopuff/Bolsa (Correcto)", next: 'vpp_efectiva', time: 15 },
+                            { label: "Intubación Inmediata (Precoz)", next: 'intubacion_dificil', time: 40 }
                         ]
                     },
-                    'deterioro_2': {
-                        label: "Falla Ventilación",
-                        text: "FC no sube. El O2 libre no sirve en apnea.",
-                        vitals: { hr: 50, spo2: 45, resp: 0 },
+                    'vpp_efectiva': {
+                        label: "VPP Efectiva",
+                        text: "Expansión torácica adecuada. FC recupera >100. SpO2 mejora lento.",
+                        vitals: { hr: 130, spo2: 85, resp: 40 },
                         options: [
-                            { label: "Corregir VPP (MR SOPA)", next: 'vpp_exitosa', time: 25 },
-                            { label: "Masaje Cardíaco", next: 'recuperacion_lenta', time: 30 }
+                            { label: "Considerar Intubación + Surfactante", next: 'intubacion_exitosa', time: 60 },
+                            { label: "Intentar volver a CPAP", next: 'falla_extubacion', time: 60 }
                         ]
                     },
-                    'recuperacion_lenta': {
-                        label: "Recuperación Lenta",
-                        text: "Respuesta tardía. Sube FC lentamente.",
-                        vitals: { hr: 110, spo2: 70, resp: 20 },
+                    'falla_vpp': {
+                        label: "Falla VPP",
+                        text: "No expande. FC < 60. Necesita MR SOPA.",
+                        vitals: { hr: 55, spo2: 40, resp: 0 },
                         options: [
-                            { label: "Optimizar Ventilación", next: 'vpp_exitosa', time: 20 }
+                            { label: "Pasos MR SOPA + Intubación", next: 'intubacion_exitosa', time: 90 },
+                            { label: "Compresiones Torácicas (Error técnica)", next: 'paro_inminente', time: 30 }
                         ]
                     },
-                    'estabilizado': {
-                        label: "Estabilizado",
-                        text: "Paciente rosado y vigoroso.",
-                        vitals: { hr: 150, spo2: 96, resp: 50 },
-                        options: [] // Fin del camino
+                    'intubacion_exitosa': {
+                        label: "Minuto 10: Intubado",
+                        text: "Tubo en posición. Surfactante administrado. Color rosado.",
+                        vitals: { hr: 155, spo2: 92, resp: 50 },
+                        options: []
                     },
-                    'paro': {
-                        label: "Paro Cardíaco",
-                        text: "Ausencia de latidos audibles.",
-                        vitals: { hr: 0, spo2: 0, resp: 0 },
-                        options: [
-                            { label: "Adrenalina + Masaje", next: 'recuperacion_lenta', time: 45 }
-                        ]
+                    'falla_extubacion': {
+                        label: "Falla CPAP Post-VPP",
+                        text: "Recae en apnea severa.",
+                        vitals: { hr: 60, spo2: 50, resp: 10 },
+                        options: [{ label: "Intubar de emergencia", next: 'intubacion_exitosa', time: 40 }]
+                    },
+                    'intubacion_dificil': {
+                        label: "Intubación Prolongada",
+                        text: "Dificultad técnica. Bradicardia por hipoxia.",
+                        vitals: { hr: 45, spo2: 30, resp: 0 },
+                        options: [{ label: "Reposicionar y oxigenar", next: 'vpp_efectiva', time: 30 }]
+                    },
+                    'paro_inminente': {
+                        label: "Paro Inminente",
+                        text: "Sin ventilación efectiva no hay recuperación cardíaca.",
+                        vitals: { hr: 20, spo2: 15, resp: 0 },
+                        options: [{ label: "Intubación y Adrenalina", next: 'intubacion_exitosa', time: 120 }]
                     }
                 }
             },
-            'sdr': {
-                title: "SDR Prematuro",
-                description: "RN 32 semanas, quejido audible.",
-                startNode: 'inicio',
+            'asfixia_severa': {
+                title: "2. Asfixia Severa (Meconio)",
+                description: "40 Sem. Líquido meconial espeso. No vigoroso. Protocolo complejo.",
+                startNode: 'nacimiento',
                 nodes: {
-                    'inicio': {
-                        label: "Minuto 5",
-                        text: "RN con dificultad respiratoria, quejido.",
-                        vitals: { hr: 130, spo2: 82, resp: 70 },
+                    'nacimiento': {
+                        label: "Nacimiento",
+                        text: "RN a término. Hipotónico, pálido, no respira. Meconio en orofaringe.",
+                        vitals: { hr: 50, spo2: 30, resp: 0 },
                         options: [
-                            { label: "CPAP Precoz (Correcto)", next: 'cpap', time: 20 },
-                            { label: "O2 al 100% (Tóxico)", next: 'hiperoxia', time: 15 }
+                            { label: "Llevar a cuna + VPP inmediata (Guía 2020)", next: 'vpp_inicial', time: 15 },
+                            { label: "Aspirar tráquea bajo laringo (Guía Vieja)", next: 'retraso_peligroso', time: 40 }
                         ]
                     },
-                    'cpap': {
-                        label: "Estable en CPAP",
-                        text: "Disminuye trabajo respiratorio.",
-                        vitals: { hr: 140, spo2: 92, resp: 50 },
+                    'vpp_inicial': {
+                        label: "VPP Inicial",
+                        text: "Se inicia VPP. No se observa expansión. FC sigue baja.",
+                        vitals: { hr: 45, spo2: 35, resp: 0 },
+                        options: [
+                            { label: "MR SOPA (Máscara, Reposición...)", next: 'mr_sopa_completo', time: 45 },
+                            { label: "Aumentar O2 al 100% solamente", next: 'falla_oxigenacion', time: 30 }
+                        ]
+                    },
+                    'retraso_peligroso': {
+                        label: "Bradicardia Severa",
+                        text: "Por demora en ventilar, la FC cae críticamente.",
+                        vitals: { hr: 30, spo2: 20, resp: 0 },
+                        options: [{ label: "Iniciar VPP urgente", next: 'vpp_inicial', time: 10 }]
+                    },
+                    'mr_sopa_completo': {
+                        label: "Post MR SOPA",
+                        text: "Vía aérea permeable. Se intuba. Expande bien. FC < 60 a pesar de 30s de VPP efectiva.",
+                        vitals: { hr: 55, spo2: 40, resp: 0 },
+                        options: [
+                            { label: "Compresiones Torácicas + O2 100%", next: 'masaje_cardiaco', time: 60 },
+                            { label: "Administrar Adrenalina inmediata", next: 'error_secuencia', time: 30 }
+                        ]
+                    },
+                    'falla_oxigenacion': {
+                        label: "Falla Ventilación",
+                        text: "Sin abrir el pulmón, el O2 no sirve. FC < 40.",
+                        vitals: { hr: 35, spo2: 25, resp: 0 },
+                        options: [{ label: "Corregir técnica (MR SOPA)", next: 'mr_sopa_completo', time: 30 }]
+                    },
+                    'masaje_cardiaco': {
+                        label: "Masaje Cardíaco",
+                        text: "Coord 3:1. Tiempo: 60 seg. FC chequeada: 50 lpm.",
+                        vitals: { hr: 50, spo2: 45, resp: 0 },
+                        options: [
+                            { label: "Cateterismo Umbilical + Adrenalina", next: 'retorno_circulacion', time: 90 },
+                            { label: "Seguir solo con masaje", next: 'falla_persistente', time: 60 }
+                        ]
+                    },
+                    'error_secuencia': {
+                        label: "Error Secuencia",
+                        text: "Adrenalina sin ventilación/masaje previo es inefectiva.",
+                        vitals: { hr: 40, spo2: 30, resp: 0 },
+                        options: [{ label: "Iniciar masaje cardiaco", next: 'masaje_cardiaco', time: 30 }]
+                    },
+                    'retorno_circulacion': {
+                        label: "RCE",
+                        text: "Post-Adrenalina. FC sube abruptamente a 140. TA normalizándose.",
+                        vitals: { hr: 145, spo2: 88, resp: 12 },
                         options: []
                     },
-                    'hiperoxia': {
-                        label: "Hiperoxia",
-                        text: "Saturación excesiva, riesgo retinopatía.",
-                        vitals: { hr: 150, spo2: 100, resp: 60 },
+                    'falla_persistente': {
+                        label: "Asistolia",
+                        text: "El corazón deja de latir sin medicación.",
+                        vitals: { hr: 0, spo2: 0, resp: 0 },
+                        options: []
+                    }
+                }
+            },
+            'shock_trauma': {
+                title: "3. Shock / Trauma (Cesárea Urg)",
+                description: "37 Sem. Accidente tránsito materno. Madre shockada. RN pálido.",
+                startNode: 'nacimiento',
+                nodes: {
+                    'nacimiento': {
+                        label: "Nacimiento",
+                        text: "RN pálido, mala perfusión. FC presente pero pulsos débiles. Esfuerzo respiratorio irregular.",
+                        vitals: { hr: 170, spo2: 50, resp: 20 },
                         options: [
-                            { label: "Titular O2 a la baja", next: 'cpap', time: 30 }
+                            { label: "VPP Inicial (Prioridad A-B)", next: 'vpp_shock', time: 30 },
+                            { label: "Expansión inmediata (Sin ventilar)", next: 'hipoxia_agravada', time: 30 }
                         ]
+                    },
+                    'vpp_shock': {
+                        label: "Post VPP",
+                        text: "Buena entrada de aire, SpO2 mejora a 80%, pero sigue muy pálido, relleno capilar > 4s.",
+                        vitals: { hr: 175, spo2: 80, resp: 30 },
+                        options: [
+                            { label: "Bolo SF 10ml/kg (10 min)", next: 'expansion_1', time: 60 },
+                            { label: "Aumentar O2 al 100%", next: 'persiste_shock', time: 40 }
+                        ]
+                    },
+                    'hipoxia_agravada': {
+                        label: "Hipoxia Agravada",
+                        text: "La falta de ventilación empeora la acidosis. Bradicardia.",
+                        vitals: { hr: 80, spo2: 40, resp: 10 },
+                        options: [{ label: "VPP Inmediata", next: 'vpp_shock', time: 20 }]
+                    },
+                    'expansion_1': {
+                        label: "Expansión Vol. 1",
+                        text: "Mejora color levemente. Pulsos palpables. FC baja a 150.",
+                        vitals: { hr: 150, spo2: 90, resp: 40 },
+                        options: [
+                            { label: "Observar", next: 'estabilizado', time: 60 },
+                            { label: "Repetir Bolo (Si persiste clínica)", next: 'expansion_2', time: 60 }
+                        ]
+                    },
+                    'persiste_shock': {
+                        label: "Shock Persistente",
+                        text: "A pesar del O2, la perfusión es mala. Acidosis metabólica.",
+                        vitals: { hr: 180, spo2: 85, resp: 35 },
+                        options: [{ label: "Administrar volumen urgente", next: 'expansion_1', time: 30 }]
+                    },
+                    'expansion_2': {
+                        label: "Estabilizado Post-Volumen",
+                        text: "Relleno capilar < 2s. Activo y reactivo.",
+                        vitals: { hr: 140, spo2: 95, resp: 45 },
+                        options: []
+                    },
+                    'estabilizado': {
+                        label: "Estable",
+                        text: "Hemodinamia compensada.",
+                        vitals: { hr: 140, spo2: 94, resp: 45 },
+                        options: []
+                    }
+                }
+            },
+            'hernia': {
+                title: "4. Hernia Diafragmática",
+                description: "40 Sem. Diagnóstico prenatal o abdomen escavado al nacer. Distress severo.",
+                startNode: 'nacimiento',
+                nodes: {
+                    'nacimiento': {
+                        label: "Nacimiento",
+                        text: "Cianosis, gran dificultad respiratoria. Abdomen escavado. Ruidos aéreos en tórax.",
+                        vitals: { hr: 110, spo2: 50, resp: 80 },
+                        options: [
+                            { label: "Intubación Inmediata (Correcto)", next: 'intubacion', time: 40 },
+                            { label: "VPP con Máscara (Contraindicado)", next: 'distension_gastrica', time: 20 }
+                        ]
+                    },
+                    'distension_gastrica': {
+                        label: "Deterioro Agudo",
+                        text: "Estómago se distiende en tórax, comprime pulmón sano. FC cae.",
+                        vitals: { hr: 70, spo2: 30, resp: 10 },
+                        options: [
+                            { label: "Suspender VPP + Intubar", next: 'intubacion_rescate', time: 45 },
+                            { label: "Aumentar presión máscara", next: 'paro_hipoxico', time: 30 }
+                        ]
+                    },
+                    'intubacion': {
+                        label: "Vía Aérea Segura",
+                        text: "Tubo colocado. Ventilación suave. Sonda orogástrica para descomprimir.",
+                        vitals: { hr: 140, spo2: 85, resp: 40 },
+                        options: [
+                            { label: "Estabilizar y Sedar", next: 'estabilizado', time: 60 }
+                        ]
+                    },
+                    'intubacion_rescate': {
+                        label: "Rescate Tardío",
+                        text: "Intubado post-distensión. Requiere alta presión para ventilar.",
+                        vitals: { hr: 100, spo2: 70, resp: 40 },
+                        options: [{ label: "Descomprimir estómago (SOG)", next: 'estabilizado', time: 40 }]
+                    },
+                    'paro_hipoxico': {
+                        label: "Colapso Cardiopulmonar",
+                        text: "Compresión mediastínica severa.",
+                        vitals: { hr: 30, spo2: 10, resp: 0 },
+                        options: []
+                    },
+                    'estabilizado': {
+                        label: "Pre-Quirúrgico",
+                        text: "Ventilación mecánica. Sat pre-ductal 90%.",
+                        vitals: { hr: 135, spo2: 90, resp: 40 },
+                        options: []
+                    }
+                }
+            },
+            'drogas': {
+                title: "5. Exp. Cocaína (Abruptio)",
+                description: "36 Sem. Madre consumidora. Sangrado vaginal previo. RN irritable/deprimido.",
+                startNode: 'nacimiento',
+                nodes: {
+                    'nacimiento': {
+                        label: "Nacimiento",
+                        text: "RN 36 sem. Depresión respiratoria inicial. Tono aumentado (hipertonía/temblor).",
+                        vitals: { hr: 100, spo2: 60, resp: 20 },
+                        options: [
+                            { label: "Estimulación y Posición", next: 'estimulo', time: 15 },
+                            { label: "Naloxona (Contraindicado)", next: 'convulsion', time: 20 }
+                        ]
+                    },
+                    'estimulo': {
+                        label: "Respuesta Parcial",
+                        text: "Mejora esfuerzo, pero irritable. Taquicardia reactiva.",
+                        vitals: { hr: 180, spo2: 88, resp: 60 },
+                        options: [
+                            { label: "Oxígeno flujo libre", next: 'estabilizado_taqui', time: 30 },
+                            { label: "VPP innecesaria", next: 'lucha_respirador', time: 20 }
+                        ]
+                    },
+                    'convulsion': {
+                        label: "Convulsión / Abstinencia",
+                        text: "Naloxona precipitó abstinencia aguda o convulsión. Apnea secundaria.",
+                        vitals: { hr: 80, spo2: 50, resp: 0 },
+                        options: [
+                            { label: "VPP y Soporte", next: 'recuperacion_lenta', time: 40 }
+                        ]
+                    },
+                    'estabilizado_taqui': {
+                        label: "Estable pero Irritable",
+                        text: "Rosado. Temblores finos. FC alta.",
+                        vitals: { hr: 175, spo2: 95, resp: 55 },
+                        options: []
+                    },
+                    'lucha_respirador': {
+                        label: "Lucha con VPP",
+                        text: "RN pelea con la bolsa. Llanto fuerte.",
+                        vitals: { hr: 190, spo2: 98, resp: 80 },
+                        options: [{ label: "Suspender VPP, consolar", next: 'estabilizado_taqui', time: 20 }]
+                    },
+                    'recuperacion_lenta': {
+                        label: "Post-Evento",
+                        text: "Recuperando respiración espontánea.",
+                        vitals: { hr: 140, spo2: 90, resp: 30 },
+                        options: []
                     }
                 }
             }
@@ -306,11 +510,10 @@
             if (AudioContext) audioCtx = new AudioContext();
         } catch (e) {}
         
-        // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
+        // Video base64 ultra-corto en negro
         const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
 
-        // --- SISTEMA DE AUDIO CON VOLUMEN DINÁMICO ---
-        const playBeep = (pitch = 800, volume = 1.0) => {
+        const playBeep = (pitch = 800) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             try {
                 const oscillator = audioCtx.createOscillator();
@@ -320,18 +523,14 @@
                 oscillator.type = 'sine';
                 oscillator.frequency.value = pitch;
                 const now = audioCtx.currentTime;
-                
-                // Volumen base 0.2 multiplicado por el volumen maestro
-                const finalVol = 0.2 * volume;
-                
-                gainNode.gain.setValueAtTime(finalVol, now); 
+                gainNode.gain.setValueAtTime(0.2, now); 
                 gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
                 oscillator.start(now);
                 oscillator.stop(now + 0.15);
             } catch (e) {}
         };
 
-        const playAlarmSequence = (type, volume = 1.0) => {
+        const playAlarmSequence = (type) => {
              if (!audioCtx || audioCtx.state === 'suspended') return;
              const now = audioCtx.currentTime;
              const createTone = (freq, start, duration) => {
@@ -341,11 +540,7 @@
                  gain.connect(audioCtx.destination);
                  osc.type = 'square'; 
                  osc.frequency.value = freq;
-                 
-                 // Volumen base 0.1 multiplicado por el volumen maestro
-                 const finalVol = 0.1 * volume;
-
-                 gain.gain.setValueAtTime(finalVol, start);
+                 gain.gain.setValueAtTime(0.1, start);
                  gain.gain.setValueAtTime(0, start + duration);
                  osc.start(start);
                  osc.stop(start + duration);
@@ -360,7 +555,7 @@
              }
         };
 
-        const playClinicalSound = (type, volume = 1.0) => {
+        const playClinicalSound = (type) => {
             if (!audioCtx || audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
             if (type === 'grunt') {
@@ -371,12 +566,8 @@
                 osc.type = 'sawtooth'; 
                 osc.frequency.setValueAtTime(180, now);
                 osc.frequency.linearRampToValueAtTime(120, now + 0.3);
-                
-                // Volumen base máximo de 0.75 ajustado por volumen maestro
-                const maxVol = 0.75 * volume;
-                
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(maxVol, now + 0.05); 
+                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); 
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                 osc.start(now);
                 osc.stop(now + 0.4);
@@ -409,7 +600,7 @@
             Book: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, volume: 1.0 };
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
 
         // --- LOGIN SCREEN ---
         const LoginScreen = ({ onDemoStart }) => {
@@ -467,7 +658,7 @@
         const useInterpolatedVitals = (targetVitals) => {
             const [currentVitals, setCurrentVitals] = useState(targetVitals);
             const requestRef = useRef();
-            const syncRef = useRef({ originalStart: 0, localStart: 0 }); // Para sincronización de reloj
+            const syncRef = useRef({ originalStart: 0, localStart: 0 });
 
             useEffect(() => {
                 const animate = () => {
@@ -475,13 +666,8 @@
                     const t = targetVitals.transition;
 
                     if (t && t.duration > 0) {
-                        // Lógica de Sincronización de Relojes (Clock Skew Fix)
-                        // Si detectamos una nueva transición (cambio de startTime), recalculamos el punto de partida local
                         if (syncRef.current.originalStart !== t.startTime) {
                             const timeDiff = now - t.startTime;
-                            // Si la diferencia de hora es mayor a 2 segundos (por relojes desajustados),
-                            // forzamos que la animación empiece AHORA en este dispositivo.
-                            // Esto arregla el delay de 30s en tablets viejas.
                             const useLocalTime = Math.abs(timeDiff) > 2000;
                             syncRef.current = {
                                 originalStart: t.startTime,
@@ -518,35 +704,15 @@
         // --- COMPONENTES ---
         const getECGPoint = (phase) => {
             const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.65; // Baseline adjusted lower
-            if (p > 0.1 && p < 0.2) {
-                y -= 0.08 * Math.sin((p - 0.1) * 10 * Math.PI);
-            }
+            let y = 0.65;
+            if (p > 0.1 && p < 0.2) y -= 0.08 * Math.sin((p - 0.1) * 10 * Math.PI);
             else if (p > 0.35 && p < 0.45) {
                 if (p < 0.37) y += 0.05 * Math.sin((p - 0.35) * 50 * Math.PI);
                 else if (p < 0.41) y -= 0.6 * Math.sin((p - 0.37) * 25 * Math.PI);
                 else y += 0.1 * Math.sin((p - 0.41) * 25 * Math.PI);
             }
-            else if (p > 0.6 && p < 0.8) {
-                y -= 0.15 * Math.sin((p - 0.6) * 5 * Math.PI);
-            }
+            else if (p > 0.6 && p < 0.8) y -= 0.15 * Math.sin((p - 0.6) * 5 * Math.PI);
             return y;
-        };
-
-        const getPlethPoint = (phase) => {
-            const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.5;
-            if (p < 0.2) {
-                y = 0.8 - 0.6 * Math.sin(p * 2.5 * Math.PI);
-            } 
-            else {
-                const decay = Math.exp(-(p - 0.2) * 3);
-                y = 0.2 + 0.6 * decay;
-                if (p > 0.4 && p < 0.6) {
-                    y -= 0.05 * Math.sin((p - 0.4) * 5 * Math.PI);
-                }
-            }
-            return y; 
         };
 
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
@@ -675,19 +841,13 @@
             const [time, setTime] = useState(new Date());
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
-            const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
-            const videoRef = useRef(null); // Ref para el video invisible
+            const [isSmallScreen, setIsSmallScreen] = useState(false);
+            const videoRef = useRef(null);
             
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
             
-            // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
             useEffect(() => {
-                const checkSize = () => {
-                    // Usamos 900px como punto de corte razonable para tablets verticales/celulares
-                    // O si la altura es mayor que el ancho (portrait) en desktop tambien podria aplicar
-                    // Pero nos ceñimos al ancho del viewport para determinar "dispositivo chico"
-                    setIsSmallScreen(window.innerWidth < 900);
-                };
+                const checkSize = () => { setIsSmallScreen(window.innerWidth < 900); };
                 checkSize();
                 window.addEventListener('resize', checkSize);
                 return () => window.removeEventListener('resize', checkSize);
@@ -696,31 +856,24 @@
             const enableAudio = () => { 
                 if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
                 setAudioEnabled(true);
-                
-                // Intento de pantalla completa al iniciar audio (gesto de usuario)
                 const elem = document.documentElement;
                 if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
                 else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-
-                // HACK: Reproducir video invisible para evitar throttle en tablets viejas
-                if (videoRef.current) {
-                    videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
-                }
+                if (videoRef.current) videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
             };
 
             const handleBeat = () => { 
                 if (!audioEnabled || vitals.alarmMuted) return; 
                 let pitch = 800; 
                 if (vitals.spo2 < 89) pitch = 400; 
-                // Pasamos el volumen configurado o 1.0 por defecto
-                playBeep(pitch, vitals.volume ?? 1.0); 
+                playBeep(pitch); 
             };
 
             useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
             useEffect(() => { 
                 try { 
                     if (vitals.soundTimestamp > 0 && vitals.soundType) {
-                        playClinicalSound(vitals.soundType, vitals.volume ?? 1.0); 
+                        playClinicalSound(vitals.soundType); 
                     }
                 } catch (e) {} 
             }, [vitals.soundTimestamp, vitals.soundType]);
@@ -737,15 +890,13 @@
             useEffect(() => {
                 let interval;
                 if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none') {
-                    // Pasamos volumen a la alarma
-                    const vol = vitals.volume ?? 1.0;
-                    playAlarmSequence(alarmState, vol);
-                    interval = setInterval(() => playAlarmSequence(alarmState, vol), alarmState === 'critical' ? 2500 : 4000);
+                    playAlarmSequence(alarmState);
+                    interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
                 } return () => clearInterval(interval);
-            }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.volume]);
+            }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
-                if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
+                if (showQR || isSmallScreen) {
                     let baseUrl = window.location.origin + window.location.pathname;
                     if (!baseUrl.endsWith('/') && !baseUrl.endsWith('.html')) baseUrl += '/';
                     setQrUrl(`${baseUrl}?mode=control&session=${sessionId}`);
@@ -759,17 +910,14 @@
             };
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
-            // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
             if (isSmallScreen) {
                 return (
                     <div className="force-landscape-container bg-black text-white relative hardware-accelerated">
-                       {/* Video Hack Hidden */}
                        <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
                        
                        <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
                             {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
                             
-                            {/* Header Minimalista */}
                             <div className="flex justify-between items-center bg-slate-900 px-3 py-1 border-b border-slate-700">
                                 <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
                                     <span className="font-bold text-white">SpO2 MONITOR</span>
@@ -784,15 +932,12 @@
                                 </div>
                             </div>
 
-                            {/* Cuerpo Principal */}
                             <div className="flex-1 grid grid-cols-2 divide-x divide-slate-800">
-                                {/* Columna Izq: SpO2 */}
                                 <div className="flex flex-col items-center justify-center relative p-2">
                                     <span className="text-yellow-400 font-bold text-lg absolute top-2 left-2">%SpO2</span>
                                     <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '25vh'}}>
                                         {vitals.spo2 || '--'}
                                     </span>
-                                    {/* Barra de Señal Simulada */}
                                     <div className="absolute bottom-4 left-4 flex gap-0.5 h-12 items-end">
                                         {[1,2,3,4,5,6,7].map(i => (
                                             <div key={i} className={`w-2 rounded-sm ${i < (vitals.spo2 > 0 ? 6 : 1) ? 'bg-green-500' : 'bg-slate-700'}`} style={{height: `${i*14}%`}}></div>
@@ -800,34 +945,27 @@
                                     </div>
                                 </div>
 
-                                {/* Columna Der: FC y Wave */}
                                 <div className="flex flex-col relative h-full">
-                                    {/* FC Value */}
                                     <div className="flex-1 flex flex-col items-center justify-center p-2 relative border-b border-slate-800">
                                         <span className="text-green-500 font-bold text-lg absolute top-2 left-2">PR bpm</span>
                                         <span className={`font-mono font-bold leading-none ${getTextColor('text-green-500')}`} style={{fontSize: '20vh'}}>
                                             {vitals.hr || '--'}
                                         </span>
                                     </div>
-                                    {/* Waveform Area - REDUCIDO DE TAMAÑO (h-1/5) */}
                                     <div className="h-1/5 w-full bg-black relative">
                                         <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Footer / Conexión QR */}
                             <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center">
                                 <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
                                     <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={() => {
-                                        if (!document.fullscreenElement) {
-                                            document.documentElement.requestFullscreen().catch(() => {});
-                                        } else {
-                                            document.exitFullscreen().catch(() => {});
-                                        }
+                                        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+                                        else document.exitFullscreen().catch(() => {});
                                     }} className="p-2 bg-slate-800 rounded text-slate-400">
                                         <Icons.Maximize className="w-3 h-3" />
                                     </button>
@@ -840,7 +978,6 @@
                                 </div>
                             </div>
 
-                            {/* Overlays (QR y Audio) */}
                              {!audioEnabled && !showQR && (
                                 <div className="absolute inset-0 bg-black/90 z-40 flex items-center justify-center" onClick={enableAudio}>
                                     <div className="text-center animate-pulse">
@@ -869,10 +1006,8 @@
                 );
             }
 
-            // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative hardware-accelerated`}>
-                    {/* Video Hack Hidden */}
                     <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
 
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
@@ -901,7 +1036,6 @@
                         <div className="flex gap-2 items-center">{vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}<span>ID: {sessionId}</span></div>
                     </div>
                     <div className="flex-1 min-h-0 grid grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
-                        {/* AUMENTO DE ESPACIO PARA NÚMEROS (DE 30% A 45%) */}
                         <div className="grid grid-cols-[55%_45%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
@@ -958,9 +1092,8 @@
             const [transitionDuration, setTransitionDuration] = useState(5); 
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            const [tabMode, setTabMode] = useState('manual'); // 'manual' | 'scenario'
+            const [tabMode, setTabMode] = useState('manual');
             
-            // Estado para el sistema de Escenarios
             const [activeScenario, setActiveScenario] = useState(null);
             const [currentNodeId, setCurrentNodeId] = useState(null);
 
@@ -970,17 +1103,11 @@
 
             useEffect(() => {
                 if (!isDraggingRef.current) {
-                    const newTargets = {
-                        ...targets, 
-                        hr: currentVitals.hr, 
-                        spo2: currentVitals.spo2, 
-                        resp: currentVitals.resp,
-                        volume: currentVitals.volume ?? 1.0
-                    };
+                    const newTargets = { ...targets, hr: currentVitals.hr, spo2: currentVitals.spo2, resp: currentVitals.resp };
                     setTargets(newTargets);
                     targetsRef.current = newTargets;
                 }
-            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp, currentVitals.volume]);
+            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
@@ -1000,11 +1127,10 @@
 
                 if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
                 if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
-                if (field === 'volume') logAction(`Cambio volumen: ${Math.round(currentTargets.volume * 100)}%`);
 
                 onUpdate({ 
                     ...currentTargets, 
-                    transition: (durationMs > 0 && field !== 'volume') ? { 
+                    transition: (durationMs > 0) ? { 
                         startTime: now, 
                         duration: durationMs, 
                         startHr: vitals.hr, 
@@ -1037,30 +1163,24 @@
                 logAction(`Escenario: ${name}`);
             };
 
-            // --- Lógica de Escenarios ---
             const startScenario = (key) => {
                 const scenario = SCENARIOS_DATA[key];
                 setActiveScenario(scenario);
                 setCurrentNodeId(scenario.startNode);
                 const startNode = scenario.nodes[scenario.startNode];
-                
-                // Aplicar estado inicial
                 const newTargets = { ...targets, ...startNode.vitals };
                 setTargets(newTargets);
                 targetsRef.current = newTargets;
-                onUpdate({ ...startNode.vitals, transition: null }); // Cambio inmediato al inicio
+                onUpdate({ ...startNode.vitals, transition: null });
                 logAction(`Inicio Escenario: ${scenario.title}`);
             };
 
             const handleScenarioDecision = (option) => {
                 const scenario = activeScenario;
                 const nextNode = scenario.nodes[option.next];
-                
-                // Aplicar transición
                 const now = Date.now();
                 const durationMs = option.time * 1000;
                 
-                // Actualizar estado local para que los sliders se muevan
                 const newTargets = { ...targets, ...nextNode.vitals };
                 setTargets(newTargets);
                 targetsRef.current = newTargets;
@@ -1091,7 +1211,6 @@
 
             return (
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white pb-20 flex flex-col">
-                    {/* Header Fijo */}
                     <div className="sticky top-0 z-20 bg-slate-900 p-4 border-b border-slate-700 shadow-xl">
                         <header className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-2">
@@ -1104,14 +1223,12 @@
                             </div>
                         </header>
                         
-                        {/* Tabs de Modo */}
                         <div className="flex bg-slate-800 p-1 rounded-lg">
                             <button onClick={() => setTabMode('manual')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${tabMode === 'manual' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Manual</button>
                             <button onClick={() => setTabMode('scenario')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${tabMode === 'scenario' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Escenarios</button>
                         </div>
                     </div>
 
-                    {/* Contenido Scrollable */}
                     <div className="p-4 space-y-6 max-w-lg mx-auto w-full flex-1">
                         
                         {tabMode === 'manual' ? (
@@ -1140,16 +1257,9 @@
                                     <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
                                     <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
                                 </div>
-
-                                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <div className="flex justify-between mb-2"><label className="text-slate-300 font-bold flex gap-2"><Icons.Volume2 className="w-5 h-5"/> Volumen</label><span className="text-slate-400 font-mono">{Math.round((targets.volume ?? 1.0) * 100)}%</span></div>
-                                    <input type="range" min="0" max="1" step="0.1" value={targets.volume ?? 1.0} onChange={(e) => handleSliderChange('volume', parseFloat(e.target.value))} onMouseDown={handleSliderStart} onTouchStart={handleSliderStart} onMouseUp={() => handleCommitChange('volume')} onTouchEnd={() => handleCommitChange('volume')} className="w-full h-10 volume-slider cursor-pointer touch-none" />
-                                </div>
-
                                 <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
                             </>
                         ) : (
-                            // --- MODO ESCENARIOS ---
                             <div className="space-y-6">
                                 {!activeScenario ? (
                                     <div className="grid gap-4">
@@ -1174,7 +1284,6 @@
                                             <button onClick={exitScenario} className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-800">Salir</button>
                                         </div>
 
-                                        {/* Nodo Actual */}
                                         <div className="bg-slate-800 border-l-4 border-purple-500 p-6 rounded-r-xl shadow-lg mb-6">
                                             <div className="flex justify-between items-start mb-4">
                                                 <div>
@@ -1192,7 +1301,6 @@
                                             </p>
                                         </div>
 
-                                        {/* Opciones de Decisión */}
                                         <div className="space-y-3">
                                             <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Acciones del Alumno (Decisiones)</h4>
                                             {activeScenario.nodes[currentNodeId].options.length > 0 ? (
@@ -1222,7 +1330,6 @@
                         )}
                     </div>
                     
-                    {/* Log Modal */}
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full">
@@ -1245,7 +1352,7 @@
             const [isConnected, setIsConnected] = useState(true);
             const [isDemoMode, setIsDemoMode] = useState(false);
             const [demoTimeLeft, setDemoTimeLeft] = useState(300);
-            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
+            const [licenseExpired, setLicenseExpired] = useState(false);
 
             useEffect(() => {
                 let interval = null;
@@ -1300,9 +1407,6 @@
                             if (savedTime) setDemoTimeLeft(parseInt(savedTime));
                             setUser(u);
                         } else {
-                            // ----------------------------------------------------------------
-                            // === VERIFICACIÓN DE LICENCIA ===
-                            // ----------------------------------------------------------------
                             try {
                                 if (db) {
                                     const doc = await db.collection('usuarios').doc(u.uid).get();
@@ -1311,8 +1415,6 @@
                                         if (data.fecha_vencimiento) {
                                             const vencimiento = data.fecha_vencimiento.toDate();
                                             const hoy = new Date();
-                                            // Si venció, activamos el bloqueo pero dejamos setUser(u) 
-                                            // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
                                             if (hoy > vencimiento) {
                                                 setLicenseExpired(true);
                                             }
@@ -1367,7 +1469,6 @@
 
             if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
 
-            // --- PANTALLA DE BLOQUEO UNIFICADA (DEMO / LICENCIA) ---
             if (licenseExpired || (isDemoMode && demoTimeLeft === 0)) {
                 const title = licenseExpired ? "Licencia No Válida" : "Tiempo de Prueba Agotado";
                 const message = licenseExpired 
