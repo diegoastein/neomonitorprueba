@@ -799,7 +799,7 @@
             };
 
             return (
-                <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
+                <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
                     <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
                         <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
                         <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
