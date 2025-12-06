@@ -224,7 +224,7 @@
             } catch (error) { console.error("Error iniciando Firebase:", error); }
         }
 
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
         // --- AUDIO & NO-SLEEP VIDEO HACK ---
         let audioCtx;
@@ -788,27 +788,76 @@
             );
         };
 
+        // --- OPTIMIZACIÓN: ControlCard MEMOIZADO Y FUERA DEL COMPONENTE PRINCIPAL ---
+        const ControlCard = React.memo(({ title, value, unit, actual, color, min, max, field, onUpdateTarget, onCommitChange, onDragStart, theme, textMuted, cardClass }) => {
+            return (
+                <div className={`p-4 rounded-2xl border ${cardClass} relative overflow-hidden transition-all`}>
+                    <div className="flex justify-between items-end mb-4 relative z-10">
+                        <div>
+                            <div className={`flex items-center gap-2 font-bold text-lg mb-1`} style={{color}}>
+                                {field === 'hr' ? <Icons.Heart className="w-5 h-5"/> : <Icons.Activity className="w-5 h-5"/>}
+                                {title}
+                            </div>
+                            <div className={`text-xs ${textMuted} font-mono`}>Actual: {actual}{unit}</div>
+                        </div>
+                        <div className="text-3xl font-mono font-bold" style={{color}}>{value}{unit}</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 mb-2">
+                         <button 
+                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
+                            onClick={() => {
+                                const val = Math.max(min, value - 1);
+                                onCommitChange(field, val); // Commit directo para clicks
+                            }}
+                        >
+                            <Icons.Minus className="w-5 h-5" />
+                        </button>
+
+                        <input 
+                            type="range" min={min} max={max} 
+                            value={value} 
+                            onChange={(e) => onUpdateTarget(field, parseInt(e.target.value))}
+                            onMouseDown={onDragStart}
+                            onTouchStart={onDragStart}
+                            onMouseUp={() => onCommitChange(field, value)}
+                            onTouchEnd={() => onCommitChange(field, value)}
+                            className={`w-full h-8 ${field === 'hr' ? 'hr-slider' : 'spo2-slider'} cursor-pointer touch-none`} 
+                        />
+
+                        <button 
+                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
+                            onClick={() => {
+                                const val = Math.min(max, value + 1);
+                                onCommitChange(field, val); // Commit directo para clicks
+                            }}
+                        >
+                            <Icons.Plus className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            );
+        });
+
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            const [theme, setTheme] = useState('dark'); // 'dark' or 'light'
+            const [theme, setTheme] = useState('dark');
             
             const [targets, setTargets] = useState(currentVitals);
             const targetsRef = useRef(currentVitals);
             const isDraggingRef = useRef(false);
 
-            // Efecto para cambiar el color del body globalmente según el tema
             useEffect(() => {
                 if(theme === 'light') {
-                    document.body.style.backgroundColor = '#f1f5f9'; // Slate 100
+                    document.body.style.backgroundColor = '#f1f5f9';
                     document.body.classList.add('theme-light');
                 } else {
-                    document.body.style.backgroundColor = '#0f172a'; // Slate 900
+                    document.body.style.backgroundColor = '#0f172a';
                     document.body.classList.remove('theme-light');
                 }
-                // Cleanup al salir
                 return () => {
                     document.body.style.backgroundColor = '#000000';
                     document.body.classList.remove('theme-light');
@@ -830,16 +879,29 @@
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
-            const updateTarget = (field, value) => {
-                const newTargets = { ...targets, [field]: value };
+            // OPTIMIZACIÓN: Callbacks estables para pasar al componente memoizado
+            const updateTarget = useCallback((field, value) => {
+                const newTargets = { ...targetsRef.current, [field]: value };
                 setTargets(newTargets);
                 targetsRef.current = newTargets;
-            };
+            }, []);
 
-            const commitChange = (field) => {
+            const handleDragStart = useCallback(() => {
+                isDraggingRef.current = true;
+            }, []);
+
+            const commitChange = useCallback((field, explicitValue = null) => {
                 isDraggingRef.current = false;
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
+                
+                // Si explicitValue se pasa (botones +/-), actualizamos targetsRef primero
+                if (explicitValue !== null) {
+                     const newTargets = { ...targetsRef.current, [field]: explicitValue };
+                     setTargets(newTargets);
+                     targetsRef.current = newTargets;
+                }
+
                 const currentTargets = targetsRef.current;
 
                 if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
@@ -850,15 +912,15 @@
                     transition: (durationMs > 0) ? { 
                         startTime: now, 
                         duration: durationMs, 
-                        startHr: vitals.hr, 
+                        startHr: currentVitals.hr, // Usamos currentVitals para evitar cierre obsoleto
                         targetHr: currentTargets.hr, 
-                        startSpo2: vitals.spo2, 
+                        startSpo2: currentVitals.spo2, 
                         targetSpo2: currentTargets.spo2, 
-                        startResp: vitals.resp, 
+                        startResp: currentVitals.resp, 
                         targetResp: currentTargets.resp || 45 
                     } : null 
                 });
-            };
+            }, [transitionDuration, currentVitals, onUpdate]); // Dependencias necesarias
 
             const triggerSound = (type, name) => { onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
 
@@ -880,71 +942,13 @@
                 logAction(`Escenario: ${name}`);
             };
 
-            // Estilos dinámicos basados en tema
             const bgClass = theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800';
             const cardClass = theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm';
             const headerClass = theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm';
             const textMuted = theme === 'dark' ? 'text-slate-400' : 'text-slate-500';
 
-            const ControlCard = ({ title, value, unit, actual, color, min, max, field, className = "" }) => (
-                <div className={`p-4 rounded-2xl border ${cardClass} ${className} relative overflow-hidden transition-all`}>
-                    <div className="flex justify-between items-end mb-4 relative z-10">
-                        <div>
-                            <div className={`flex items-center gap-2 font-bold text-lg mb-1`} style={{color}}>
-                                {field === 'hr' ? <Icons.Heart className="w-5 h-5"/> : <Icons.Activity className="w-5 h-5"/>}
-                                {title}
-                            </div>
-                            <div className={`text-xs ${textMuted} font-mono`}>Actual: {actual}{unit}</div>
-                        </div>
-                        <div className="text-3xl font-mono font-bold" style={{color}}>{value}{unit}</div>
-                    </div>
-                    
-                    {/* Stepper Controls */}
-                    <div className="flex items-center gap-4 mb-2">
-                         <button 
-                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
-                            onClick={() => {
-                                const val = Math.max(min, value - 1);
-                                updateTarget(field, val);
-                                // Simular commit inmediato para botones paso a paso
-                                isDraggingRef.current = false;
-                                const now = Date.now();
-                                onUpdate({ ...targetsRef.current, [field]: val, transition: transitionDuration > 0 ? { startTime: now, duration: transitionDuration*1000, startHr: vitals.hr, targetHr: field==='hr'?val:vitals.hr, startSpo2: vitals.spo2, targetSpo2: field==='spo2'?val:vitals.spo2, startResp: vitals.resp, targetResp: vitals.resp } : null });
-                            }}
-                        >
-                            <Icons.Minus className="w-5 h-5" />
-                        </button>
-
-                        <input 
-                            type="range" min={min} max={max} 
-                            value={value} 
-                            onChange={(e) => updateTarget(field, parseInt(e.target.value))}
-                            onMouseDown={() => isDraggingRef.current = true}
-                            onTouchStart={() => isDraggingRef.current = true}
-                            onMouseUp={() => commitChange(field)}
-                            onTouchEnd={() => commitChange(field)}
-                            className={`w-full h-8 ${field === 'hr' ? 'hr-slider' : 'spo2-slider'} cursor-pointer touch-none`} 
-                        />
-
-                        <button 
-                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
-                            onClick={() => {
-                                const val = Math.min(max, value + 1);
-                                updateTarget(field, val);
-                                isDraggingRef.current = false;
-                                const now = Date.now();
-                                onUpdate({ ...targetsRef.current, [field]: val, transition: transitionDuration > 0 ? { startTime: now, duration: transitionDuration*1000, startHr: vitals.hr, targetHr: field==='hr'?val:vitals.hr, startSpo2: vitals.spo2, targetSpo2: field==='spo2'?val:vitals.spo2, startResp: vitals.resp, targetResp: vitals.resp } : null });
-                            }}
-                        >
-                            <Icons.Plus className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-            );
-
             return (
                 <div className={`h-screen overflow-y-auto pb-20 transition-colors duration-300 ${bgClass}`}>
-                    {/* Header */}
                     <header className={`sticky top-0 z-50 flex justify-between items-center px-4 py-3 mb-4 ${headerClass}`}>
                         <div className="flex items-center gap-2">
                             <h2 className="font-bold text-blue-500 flex items-center gap-2 text-lg">
@@ -968,10 +972,7 @@
                         </div>
                     </header>
 
-                    {/* Content Container */}
                     <div className="space-y-4 max-w-lg mx-auto px-4">
-                        
-                        {/* Time Control Card */}
                         <div className={`p-4 rounded-xl border ${cardClass}`}>
                             <div className="flex justify-between items-center mb-3">
                                 <label className={`font-bold flex gap-2 text-sm uppercase tracking-wide ${textMuted}`}><Icons.Clock className="w-4 h-4"/> Tiempo de Transición</label>
@@ -988,7 +989,7 @@
                             <div className={`flex justify-between text-[10px] mt-1 ${textMuted}`}><span>Inmediato</span><span>90 seg</span></div>
                         </div>
 
-                        {/* Main Controls */}
+                        {/* ControlCards ahora son componentes optimizados */}
                         <ControlCard 
                             title="Frecuencia Cardíaca" 
                             value={targets.hr} 
@@ -997,6 +998,12 @@
                             color="#42B334" 
                             min={0} max={220} 
                             field="hr" 
+                            onUpdateTarget={updateTarget}
+                            onCommitChange={commitChange}
+                            onDragStart={handleDragStart}
+                            theme={theme}
+                            textMuted={textMuted}
+                            cardClass={cardClass}
                         />
                         
                         <ControlCard 
@@ -1007,9 +1014,14 @@
                             color="#facc15" 
                             min={0} max={100} 
                             field="spo2" 
+                            onUpdateTarget={updateTarget}
+                            onCommitChange={commitChange}
+                            onDragStart={handleDragStart}
+                            theme={theme}
+                            textMuted={textMuted}
+                            cardClass={cardClass}
                         />
 
-                        {/* Presets Grid */}
                         <div className="grid grid-cols-2 gap-3">
                             {[
                                 { id: 'normal', label: 'Normal', color: 'emerald' },
@@ -1042,7 +1054,6 @@
                             </button>
                         </div>
 
-                        {/* Actions */}
                          <div className="grid grid-cols-2 gap-3 pt-2">
                              <button 
                                 onClick={() => triggerSound('grunt', 'Quejido')} 
@@ -1068,7 +1079,6 @@
                          </div>
                     </div>
 
-                    {/* Debrief Modal */}
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] p-4 flex flex-col items-center justify-center">
                             <div className={`${cardClass} rounded-2xl flex flex-col overflow-hidden w-full max-w-md shadow-2xl max-h-[80vh]`}>
