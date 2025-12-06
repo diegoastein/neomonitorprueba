@@ -49,7 +49,7 @@
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* Fondo Negro Absoluto */
+        /* Fondo Negro Absoluto por defecto */
         body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; }
         
         @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -65,6 +65,7 @@
             border-bottom-left-radius: 8px; pointer-events: none;
         }
         
+        /* Estilos Monitor Antiguo */
         .soft-key {
             background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
             border: 1px solid #475569; color: #cbd5e1; font-family: monospace;
@@ -77,11 +78,50 @@
         }
         .soft-key:active { background: #0f172a; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
         
-        /* Sliders con colores personalizados */
-        input[type=range] { accent-color: #42B334; } /* Verde FC Personalizado */
-        input[type=range].cyan-slider { accent-color: #06b6d4; }
-        input[type=range].time-slider { accent-color: #f59e0b; }
-        input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
+        /* Sliders Personalizados para el Panel de Control */
+        /* Base común */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus { outline: none; }
+        
+        /* Thumb (el botón que se mueve) */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -10px; /* Centrar respecto al track */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid currentColor;
+        }
+        
+        /* Track (la línea) */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+
+        /* Variantes de Color para Light/Dark Mode se manejan con clases Tailwind o CSS específico abajo */
+        .theme-light input[type=range]::-webkit-slider-runnable-track { background: #e2e8f0; }
+        .theme-light input[type=range]::-webkit-slider-thumb { border-color: #64748b; }
+
+        /* Colores específicos de sliders */
+        input[type=range].hr-slider { color: #42B334; }
+        input[type=range].hr-slider::-webkit-slider-thumb { border-color: #42B334; }
+        
+        input[type=range].spo2-slider { color: #facc15; }
+        input[type=range].spo2-slider::-webkit-slider-thumb { border-color: #facc15; }
+
+        input[type=range].time-slider { color: #f97316; }
+        input[type=range].time-slider::-webkit-slider-thumb { border-color: #f97316; }
 
         /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
         .force-landscape-container {
@@ -169,19 +209,15 @@
 
         let db = null;
         let auth = null;
-        // NOTA: Eliminada variable 'app' para evitar ReferenceError. Firebase gestiona la instancia internamente.
         const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
 
         if (isConfigured && typeof firebase !== 'undefined') {
             try {
-                // Inicialización segura de Firebase
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
                 } 
-                // Usamos las instancias globales
                 db = firebase.firestore();
                 auth = firebase.auth();
-                
                 if (db) {
                     db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
                 }
@@ -197,7 +233,6 @@
             if (AudioContext) audioCtx = new AudioContext();
         } catch (e) {}
         
-        // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
         const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
 
         const playBeep = (pitch = 800) => {
@@ -283,7 +318,11 @@
             Music: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
             Lock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
             Maximize: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
-            LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            Sun: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+            Moon: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+            Plus: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+            Minus: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         };
 
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
@@ -352,13 +391,8 @@
                     const t = targetVitals.transition;
 
                     if (t && t.duration > 0) {
-                        // Lógica de Sincronización de Relojes (Clock Skew Fix)
-                        // Si detectamos una nueva transición (cambio de startTime), recalculamos el punto de partida local
                         if (syncRef.current.originalStart !== t.startTime) {
                             const timeDiff = now - t.startTime;
-                            // Si la diferencia de hora es mayor a 2 segundos (por relojes desajustados),
-                            // forzamos que la animación empiece AHORA en este dispositivo.
-                            // Esto arregla el delay de 30s en tablets viejas.
                             const useLocalTime = Math.abs(timeDiff) > 2000;
                             syncRef.current = {
                                 originalStart: t.startTime,
@@ -390,40 +424,6 @@
                 return () => cancelAnimationFrame(requestRef.current);
             }, [targetVitals]);
             return currentVitals;
-        };
-
-        // --- COMPONENTES ---
-        const getECGPoint = (phase) => {
-            const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.65; // Baseline adjusted lower
-            if (p > 0.1 && p < 0.2) {
-                y -= 0.08 * Math.sin((p - 0.1) * 10 * Math.PI);
-            }
-            else if (p > 0.35 && p < 0.45) {
-                if (p < 0.37) y += 0.05 * Math.sin((p - 0.35) * 50 * Math.PI);
-                else if (p < 0.41) y -= 0.6 * Math.sin((p - 0.37) * 25 * Math.PI);
-                else y += 0.1 * Math.sin((p - 0.41) * 25 * Math.PI);
-            }
-            else if (p > 0.6 && p < 0.8) {
-                y -= 0.15 * Math.sin((p - 0.6) * 5 * Math.PI);
-            }
-            return y;
-        };
-
-        const getPlethPoint = (phase) => {
-            const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.5;
-            if (p < 0.2) {
-                y = 0.8 - 0.6 * Math.sin(p * 2.5 * Math.PI);
-            } 
-            else {
-                const decay = Math.exp(-(p - 0.2) * 3);
-                y = 0.2 + 0.6 * decay;
-                if (p > 0.4 && p < 0.6) {
-                    y -= 0.05 * Math.sin((p - 0.4) * 5 * Math.PI);
-                }
-            }
-            return y; 
         };
 
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
@@ -552,17 +552,13 @@
             const [time, setTime] = useState(new Date());
             const [showQR, setShowQR] = useState(false);
             const [qrUrl, setQrUrl] = useState('');
-            const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
-            const videoRef = useRef(null); // Ref para el video invisible
+            const [isSmallScreen, setIsSmallScreen] = useState(false); 
+            const videoRef = useRef(null); 
             
             const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
             
-            // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
             useEffect(() => {
                 const checkSize = () => {
-                    // Usamos 900px como punto de corte razonable para tablets verticales/celulares
-                    // O si la altura es mayor que el ancho (portrait) en desktop tambien podria aplicar
-                    // Pero nos ceñimos al ancho del viewport para determinar "dispositivo chico"
                     setIsSmallScreen(window.innerWidth < 900);
                 };
                 checkSize();
@@ -573,13 +569,9 @@
             const enableAudio = () => { 
                 if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
                 setAudioEnabled(true);
-                
-                // Intento de pantalla completa al iniciar audio (gesto de usuario)
                 const elem = document.documentElement;
                 if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
                 else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-
-                // HACK: Reproducir video invisible para evitar throttle en tablets viejas
                 if (videoRef.current) {
                     videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
                 }
@@ -608,7 +600,7 @@
             }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
-                if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
+                if (showQR || isSmallScreen) { 
                     let baseUrl = window.location.origin + window.location.pathname;
                     if (!baseUrl.endsWith('/') && !baseUrl.endsWith('.html')) baseUrl += '/';
                     setQrUrl(`${baseUrl}?mode=control&session=${sessionId}`);
@@ -622,17 +614,12 @@
             };
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
-            // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
             if (isSmallScreen) {
                 return (
                     <div className="force-landscape-container bg-black text-white relative hardware-accelerated">
-                       {/* Video Hack Hidden */}
                        <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
-                       
                        <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
                             {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
-                            
-                            {/* Header Minimalista */}
                             <div className="flex justify-between items-center bg-slate-900 px-3 py-1 border-b border-slate-700">
                                 <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
                                     <span className="font-bold text-white">SpO2 MONITOR</span>
@@ -646,40 +633,30 @@
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Cuerpo Principal */}
                             <div className="flex-1 grid grid-cols-2 divide-x divide-slate-800">
-                                {/* Columna Izq: SpO2 */}
                                 <div className="flex flex-col items-center justify-center relative p-2">
                                     <span className="text-yellow-400 font-bold text-lg absolute top-2 left-2">%SpO2</span>
                                     <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '25vh'}}>
                                         {vitals.spo2 || '--'}
                                     </span>
-                                    {/* Barra de Señal Simulada */}
                                     <div className="absolute bottom-4 left-4 flex gap-0.5 h-12 items-end">
                                         {[1,2,3,4,5,6,7].map(i => (
                                             <div key={i} className={`w-2 rounded-sm ${i < (vitals.spo2 > 0 ? 6 : 1) ? 'bg-green-500' : 'bg-slate-700'}`} style={{height: `${i*14}%`}}></div>
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* Columna Der: FC y Wave */}
                                 <div className="flex flex-col relative h-full">
-                                    {/* FC Value */}
                                     <div className="flex-1 flex flex-col items-center justify-center p-2 relative border-b border-slate-800">
                                         <span className="text-green-500 font-bold text-lg absolute top-2 left-2">PR bpm</span>
                                         <span className={`font-mono font-bold leading-none ${getTextColor('text-green-500')}`} style={{fontSize: '20vh'}}>
                                             {vitals.hr || '--'}
                                         </span>
                                     </div>
-                                    {/* Waveform Area - REDUCIDO DE TAMAÑO (h-1/5) */}
                                     <div className="h-1/5 w-full bg-black relative">
                                         <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Footer / Conexión QR */}
                             <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center">
                                 <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
                                     <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
@@ -702,8 +679,6 @@
                                     </button>
                                 </div>
                             </div>
-
-                            {/* Overlays (QR y Audio) */}
                              {!audioEnabled && !showQR && (
                                 <div className="absolute inset-0 bg-black/90 z-40 flex items-center justify-center" onClick={enableAudio}>
                                     <div className="text-center animate-pulse">
@@ -732,10 +707,8 @@
                 );
             }
 
-            // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative hardware-accelerated`}>
-                    {/* Video Hack Hidden */}
                     <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
 
                     {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
@@ -764,7 +737,6 @@
                         <div className="flex gap-2 items-center">{vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}<span>ID: {sessionId}</span></div>
                     </div>
                     <div className="flex-1 min-h-0 grid grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
-                        {/* AUMENTO DE ESPACIO PARA NÚMEROS (DE 30% A 45%) */}
                         <div className="grid grid-cols-[55%_45%] h-full min-h-0">
                             <div className="relative h-full border-r border-slate-800 bg-black">
                                 <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
@@ -818,22 +790,35 @@
 
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
-            const [transitionDuration, setTransitionDuration] = useState(5); // DEFAULT 5 SEGUNDOS
+            const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
+            const [theme, setTheme] = useState('dark'); // 'dark' or 'light'
             
-            // --- CORRECCIÓN DE SINCRONIZACIÓN ---
-            // Usamos una referencia para mantener el valor más reciente de los sliders
-            // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
             const targetsRef = useRef(currentVitals);
-            const isDraggingRef = useRef(false); // EVITAR CONFLICTOS DE SYNC
+            const isDraggingRef = useRef(false);
+
+            // Efecto para cambiar el color del body globalmente según el tema
+            useEffect(() => {
+                if(theme === 'light') {
+                    document.body.style.backgroundColor = '#f1f5f9'; // Slate 100
+                    document.body.classList.add('theme-light');
+                } else {
+                    document.body.style.backgroundColor = '#0f172a'; // Slate 900
+                    document.body.classList.remove('theme-light');
+                }
+                // Cleanup al salir
+                return () => {
+                    document.body.style.backgroundColor = '#000000';
+                    document.body.classList.remove('theme-light');
+                }
+            }, [theme]);
 
             useEffect(() => {
-                // Solo sincronizamos si NO estamos arrastrando para evitar que el slider "salte"
                 if (!isDraggingRef.current) {
                     const newTargets = {
-                        ...targets, // Mantenemos estado local
+                        ...targets, 
                         hr: currentVitals.hr, 
                         spo2: currentVitals.spo2, 
                         resp: currentVitals.resp
@@ -845,27 +830,18 @@
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
-            // OPTIMIZADO: Actualiza tanto el estado (para render) como la referencia (para lógica inmediata)
-            const handleSliderChange = (field, value) => {
+            const updateTarget = (field, value) => {
                 const newTargets = { ...targets, [field]: value };
                 setTargets(newTargets);
                 targetsRef.current = newTargets;
             };
 
-            const handleSliderStart = () => {
-                isDraggingRef.current = true;
-            };
-
-            // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
-            const handleCommitChange = (field) => {
+            const commitChange = (field) => {
                 isDraggingRef.current = false;
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
-                
-                // Usamos targetsRef.current en lugar de targets
                 const currentTargets = targetsRef.current;
 
-                // Logging
                 if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
                 if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
 
@@ -904,77 +880,214 @@
                 logAction(`Escenario: ${name}`);
             };
 
+            // Estilos dinámicos basados en tema
+            const bgClass = theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800';
+            const cardClass = theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm';
+            const headerClass = theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm';
+            const textMuted = theme === 'dark' ? 'text-slate-400' : 'text-slate-500';
+
+            const ControlCard = ({ title, value, unit, actual, color, min, max, field, className = "" }) => (
+                <div className={`p-4 rounded-2xl border ${cardClass} ${className} relative overflow-hidden transition-all`}>
+                    <div className="flex justify-between items-end mb-4 relative z-10">
+                        <div>
+                            <div className={`flex items-center gap-2 font-bold text-lg mb-1`} style={{color}}>
+                                {field === 'hr' ? <Icons.Heart className="w-5 h-5"/> : <Icons.Activity className="w-5 h-5"/>}
+                                {title}
+                            </div>
+                            <div className={`text-xs ${textMuted} font-mono`}>Actual: {actual}{unit}</div>
+                        </div>
+                        <div className="text-3xl font-mono font-bold" style={{color}}>{value}{unit}</div>
+                    </div>
+                    
+                    {/* Stepper Controls */}
+                    <div className="flex items-center gap-4 mb-2">
+                         <button 
+                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
+                            onClick={() => {
+                                const val = Math.max(min, value - 1);
+                                updateTarget(field, val);
+                                // Simular commit inmediato para botones paso a paso
+                                isDraggingRef.current = false;
+                                const now = Date.now();
+                                onUpdate({ ...targetsRef.current, [field]: val, transition: transitionDuration > 0 ? { startTime: now, duration: transitionDuration*1000, startHr: vitals.hr, targetHr: field==='hr'?val:vitals.hr, startSpo2: vitals.spo2, targetSpo2: field==='spo2'?val:vitals.spo2, startResp: vitals.resp, targetResp: vitals.resp } : null });
+                            }}
+                        >
+                            <Icons.Minus className="w-5 h-5" />
+                        </button>
+
+                        <input 
+                            type="range" min={min} max={max} 
+                            value={value} 
+                            onChange={(e) => updateTarget(field, parseInt(e.target.value))}
+                            onMouseDown={() => isDraggingRef.current = true}
+                            onTouchStart={() => isDraggingRef.current = true}
+                            onMouseUp={() => commitChange(field)}
+                            onTouchEnd={() => commitChange(field)}
+                            className={`w-full h-8 ${field === 'hr' ? 'hr-slider' : 'spo2-slider'} cursor-pointer touch-none`} 
+                        />
+
+                        <button 
+                            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'} transition-colors`}
+                            onClick={() => {
+                                const val = Math.min(max, value + 1);
+                                updateTarget(field, val);
+                                isDraggingRef.current = false;
+                                const now = Date.now();
+                                onUpdate({ ...targetsRef.current, [field]: val, transition: transitionDuration > 0 ? { startTime: now, duration: transitionDuration*1000, startHr: vitals.hr, targetHr: field==='hr'?val:vitals.hr, startSpo2: vitals.spo2, targetSpo2: field==='spo2'?val:vitals.spo2, startResp: vitals.resp, targetResp: vitals.resp } : null });
+                            }}
+                        >
+                            <Icons.Plus className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            );
+
             return (
-                <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
-                    <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
-                        <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
+                <div className={`h-screen overflow-y-auto pb-20 transition-colors duration-300 ${bgClass}`}>
+                    {/* Header */}
+                    <header className={`sticky top-0 z-50 flex justify-between items-center px-4 py-3 mb-4 ${headerClass}`}>
+                        <div className="flex items-center gap-2">
+                            <h2 className="font-bold text-blue-500 flex items-center gap-2 text-lg">
+                                <Icons.Wifi className="w-5 h-5"/> Control
+                            </h2>
+                        </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
-                            <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                             <button 
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 text-yellow-400' : 'bg-slate-200 text-slate-600'}`}
+                            >
+                                {theme === 'dark' ? <Icons.Sun className="w-5 h-5"/> : <Icons.Moon className="w-5 h-5"/>}
+                            </button>
+                            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold ${theme === 'dark' ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                                ID: {sessionId}
+                                <div className={`w-2 h-2 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            </div>
+                            <button onClick={() => setShowDebrief(true)} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
+                                <Icons.List className="w-5 h-5"/>
+                            </button>
                         </div>
                     </header>
-                    {showDebrief && (
-                        <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
-                            <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full">
-                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold text-lg">Registro de Eventos</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                    {eventLog.length === 0 && <p className="text-slate-500 text-center mt-4">Sin eventos registrados.</p>}
-                                    {eventLog.map((log, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">{log.time}</span><span className="text-slate-200">{log.msg}</span></div>))}
-                                </div>
+
+                    {/* Content Container */}
+                    <div className="space-y-4 max-w-lg mx-auto px-4">
+                        
+                        {/* Time Control Card */}
+                        <div className={`p-4 rounded-xl border ${cardClass}`}>
+                            <div className="flex justify-between items-center mb-3">
+                                <label className={`font-bold flex gap-2 text-sm uppercase tracking-wide ${textMuted}`}><Icons.Clock className="w-4 h-4"/> Tiempo de Transición</label>
+                                <span className={`font-mono font-bold text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{transitionDuration}s</span>
                             </div>
-                        </div>
-                    )}
-                    <div className="space-y-6 max-w-lg mx-auto">
-                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Tiempo Transición</label><span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span></div>
                             <input 
-                                type="range" min="0" max="90" step="10" 
+                                type="range" min="0" max="90" step="5" 
                                 value={transitionDuration} 
                                 onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
                                 onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
                                 onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
-                                className="w-full h-8 time-slider cursor-pointer touch-none" 
+                                className="w-full h-6 time-slider cursor-pointer touch-none" 
                             />
-                            <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
+                            <div className={`flex justify-between text-[10px] mt-1 ${textMuted}`}><span>Inmediato</span><span>90 seg</span></div>
                         </div>
-                        <div className="w-full"><button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all"><Icons.Activity className="w-5 h-5"/> Reproducir Quejido</button></div>
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span></div>
-                            <input 
-                                type="range" min="0" max="200" 
-                                value={targets.hr} 
-                                onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
-                                onMouseDown={handleSliderStart}
-                                onTouchStart={handleSliderStart}
-                                onMouseUp={() => handleCommitChange('hr')}
-                                onTouchEnd={() => handleCommitChange('hr')}
-                                onClick={() => handleCommitChange('hr')}
-                                className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" 
-                            />
-                        </div>
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span></div>
-                            <input 
-                                type="range" min="0" max="100" 
-                                value={targets.spo2} 
-                                onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
-                                onMouseDown={handleSliderStart}
-                                onTouchStart={handleSliderStart}
-                                onMouseUp={() => handleCommitChange('spo2')}
-                                onTouchEnd={() => handleCommitChange('spo2')}
-                                onClick={() => handleCommitChange('spo2')}
-                                className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" 
-                            />
-                        </div>
+
+                        {/* Main Controls */}
+                        <ControlCard 
+                            title="Frecuencia Cardíaca" 
+                            value={targets.hr} 
+                            actual={vitals.hr} 
+                            unit="" 
+                            color="#42B334" 
+                            min={0} max={220} 
+                            field="hr" 
+                        />
+                        
+                        <ControlCard 
+                            title="Saturación SpO2" 
+                            value={targets.spo2} 
+                            actual={vitals.spo2} 
+                            unit="%" 
+                            color="#facc15" 
+                            min={0} max={100} 
+                            field="spo2" 
+                        />
+
+                        {/* Presets Grid */}
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
-                            <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                            <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
-                            <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
-                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
+                            {[
+                                { id: 'normal', label: 'Normal', color: 'emerald' },
+                                { id: 'brady', label: 'Bradicardia', color: 'yellow' },
+                                { id: 'desat', label: 'Desaturación', color: 'blue' },
+                                { id: 'vpp', label: 'VPP', color: 'indigo' },
+                            ].map(p => (
+                                <button 
+                                    key={p.id}
+                                    onClick={() => applyPreset(p.id, p.label)} 
+                                    className={`p-4 rounded-xl font-bold transition-all transform active:scale-95 border
+                                        ${theme === 'dark' 
+                                            ? `bg-${p.color}-900/30 border-${p.color}-500/30 text-${p.color}-400 hover:bg-${p.color}-900/50` 
+                                            : `bg-${p.color}-50 border-${p.color}-200 text-${p.color}-700 hover:bg-${p.color}-100 shadow-sm`
+                                        }`}
+                                >
+                                    {p.label}
+                                </button>
+                            ))}
+                            
+                            <button 
+                                onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} 
+                                className={`col-span-2 p-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all transform active:scale-95 border
+                                    ${theme === 'dark' 
+                                        ? 'bg-red-900/30 border-red-500/30 text-red-500 hover:bg-red-900/50' 
+                                        : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100 shadow-sm'
+                                    }`}
+                            >
+                                <Icons.AlertTriangle className="w-5 h-5"/> VPP + Masaje Cardíaco
+                            </button>
                         </div>
-                        <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
+
+                        {/* Actions */}
+                         <div className="grid grid-cols-2 gap-3 pt-2">
+                             <button 
+                                onClick={() => triggerSound('grunt', 'Quejido')} 
+                                className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-1 border transition-all active:scale-95
+                                    ${theme === 'dark' 
+                                        ? 'bg-orange-900/20 border-orange-500/30 text-orange-400' 
+                                        : 'bg-orange-50 border-orange-200 text-orange-700 shadow-sm'}`}
+                            >
+                                <Icons.Activity className="w-6 h-6"/>
+                                <span className="text-xs">Quejido</span>
+                            </button>
+                            
+                            <button 
+                                onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} 
+                                className={`p-4 rounded-xl font-bold flex flex-col items-center justify-center gap-1 border transition-all active:scale-95
+                                    ${vitals.alarmMuted 
+                                        ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/20' 
+                                        : (theme === 'dark' ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-200 border-slate-300 text-slate-600')}`}
+                            >
+                                {vitals.alarmMuted ? <Icons.VolumeX className="w-6 h-6"/> : <Icons.Volume2 className="w-6 h-6"/>}
+                                <span className="text-xs">{vitals.alarmMuted ? 'Silenciado' : 'Silenciar'}</span>
+                            </button>
+                         </div>
                     </div>
+
+                    {/* Debrief Modal */}
+                    {showDebrief && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] p-4 flex flex-col items-center justify-center">
+                            <div className={`${cardClass} rounded-2xl flex flex-col overflow-hidden w-full max-w-md shadow-2xl max-h-[80vh]`}>
+                                <div className={`p-4 border-b ${theme === 'dark' ? 'border-slate-700' : 'border-slate-200'} flex justify-between items-center`}>
+                                    <h3 className={`font-bold text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Registro de Eventos</h3>
+                                    <button onClick={() => setShowDebrief(false)} className="p-1 hover:bg-black/10 rounded"><Icons.X className="w-6 h-6"/></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                    {eventLog.length === 0 && <p className="text-slate-500 text-center text-sm py-4">Sin eventos registrados.</p>}
+                                    {eventLog.map((log, i) => (
+                                        <div key={i} className={`flex gap-3 text-sm pb-2 border-b ${theme === 'dark' ? 'border-slate-700' : 'border-slate-100'} last:border-0`}>
+                                            <span className="text-slate-400 font-mono text-xs">{log.time}</span>
+                                            <span className={`${theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>{log.msg}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -986,7 +1099,7 @@
             const [isConnected, setIsConnected] = useState(true);
             const [isDemoMode, setIsDemoMode] = useState(false);
             const [demoTimeLeft, setDemoTimeLeft] = useState(300);
-            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
+            const [licenseExpired, setLicenseExpired] = useState(false); 
 
             useEffect(() => {
                 let interval = null;
@@ -1041,9 +1154,6 @@
                             if (savedTime) setDemoTimeLeft(parseInt(savedTime));
                             setUser(u);
                         } else {
-                            // ----------------------------------------------------------------
-                            // === VERIFICACIÓN DE LICENCIA ===
-                            // ----------------------------------------------------------------
                             try {
                                 if (db) {
                                     const doc = await db.collection('usuarios').doc(u.uid).get();
@@ -1052,8 +1162,6 @@
                                         if (data.fecha_vencimiento) {
                                             const vencimiento = data.fecha_vencimiento.toDate();
                                             const hoy = new Date();
-                                            // Si venció, activamos el bloqueo pero dejamos setUser(u) 
-                                            // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
                                             if (hoy > vencimiento) {
                                                 setLicenseExpired(true);
                                             }
@@ -1108,7 +1216,6 @@
 
             if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
 
-            // --- PANTALLA DE BLOQUEO UNIFICADA (DEMO / LICENCIA) ---
             if (licenseExpired || (isDemoMode && demoTimeLeft === 0)) {
                 const title = licenseExpired ? "Licencia No Válida" : "Tiempo de Prueba Agotado";
                 const message = licenseExpired 
