@@ -3,45 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoMonitor (Pro)</title>
+    <title>NeoMonitor (Free Edition)</title>
     
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
-        (function() {
-            var host = window.location.hostname;
-            var protocol = window.location.protocol;
-            
-            // Ignorar entorno local (pruebas)
-            if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('.local')) {
-                return;
-            }
-
-            var newHost = host;
-            var newProtocol = protocol;
-            var needsRedirect = false;
-
-            // 1. Forzar HTTPS
-            if (protocol !== 'https:') {
-                newProtocol = 'https:';
-                needsRedirect = true;
-            }
-
-            // 2. Quitar 'www.' si existe
-            if (host.startsWith('www.')) {
-                newHost = host.substring(4);
-                needsRedirect = true;
-            }
-
-            if (needsRedirect) {
-                window.location.replace(newProtocol + '//' + newHost + window.location.pathname + window.location.search + window.location.hash);
-            }
-        })();
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
     <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -49,21 +25,7 @@
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* Fondo Negro Absoluto */
-        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; }
-        
-        @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse-fast { animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        /* Error Log no intrusivo */
-        #debug-log {
-            display: none; position: fixed; top: 0; right: 0; width: 300px;
-            background: rgba(220, 38, 38, 0.9); color: white; padding: 0.5rem;
-            font-family: monospace; font-size: 0.8rem; z-index: 9999; 
-            border-bottom-left-radius: 8px; pointer-events: none;
-        }
+        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; font-family: sans-serif; }
         
         .soft-key {
             background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
@@ -72,92 +34,53 @@
             text-align: center; border-radius: 4px; cursor: pointer; user-select: none;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
         }
-        @media (max-width: 640px) {
-            .soft-key { font-size: 0.65rem; padding: 2px; line-height: 1.1; }
-        }
         .soft-key:active { background: #0f172a; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
-        
-        /* Sliders con colores personalizados */
-        input[type=range] { accent-color: #42B334; } /* Verde FC Personalizado */
-        input[type=range].cyan-slider { accent-color: #06b6d4; }
+
+        input[type=range] { accent-color: #42B334; }
         input[type=range].time-slider { accent-color: #f59e0b; }
-        input[type=range].yellow-slider { accent-color: #facc15; } /* Amarillo Sat */
-
-        /* --- CLASE PARA ROTACIÓN FORZADA EN MÓVIL --- */
-        .force-landscape-container {
-            width: 100vw;
-            height: 100vh;
+        
+        /* Espacio para Sponsor - Estilo Logo */
+        .sponsor-container {
+            background: transparent;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             overflow: hidden;
-            position: relative;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-radius: 4px;
         }
+        .sponsor-container:hover { background: rgba(255,255,255,0.05); border-color: #475569; }
 
-        /* Si es pantalla pequeña y está en vertical, rotamos */
+        .force-landscape-container { width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
         @media screen and (max-width: 900px) and (orientation: portrait) {
             .force-landscape {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                width: 100vh; /* Intercambiamos dimensiones */
-                height: 100vw;
-                transform: translate(-50%, -50%) rotate(90deg);
-                transform-origin: center center;
-                overflow: hidden;
+                position: absolute; top: 50%; left: 50%; width: 100vh; height: 100vw;
+                transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center;
             }
         }
-        /* En horizontal o pantallas grandes, se comporta normal */
         @media screen and (min-width: 901px), (orientation: landscape) {
-            .force-landscape {
-                width: 100%;
-                height: 100%;
-            }
+            .force-landscape { width: 100%; height: 100%; }
         }
-        
-        /* Optimización GPU para tablets viejas */
-        .hardware-accelerated {
-            transform: translateZ(0);
-            will-change: transform, opacity;
-        }
+
+        .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
     </style>
 </head>
 <body>
     <div id="root">
-        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #42B334; font-family: sans-serif;">
-            <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #42B334;">
+            <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" viewBox="0 0 24 24">
+                <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
                 <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <h2 style="font-size: 1.5rem; font-weight: bold;">Iniciando Monitor...</h2>
+            <h2 style="font-weight: bold;">Cargando NeoMonitor...</h2>
             <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
         </div>
     </div>
-    <div id="debug-log"></div>
-
-    <script>
-        function showError(title, details) {
-            if (details.includes('network') || details.includes('fetch') || details.includes('offline')) return;
-            const log = document.getElementById('debug-log');
-            log.style.display = 'block';
-            log.innerHTML = `<strong>${title}</strong><br/>${details}`;
-            setTimeout(() => { log.style.display = 'none'; }, 5000);
-        }
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            if (msg.includes('ResizeObserver')) return false;
-            if (msg === 'Script error.') return false; 
-            showError('Aviso:', msg);
-            return false;
-        };
-        window.onunhandledrejection = function(event) {
-            let message = event.reason ? (event.reason.message || event.reason) : 'Error desconocido';
-            if (message.toString().toLowerCase().includes('client is offline') || message.toString().includes('network')) return; 
-            if(message.toString().includes('auth/unauthorized-domain')) {
-                message = "BLOQUEADO: Dominio no autorizado en Firebase.";
-                showError('Configuración:', message);
-            }
-        };
-    </script>
 
     <script type="text/babel">
-       // --- CONFIGURACIÓN FIREBASE ---
        const firebaseConfig = {
           apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
           authDomain: "monitor-36c41.firebaseapp.com",
@@ -167,58 +90,71 @@
           appId: "1:830562769122:web:1db7060de0c80556db66bb"
         };
 
-        let db = null;
-        let auth = null;
-        // NOTA: Eliminada variable 'app' para evitar ReferenceError. Firebase gestiona la instancia internamente.
-        const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY_AQUI";
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        if (isConfigured && typeof firebase !== 'undefined') {
-            try {
-                // Inicialización segura de Firebase
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                } 
-                // Usamos las instancias globales
-                db = firebase.firestore();
-                auth = firebase.auth();
-                
-                if (db) {
-                    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-                }
-            } catch (error) { console.error("Error iniciando Firebase:", error); }
-        }
+        const { useState, useEffect, useRef } = React;
 
-        const { useState, useEffect, useRef, useMemo } = React;
+        const Icons = {
+            Activity: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+            Heart: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Monitor: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>,
+            Smartphone: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>,
+            Wifi: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
+            Volume2: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>,
+            VolumeX: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>,
+            Play: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
+            Battery: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
+            QrCode: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M7 17h.01"/><path d="M17 7h.01"/><path d="M17 17h.01"/></svg>,
+            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            Clock: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            AlertTriangle: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
+            List: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
+            Info: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        };
 
-        // --- AUDIO & NO-SLEEP VIDEO HACK ---
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
+
+        // --- COMPONENTE SPONSOR ---
+        const SponsorSpace = ({ className = "", compact = false }) => (
+            <div className={`sponsor-container ${className}`} onClick={() => window.open('https://tu-sitio-o-del-sponsor.com', '_blank')}>
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] text-slate-500 font-bold mb-0.5">SPONSOR</span>
+                    <div className="bg-slate-700/50 w-full px-4 py-1 rounded flex items-center justify-center">
+                        <span className="text-[9px] text-slate-400 font-mono italic">LOGO AQUÍ</span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- AUDIO ENGINE ---
         let audioCtx;
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) audioCtx = new AudioContext();
-        } catch (e) {}
-        
-        // Video base64 ultra-corto en negro para mantener el navegador despierto en Tablets viejas
-        const noSleepVideo = "data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAGF21kYXQAAAKABCAAACAAEAeAgAAAhkRtbW9vdgAAAGxtdmhkAAAAADBnU6wwZ1OsAAAD6AAAA+gAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIGdHJhawAAAFx0a2hkAAAAADBnU6wwZ1OsAAAAAQAAAAAAAAPoAAAAAAAAAAAAAAAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAABAAAAaedkbnQAAAAAAAABAAACAAAAAABlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAOmdtZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAADxZGhtbQAAACxzbWhkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJEcAAAAIZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAA2c3RibAAAACRzdHNkAAAAAAAAAAEAAAA0YXZjMQAAAAAAAAABAAACAAAAAOAAAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAADHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAACAAAAABRzdGNvAAAAAAAAAAEAAA4AAAAYdWR0YQAAABBtZXRhAAAAAAAAACFocGRsAAAAAElsdnN0AQApdHlwZWF1dGgCAAAhc3RneQAAABNzdHZsAAABAAAAAAABAAAAAAADAAABX3RyYWsAAABcdGtoZAAAAAAwZ1OsMGdTrAAAAAIAAAAAAAAD6AAAAAAAAAAAAAAAAAEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAQAAAG5tZGlhAAAAIG1kaGQAAAAAMGdTrDBnU6wAAAPoAAAD6AAAAEAAAAABAAAAAAAAAAAAAAU1aGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAAAibWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABRkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAss3RibAAAACRzdHNkAAAAAAAAAAEAAAAUbXA0YQAAAAAAAAABAAAAAAAAABhzdHRzAAAAAAAAAAEAAAABAAAAEHBzdHNjAAAAAAAAAAEAAAABAAAAAQAAABxzdHN6AAAAAAAAAAAAAAABAAABAAAAABRzdGNvAAAAAAAAAAEAAAA6AAAAGHVkdGEAAAAQbWV0YQAAAAAAAAAhaHBkbAAAAABJbHZzdAEAKXR5cGVhdXRoAgAAIWc=";
+        const initAudio = () => {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        };
 
         const playBeep = (pitch = 800) => {
-            if (!audioCtx || audioCtx.state === 'suspended') return;
-            try {
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.type = 'sine';
-                oscillator.frequency.value = pitch;
-                const now = audioCtx.currentTime;
-                gainNode.gain.setValueAtTime(0.2, now); 
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-                oscillator.start(now);
-                oscillator.stop(now + 0.15);
-            } catch (e) {}
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.value = pitch;
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0.1, now); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            oscillator.start(now);
+            oscillator.stop(now + 0.15);
         };
 
         const playAlarmSequence = (type) => {
-             if (!audioCtx || audioCtx.state === 'suspended') return;
+             if (!audioCtx || audioCtx.state !== 'running') return;
              const now = audioCtx.currentTime;
              const createTone = (freq, start, duration) => {
                  const osc = audioCtx.createOscillator();
@@ -227,23 +163,20 @@
                  gain.connect(audioCtx.destination);
                  osc.type = 'square'; 
                  osc.frequency.value = freq;
-                 gain.gain.setValueAtTime(0.1, start);
+                 gain.gain.setValueAtTime(0.08, start);
                  gain.gain.setValueAtTime(0, start + duration);
                  osc.start(start);
                  osc.stop(start + duration);
              };
              if (type === 'critical') {
-                 createTone(880, now, 0.1);
-                 createTone(880, now + 0.2, 0.1);
-                 createTone(880, now + 0.4, 0.1);
+                 createTone(880, now, 0.1); createTone(880, now + 0.2, 0.1); createTone(880, now + 0.4, 0.1);
              } else if (type === 'warning') {
-                 createTone(600, now, 0.2);
-                 createTone(600, now + 0.4, 0.2);
+                 createTone(600, now, 0.2); createTone(600, now + 0.4, 0.2);
              }
         };
 
         const playClinicalSound = (type) => {
-            if (!audioCtx || audioCtx.state === 'suspended') return;
+            if (!audioCtx || audioCtx.state !== 'running') return;
             const now = audioCtx.currentTime;
             if (type === 'grunt') {
                 const osc = audioCtx.createOscillator();
@@ -254,194 +187,29 @@
                 osc.frequency.setValueAtTime(180, now);
                 osc.frequency.linearRampToValueAtTime(120, now + 0.3);
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.75, now + 0.05); 
+                gain.gain.linearRampToValueAtTime(0.7, now + 0.05); 
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
                 osc.start(now);
                 osc.stop(now + 0.4);
             }
         };
 
-        // --- ICONOS ---
-        const Icons = {
-            Activity: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-            Heart: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
-            Wind: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>,
-            Monitor: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>,
-            Smartphone: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>,
-            AlertTriangle: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
-            Wifi: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
-            WifiOff: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
-            Volume2: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>,
-            VolumeX: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>,
-            Play: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
-            Battery: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
-            Menu: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
-            QrCode: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h6v6H3z"/><path d="M15 3h6v6h-6z"/><path d="M3 15h6v6H3z"/><path d="M14 14h3v3h-3z"/><path d="M17 17h3v3h-3z"/><path d="M14 19h3v3h-3z"/><path d="M20 14h3v3h-3z"/></svg>,
-            X: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
-            Clock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            List: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
-            Music: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>,
-            Lock: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
-            Maximize: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
-            LogOut: (p) => <svg {...p} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        };
-
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
-
-        // --- LOGIN SCREEN ---
-        const LoginScreen = ({ onDemoStart }) => {
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [error, setError] = useState('');
-            const [loading, setLoading] = useState(false);
-
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                if (!auth) {
-                    setError("Error: Firebase no está inicializado.");
-                    return;
-                }
-                setLoading(true);
-                setError('');
-                try {
-                    await auth.signInWithEmailAndPassword(email, password);
-                } catch (err) {
-                    setError("Error de acceso. Verifique credenciales.");
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-900">
-                    <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-700">
-                        <div className="flex justify-center mb-6 text-[#42B334]">
-                            <Icons.Lock className="w-12 h-12" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-center mb-6 text-white">NeoMonitor</h2>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
-                                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:border-[#42B334] outline-none"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-400 mb-1">Contraseña</label>
-                                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:border-[#42B334] outline-none"/>
-                            </div>
-                            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                            <button type="submit" disabled={loading} className="w-full py-3 bg-[#42B334] hover:bg-green-600 rounded-lg font-bold text-black transition-colors disabled:opacity-50">
-                                {loading ? 'Verificando...' : 'Ingresar'}
-                            </button>
-                        </form>
-                        <div className="mt-6 pt-6 border-t border-slate-700">
-                            <button onClick={onDemoStart} className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium text-slate-300 transition-colors">Probar Demo (5 min)</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- HOOKS ---
-        const useInterpolatedVitals = (targetVitals) => {
-            const [currentVitals, setCurrentVitals] = useState(targetVitals);
-            const requestRef = useRef();
-            const syncRef = useRef({ originalStart: 0, localStart: 0 }); // Para sincronización de reloj
-
-            useEffect(() => {
-                const animate = () => {
-                    const now = Date.now();
-                    const t = targetVitals.transition;
-
-                    if (t && t.duration > 0) {
-                        // Lógica de Sincronización de Relojes (Clock Skew Fix)
-                        // Si detectamos una nueva transición (cambio de startTime), recalculamos el punto de partida local
-                        if (syncRef.current.originalStart !== t.startTime) {
-                            const timeDiff = now - t.startTime;
-                            // Si la diferencia de hora es mayor a 2 segundos (por relojes desajustados),
-                            // forzamos que la animación empiece AHORA en este dispositivo.
-                            // Esto arregla el delay de 30s en tablets viejas.
-                            const useLocalTime = Math.abs(timeDiff) > 2000;
-                            syncRef.current = {
-                                originalStart: t.startTime,
-                                localStart: useLocalTime ? now : t.startTime
-                            };
-                        }
-
-                        const startTime = syncRef.current.localStart;
-                        const elapsed = now - startTime;
-                        const progress = elapsed / t.duration;
-                        const safeProgress = Math.max(0, Math.min(1, progress));
-
-                        if (safeProgress < 1) {
-                            setCurrentVitals({
-                                ...targetVitals,
-                                hr: Math.round(t.startHr + (t.targetHr - t.startHr) * safeProgress),
-                                spo2: Math.round(t.startSpo2 + (t.targetSpo2 - t.startSpo2) * safeProgress),
-                                resp: Math.round(t.startResp + (t.targetResp - t.startResp) * safeProgress),
-                            });
-                            requestRef.current = requestAnimationFrame(animate);
-                        } else { 
-                            setCurrentVitals(targetVitals); 
-                        }
-                    } else { 
-                        setCurrentVitals(targetVitals); 
-                    }
-                };
-                requestRef.current = requestAnimationFrame(animate);
-                return () => cancelAnimationFrame(requestRef.current);
-            }, [targetVitals]);
-            return currentVitals;
-        };
-
-        // --- COMPONENTES ---
-        const getECGPoint = (phase) => {
-            const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.65; // Baseline adjusted lower
-            if (p > 0.1 && p < 0.2) {
-                y -= 0.08 * Math.sin((p - 0.1) * 10 * Math.PI);
-            }
-            else if (p > 0.35 && p < 0.45) {
-                if (p < 0.37) y += 0.05 * Math.sin((p - 0.35) * 50 * Math.PI);
-                else if (p < 0.41) y -= 0.6 * Math.sin((p - 0.37) * 25 * Math.PI);
-                else y += 0.1 * Math.sin((p - 0.41) * 25 * Math.PI);
-            }
-            else if (p > 0.6 && p < 0.8) {
-                y -= 0.15 * Math.sin((p - 0.6) * 5 * Math.PI);
-            }
-            return y;
-        };
-
-        const getPlethPoint = (phase) => {
-            const p = (phase % (2 * Math.PI)) / (2 * Math.PI);
-            let y = 0.5;
-            if (p < 0.2) {
-                y = 0.8 - 0.6 * Math.sin(p * 2.5 * Math.PI);
-            } 
-            else {
-                const decay = Math.exp(-(p - 0.2) * 3);
-                y = 0.2 + 0.6 * decay;
-                if (p > 0.4 && p < 0.6) {
-                    y -= 0.05 * Math.sin((p - 0.4) * 5 * Math.PI);
-                }
-            }
-            return y; 
-        };
-
+        // --- WAVEFORMS ---
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
-            const frameRef = useRef(0);
             const lastTimeRef = useRef(performance.now());
 
             useEffect(() => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                if (dataRef.current.length === 0) dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                let frameId;
 
                 const draw = (time) => {
                     const deltaTime = (time - lastTimeRef.current) / 1000;
                     lastTimeRef.current = time;
-                    if (deltaTime > 0.1) { frameRef.current = requestAnimationFrame(draw); return; }
+                    if (deltaTime > 0.1) { frameId = requestAnimationFrame(draw); return; }
 
                     if (canvas.width !== canvas.offsetWidth) {
                         canvas.width = canvas.offsetWidth;
@@ -452,148 +220,86 @@
                     let newValue = canvas.height / 2;
                     const amplitude = canvas.height / 3;
                     
-                    if (!flatline) {
+                    if (!flatline && speed > 0) {
                         const beatsPerSecond = speed / 60;
-                        const angularSpeed = beatsPerSecond * 2 * Math.PI;
                         const prevPhase = phaseRef.current;
-                        phaseRef.current += angularSpeed * deltaTime;
+                        phaseRef.current += (beatsPerSecond * 2 * Math.PI) * deltaTime;
                         if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
                         const p = phaseRef.current;
 
                         if (type === 'ecg' && onBeat) {
                              const threshold = Math.PI;
-                             if ((prevPhase < threshold && p >= threshold) || (prevPhase > p && prevPhase < threshold)) onBeat();
+                             if (prevPhase < threshold && p >= threshold) onBeat();
                         }
 
                         if (type === 'ecg') {
                             if (p > 3.0 && p < 3.28) newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50));
                             else if (p > 3.5 && p < 4.5) newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
-                            else if (p > 2.5 && p < 2.9) newValue = (canvas.height / 2) - (amplitude * 0.15 * Math.sin((p - 2.5) * 5));
                             else newValue = (canvas.height / 2) + (Math.random() * 1.5 - 0.75);
                         } else {
-                            const wave = Math.sin(p) + 0.5 * Math.sin(2 * p + 0.5);
-                            newValue = (canvas.height / 2) - (wave * amplitude * 0.6);
+                            newValue = (canvas.height / 2) - (Math.sin(p) * amplitude * 0.6);
                         }
                     } else {
                         newValue = (canvas.height / 2) + (Math.random() * 2 - 1);
                     }
 
-                    if (newValue < 5) newValue = 5;
-                    if (newValue > canvas.height - 5) newValue = canvas.height - 5;
-
                     dataRef.current.push(newValue);
                     dataRef.current.shift();
-
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.lineWidth = 2.4; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                    ctx.beginPath();
+                    ctx.lineWidth = 2.5; ctx.strokeStyle = color; ctx.beginPath();
                     for (let i = 0; i < dataRef.current.length; i++) {
                         if (i === 0) ctx.moveTo(i, dataRef.current[i]); else ctx.lineTo(i, dataRef.current[i]);
                     }
                     ctx.stroke();
-                    frameRef.current = requestAnimationFrame(draw);
+                    frameId = requestAnimationFrame(draw);
                 };
-                frameRef.current = requestAnimationFrame(draw);
-                return () => cancelAnimationFrame(frameRef.current);
+                frameId = requestAnimationFrame(draw);
+                return () => cancelAnimationFrame(frameId);
             }, [color, speed, type, flatline, onBeat]);
 
-            return <canvas ref={canvasRef} className="w-full h-full block"></canvas>;
+            return <canvas ref={canvasRef} className="w-full h-full block" />;
         };
 
-        const RoleSelection = ({ onSelect, onLogout }) => {
-            const [sessionId, setSessionId] = useState('');
-            const enterFullScreen = () => {
-                const elem = document.documentElement;
-                if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.log(err));
-                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-            };
-            const handleSelect = (mode) => {
-                if (mode === 'monitor') enterFullScreen();
-                onSelect(mode, sessionId);
-            };
-            return (
-                <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-                    <div className="absolute top-4 right-4">
-                         <button onClick={onLogout} className="bg-slate-800 text-slate-400 p-2 rounded hover:text-white flex items-center gap-2 text-sm border border-slate-700"><Icons.LogOut className="w-4 h-4" /> Salir</button>
-                    </div>
-                    <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
-                        <div className="flex justify-center mb-6"><Icons.Activity className="w-16 h-16 text-[#42B334]"/></div>
-                        <h1 className="text-3xl font-bold text-center mb-2 text-[#42B334]">NeoMonitor</h1>
-                        <p className="text-slate-400 text-center mb-8 italic text-sm">Software para fines educativos exclusivamente.<br/>Usar solo en entornos de simulación.</p>
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Código de Sesión</label>
-                                <div className="flex flex-col gap-3">
-                                    <input type="number" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="Ej: 1234" className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white text-center text-xl outline-none focus:border-[#42B334] transition-colors" />
-                                    <button onClick={() => setSessionId(Math.floor(1000 + Math.random() * 9000).toString())} className="w-full px-4 py-3 bg-slate-700 rounded-lg text-sm hover:bg-slate-600 transition-all font-semibold text-slate-200">Generar Código Nuevo</button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => sessionId && handleSelect('monitor')} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
-                                    <Icons.Monitor className="w-8 h-8 mb-3 text-[#42B334]" />
-                                    <span className="font-semibold">Monitor</span>
-                                </button>
-                                <button onClick={() => sessionId && handleSelect('control')} disabled={!sessionId} className="flex flex-col items-center p-6 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all disabled:opacity-50">
-                                    <Icons.Smartphone className="w-8 h-8 mb-3 text-blue-400" />
-                                    <span className="font-semibold">Control</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
+        const useInterpolatedVitals = (target) => {
+            const [vitals, setVitals] = useState(target);
+            useEffect(() => {
+                if (!target.transition) { setVitals(target); return; }
+                let frame;
+                const animate = () => {
+                    const elapsed = Date.now() - target.transition.startTime;
+                    const p = Math.min(1, elapsed / target.transition.duration);
+                    if (p < 1) {
+                        setVitals({
+                            ...target,
+                            hr: Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p),
+                            spo2: Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p),
+                        });
+                        frame = requestAnimationFrame(animate);
+                    } else { setVitals(target); }
+                };
+                frame = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(frame);
+            }, [target]);
+            return vitals;
         };
 
-        const MonitorScreen = ({ sessionId, vitals: targetVitals, connectionStatus }) => {
+        const MonitorScreen = ({ sessionId, vitals: targetVitals }) => {
             const vitals = useInterpolatedVitals(targetVitals);
-            const [alarmState, setAlarmState] = useState('none');
-            const [flash, setFlash] = useState(false);
             const [audioEnabled, setAudioEnabled] = useState(false);
             const [time, setTime] = useState(new Date());
-            const [showQR, setShowQR] = useState(false);
-            const [qrUrl, setQrUrl] = useState('');
-            const [isSmallScreen, setIsSmallScreen] = useState(false); // DETECCIÓN DE PANTALLA
-            const videoRef = useRef(null); // Ref para el video invisible
-            
-            const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.protocol === 'file:';
-            
-            // --- DETECCIÓN DE PANTALLA CHICA (< 8 PULGADAS APROX O ANCHO < 900PX) ---
+            const [alarmState, setAlarmState] = useState('none');
+            const [flash, setFlash] = useState(false);
+
             useEffect(() => {
-                const checkSize = () => {
-                    // Usamos 900px como punto de corte razonable para tablets verticales/celulares
-                    // O si la altura es mayor que el ancho (portrait) en desktop tambien podria aplicar
-                    // Pero nos ceñimos al ancho del viewport para determinar "dispositivo chico"
-                    setIsSmallScreen(window.innerWidth < 900);
-                };
-                checkSize();
-                window.addEventListener('resize', checkSize);
-                return () => window.removeEventListener('resize', checkSize);
+                const t = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(t);
             }, []);
 
-            const enableAudio = () => { 
-                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
-                setAudioEnabled(true);
-                
-                // Intento de pantalla completa al iniciar audio (gesto de usuario)
-                const elem = document.documentElement;
-                if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-
-                // HACK: Reproducir video invisible para evitar throttle en tablets viejas
-                if (videoRef.current) {
-                    videoRef.current.play().catch(e => console.log("Video autoplay failed", e));
-                }
-            };
-
-            const handleBeat = () => { if (!audioEnabled || vitals.alarmMuted) return; let pitch = 800; if (vitals.spo2 < 89) pitch = 400; playBeep(pitch); };
-
-            useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
-            useEffect(() => { try { if (vitals.soundTimestamp > 0 && vitals.soundType) playClinicalSound(vitals.soundType); } catch (e) {} }, [vitals.soundTimestamp, vitals.soundType]);
-            
+            // LÓGICA DE ALARMAS
             useEffect(() => {
                 let level = 'none';
                 if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
-                else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 89 || vitals.spo2 > 95) level = 'warning';
+                else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 89) level = 'warning';
                 setAlarmState(level);
                 const interval = setInterval(() => setFlash(p => !p), level === 'critical' ? 300 : 800);
                 return () => clearInterval(interval);
@@ -604,212 +310,80 @@
                 if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none') {
                     playAlarmSequence(alarmState);
                     interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
-                } return () => clearInterval(interval);
+                }
+                return () => clearInterval(interval);
             }, [alarmState, audioEnabled, vitals.alarmMuted]);
 
             useEffect(() => {
-                if (showQR || isSmallScreen) { // QR url siempre lista en pantalla chica por si se quiere abrir
-                    let baseUrl = window.location.origin + window.location.pathname;
-                    if (!baseUrl.endsWith('/') && !baseUrl.endsWith('.html')) baseUrl += '/';
-                    setQrUrl(`${baseUrl}?mode=control&session=${sessionId}`);
-                }
-            }, [showQR, sessionId, isSmallScreen]);
+                if (vitals.soundTimestamp > 0 && vitals.soundType) playClinicalSound(vitals.soundType);
+            }, [vitals.soundTimestamp, vitals.soundType]);
+
+            const handleBeat = () => {
+                if (!audioEnabled || vitals.alarmMuted) return;
+                playBeep(vitals.spo2 < 89 ? 400 : 800);
+            };
+
+            const start = () => { initAudio(); setAudioEnabled(true); };
 
             const getBorderColor = () => {
-                if (alarmState === 'none' || vitals.alarmMuted) return 'border-transparent';
-                if (alarmState === 'critical') return flash ? 'border-red-600 bg-red-900/20' : 'border-red-900';
-                return flash ? 'border-yellow-500 bg-yellow-900/20' : 'border-yellow-900';
+                if (alarmState === 'none' || vitals.alarmMuted) return 'border-slate-900';
+                if (alarmState === 'critical') return flash ? 'border-red-600 bg-red-900/10' : 'border-red-900';
+                return flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900';
             };
+
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
-            // --- VISTA OXÍMETRO (PANTALLA CHICA) ---
-            if (isSmallScreen) {
-                return (
-                    <div className="force-landscape-container bg-black text-white relative hardware-accelerated">
-                       {/* Video Hack Hidden */}
-                       <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
-                       
-                       <div className="force-landscape w-full h-full flex flex-col bg-black relative border-8 border-slate-800 box-border">
-                            {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-[10px] py-0.5 z-50">SIN CONEXIÓN</div>}
-                            
-                            {/* Header Minimalista */}
-                            <div className="flex justify-between items-center bg-slate-900 px-3 py-1 border-b border-slate-700">
-                                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                                    <span className="font-bold text-white">SpO2 MONITOR</span>
-                                    <span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-3 h-3" /> : <Icons.Volume2 className="text-[#42B334] w-3 h-3" />}
-                                    <div className="flex items-center gap-1">
-                                        <Icons.Battery className="w-3 h-3 text-green-500" />
-                                        <span className="text-[10px] text-green-500">FULL</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Cuerpo Principal */}
-                            <div className="flex-1 grid grid-cols-2 divide-x divide-slate-800">
-                                {/* Columna Izq: SpO2 */}
-                                <div className="flex flex-col items-center justify-center relative p-2">
-                                    <span className="text-yellow-400 font-bold text-lg absolute top-2 left-2">%SpO2</span>
-                                    <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '25vh'}}>
-                                        {vitals.spo2 || '--'}
-                                    </span>
-                                    {/* Barra de Señal Simulada */}
-                                    <div className="absolute bottom-4 left-4 flex gap-0.5 h-12 items-end">
-                                        {[1,2,3,4,5,6,7].map(i => (
-                                            <div key={i} className={`w-2 rounded-sm ${i < (vitals.spo2 > 0 ? 6 : 1) ? 'bg-green-500' : 'bg-slate-700'}`} style={{height: `${i*14}%`}}></div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Columna Der: FC y Wave */}
-                                <div className="flex flex-col relative h-full">
-                                    {/* FC Value */}
-                                    <div className="flex-1 flex flex-col items-center justify-center p-2 relative border-b border-slate-800">
-                                        <span className="text-green-500 font-bold text-lg absolute top-2 left-2">PR bpm</span>
-                                        <span className={`font-mono font-bold leading-none ${getTextColor('text-green-500')}`} style={{fontSize: '20vh'}}>
-                                            {vitals.hr || '--'}
-                                        </span>
-                                    </div>
-                                    {/* Waveform Area - REDUCIDO DE TAMAÑO (h-1/5) */}
-                                    <div className="h-1/5 w-full bg-black relative">
-                                        <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat}/>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer / Conexión QR */}
-                            <div className="bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center">
-                                <div className="flex items-center gap-2 text-slate-500 text-xs font-mono">
-                                    <span>ID: <span className="text-white font-bold">{sessionId}</span></span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => {
-                                        if (!document.fullscreenElement) {
-                                            document.documentElement.requestFullscreen().catch(() => {});
-                                        } else {
-                                            document.exitFullscreen().catch(() => {});
-                                        }
-                                    }} className="p-2 bg-slate-800 rounded text-slate-400">
-                                        <Icons.Maximize className="w-3 h-3" />
-                                    </button>
-                                    <button 
-                                        onClick={() => setShowQR(!showQR)}
-                                        className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 ${showQR ? 'bg-white text-black' : 'bg-blue-900/50 text-blue-300 border border-blue-800'}`}
-                                    >
-                                        <Icons.QrCode className="w-3 h-3"/> {showQR ? 'Ocultar' : 'Conectar'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Overlays (QR y Audio) */}
-                             {!audioEnabled && !showQR && (
-                                <div className="absolute inset-0 bg-black/90 z-40 flex items-center justify-center" onClick={enableAudio}>
-                                    <div className="text-center animate-pulse">
-                                        <Icons.Play className="w-12 h-12 text-white mx-auto mb-2" />
-                                        <span className="text-white font-bold text-sm">TOCAR PARA INICIAR</span>
-                                    </div>
-                                </div>
-                            )}
-
-                             {showQR && (
-                                <div className="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4" onClick={() => setShowQR(false)}>
-                                     <div className="bg-white p-4 rounded-lg flex flex-col items-center shadow-2xl">
-                                        <h3 className="text-black font-bold mb-2 text-sm">Conexión Remota</h3>
-                                        {isPreviewEnv ? (
-                                             <div className="bg-red-100 border border-red-500 text-red-700 p-2 rounded text-xs mb-2">Modo Preview</div>
-                                        ) : (
-                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}`} className="w-32 h-32 border-2 border-black" />
-                                        )}
-                                        <p className="text-black text-[10px] mt-2">Escanea para controlar</p>
-                                     </div>
-                                     <span className="text-slate-500 text-xs mt-4">Toca para cerrar</span>
-                                </div>
-                            )}
-                       </div>
-                    </div>
-                );
-            }
-
-            // --- VISTA MONITOR MULTIPARAMÉTRICO (ESCRITORIO/TABLET GRANDE) ---
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] ${getBorderColor()} transition-colors duration-100 overflow-hidden relative hardware-accelerated`}>
-                    {/* Video Hack Hidden */}
-                    <video ref={videoRef} loop muted playsInline src={noSleepVideo} style={{position: 'absolute', width: 1, height: 1, opacity: 0.01, pointerEvents: 'none'}} />
-
-                    {!connectionStatus && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center text-xs py-1 z-50">Reconectando...</div>}
-                    {!audioEnabled && !showQR && (
-                        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
-                            <button onClick={enableAudio} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-6 px-12 rounded-2xl text-2xl flex items-center gap-4 animate-bounce">
-                                <Icons.Play className="w-8 h-8 fill-current" /> Click para Iniciar Monitor y Sonido
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated`}>
+                    {!audioEnabled && (
+                        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center">
+                            <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">
+                                TOCAR PARA INICIAR MONITOR
                             </button>
                         </div>
                     )}
-                    {showQR && (
-                        <div className="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-8 text-center">
-                            <div className="bg-white p-8 rounded-xl flex flex-col items-center max-w-md w-full">
-                                <h3 className="text-black text-2xl font-bold mb-4">Conexión Remota</h3>
-                                {isPreviewEnv ? (
-                                    <div className="bg-red-100 border-2 border-red-500 text-red-700 p-4 rounded-lg mb-4"><p className="font-bold">¡Estás en modo PREVIEW!</p><p className="text-sm font-bold mt-2 underline">Sube este código a GitHub Pages.</p></div>
-                                ) : (
-                                    <><img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrUrl)}`} alt="Scan QR" className="border-4 border-white mb-2" /><p className="text-black text-sm">Escanea con tu celular para<br/>usarlo como control.</p></>
-                                )}
-                                <button onClick={() => setShowQR(false)} className="mt-6 bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-700"><Icons.X className="w-5 h-5"/> Cerrar</button>
-                            </div>
-                        </div>
-                    )}
-                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 min-h-[40px]">
+
+                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
-                        <div className="flex gap-2 items-center">{vitals.alarmMuted ? <Icons.VolumeX className="text-orange-500 w-4 h-4" /> : <Icons.Volume2 className="text-[#42B334] w-4 h-4" />}<span>ID: {sessionId}</span></div>
-                    </div>
-                    <div className="flex-1 min-h-0 grid grid-rows-[2fr_2fr_1fr] divide-y divide-slate-800">
-                        {/* AUMENTO DE ESPACIO PARA NÚMEROS (DE 30% A 45%) */}
-                        <div className="grid grid-cols-[55%_45%] h-full min-h-0">
-                            <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-[#42B334] font-bold text-sm z-10">II</span>
-                                <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat} />
-                            </div>
-                            <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-[#42B334] font-bold text-lg">FC</span>
-                                <div className="absolute top-10 right-2 text-emerald-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80" style={{color: '#42B334'}}><span style={{fontSize: '2.5vh'}}>180</span><span style={{fontSize: '2.5vh'}}>100</span></div>
-                                <span className={`leading-none font-mono font-bold`} style={{fontSize: '22vh', color: getTextColor('#42B334')}}>{vitals.hr || '--'}</span>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-[55%_45%] h-full min-h-0">
-                            <div className="relative h-full border-r border-slate-800 bg-black">
-                                <span className="absolute top-2 left-2 text-yellow-400 font-bold text-sm z-10">Pleth</span>
-                                <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} />
-                            </div>
-                            <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 right-2 text-yellow-400 font-bold text-lg">SpO2</span>
-                                <div className="absolute top-10 right-2 text-yellow-600 font-mono text-xl flex flex-col items-end leading-tight opacity-80"><span style={{fontSize: '2.5vh'}}>95</span><span style={{fontSize: '2.5vh'}}>89</span></div>
-                                <div className="flex items-baseline">
-                                    <span className={`leading-none font-mono font-bold ${getTextColor('text-yellow-400')}`} style={{fontSize: '22vh'}}>{vitals.spo2 || '--'}</span><span className={`ml-2 ${getTextColor('text-yellow-400')}`} style={{fontSize: '8vh'}}>%</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 h-full divide-x divide-slate-800 min-h-0">
-                             <div className="flex flex-col justify-center items-end pr-4 relative min-w-0">
-                                <span className="absolute top-2 left-4 text-slate-500 font-bold text-lg">RESP</span>
-                                <div className="flex items-center gap-4"><span className="leading-none font-mono font-bold text-slate-600" style={{fontSize: '10vh'}}>---</span></div>
-                             </div>
-                             <div className="flex flex-col justify-center pl-8 relative min-w-0">
-                                <span className="absolute top-2 left-4 text-slate-500 font-bold text-lg">PNI</span>
-                                <span className="font-mono font-bold text-slate-600 leading-none" style={{fontSize: '7vh'}}>---/---</span>
-                                <span className="text-slate-700 text-xl mt-2">(--)</span>
-                             </div>
+                        <div className="flex gap-4 items-center">
+                            {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
+                            <span>ID: {sessionId}</span>
                         </div>
                     </div>
-                    <div className="flex-none bg-slate-900 border-t border-slate-700 p-2 flex justify-between items-center h-16">
-                        <div className="flex gap-2 h-full">
-                            <div className="soft-key w-24">Menú<br/>Principal</div><div className="soft-key w-24">Silenciar<br/>Alarmas</div><div className="soft-key w-24">Tendencias</div>
-                            <div onClick={() => setShowQR(true)} className="soft-key w-24 bg-blue-900/30 text-blue-200 border-blue-800 hover:bg-blue-800/50">C. Remoto<br/><Icons.QrCode className="inline w-3 h-3 ml-1"/></div>
+
+                    <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
+                        {/* Fila FC */}
+                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full">
+                            <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
+                            <div className="flex flex-col items-end pr-6 justify-center">
+                                <span className="text-[#42B334] font-bold text-lg">FC</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')}`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
+                            </div>
                         </div>
-                        <div className="flex gap-2 h-full"><div className="soft-key w-24 text-slate-500 border-slate-800 cursor-not-allowed">PNI<br/>Inicio/Parada</div><div className="soft-key w-24 text-slate-500 border-slate-800 cursor-not-allowed">Cero<br/>PNI</div></div>
-                        <div className="flex items-center gap-4 px-4 text-slate-400 font-mono text-sm border-l border-slate-700 ml-4">
-                            <div className="flex flex-col items-end"><span>{time.toLocaleTimeString()}</span><span className="text-xs">{time.toLocaleDateString()}</span></div>
-                            <div className="flex gap-3">{connectionStatus ? <Icons.Wifi className="w-5 h-5 text-green-500" /> : <Icons.WifiOff className="w-5 h-5 text-red-500 animate-pulse" />}<Icons.Battery className="w-5 h-5 text-green-500" /></div>
+                        {/* Fila SpO2 */}
+                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full">
+                            <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
+                            <div className="flex flex-col items-end pr-6 justify-center">
+                                <span className="text-yellow-400 font-bold text-lg">SpO2</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
+                            </div>
+                        </div>
+                        {/* Fila Inferior + Sponsor */}
+                        <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800">
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold">---</span></div>
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold">--/--</span></div>
+                            <div className="p-2 flex items-center justify-center">
+                                <SponsorSpace className="w-full h-full" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500">
+                        <div className="flex gap-2"><div className="soft-key px-4 py-2">Silenciar</div><div className="soft-key px-4 py-2">Menú</div></div>
+                        <div className="flex gap-4 items-center font-mono">
+                            <span>{time.toLocaleTimeString()}</span>
+                            <Icons.Wifi className="w-4 h-4 text-green-500" />
+                            <Icons.Battery className="w-4 h-4 text-green-500" />
                         </div>
                     </div>
                 </div>
@@ -818,68 +392,29 @@
 
         const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate }) => {
             const vitals = useInterpolatedVitals(currentVitals);
-            const [transitionDuration, setTransitionDuration] = useState(5); // DEFAULT 5 SEGUNDOS
+            const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            
-            // --- CORRECCIÓN DE SINCRONIZACIÓN ---
-            // Usamos una referencia para mantener el valor más reciente de los sliders
-            // Esto evita que al soltar el slider (onMouseUp) se use un valor desactualizado del closure anterior
             const [targets, setTargets] = useState(currentVitals);
-            const targetsRef = useRef(currentVitals);
-            const isDraggingRef = useRef(false); // EVITAR CONFLICTOS DE SYNC
 
-            useEffect(() => {
-                // Solo sincronizamos si NO estamos arrastrando para evitar que el slider "salte"
-                if (!isDraggingRef.current) {
-                    const newTargets = {
-                        ...targets, // Mantenemos estado local
-                        hr: currentVitals.hr, 
-                        spo2: currentVitals.spo2, 
-                        resp: currentVitals.resp
-                    };
-                    setTargets(newTargets);
-                    targetsRef.current = newTargets;
-                }
-            }, [currentVitals.hr, currentVitals.spo2, currentVitals.resp]);
+            useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
 
             const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
 
-            // OPTIMIZADO: Actualiza tanto el estado (para render) como la referencia (para lógica inmediata)
-            const handleSliderChange = (field, value) => {
-                const newTargets = { ...targets, [field]: value };
-                setTargets(newTargets);
-                targetsRef.current = newTargets;
-            };
-
-            const handleSliderStart = () => {
-                isDraggingRef.current = true;
-            };
-
-            // OPTIMIZADO: Lee desde la REFERENCIA para garantizar que se envía el último valor
-            const handleCommitChange = (field) => {
-                isDraggingRef.current = false;
+            const handleCommitChange = (field, value) => {
                 const now = Date.now();
                 const durationMs = transitionDuration * 1000;
-                
-                // Usamos targetsRef.current en lugar de targets
-                const currentTargets = targetsRef.current;
-
-                // Logging
-                if (field === 'hr') logAction(`Cambio manual FC: ${currentTargets.hr} lpm`);
-                if (field === 'spo2') logAction(`Cambio manual SpO2: ${currentTargets.spo2}%`);
+                if (field === 'hr') logAction(`Cambio FC: ${value} lpm`);
+                if (field === 'spo2') logAction(`Cambio SpO2: ${value}%`);
 
                 onUpdate({ 
-                    ...currentTargets, 
+                    ...targets, 
+                    [field]: value,
                     transition: (durationMs > 0) ? { 
-                        startTime: now, 
-                        duration: durationMs, 
-                        startHr: vitals.hr, 
-                        targetHr: currentTargets.hr, 
-                        startSpo2: vitals.spo2, 
-                        targetSpo2: currentTargets.spo2, 
-                        startResp: vitals.resp, 
-                        targetResp: currentTargets.resp || 45 
+                        startTime: now, duration: durationMs, 
+                        startHr: vitals.hr, targetHr: field === 'hr' ? value : targets.hr, 
+                        startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : targets.spo2,
+                        startResp: vitals.resp, targetResp: 45 
                     } : null 
                 });
             };
@@ -887,276 +422,121 @@
             const triggerSound = (type, name) => { onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
 
             const applyPreset = (type, name) => {
-                let presetValues = {};
+                let p = {};
                 switch(type) {
-                    case 'normal': presetValues = { hr: 142, spo2: 94, resp: 45 }; break;
-                    case 'brady': presetValues = { hr: 68, spo2: 75, resp: 20 }; break;
-                    case 'desat': presetValues = { hr: 110, spo2: 84, resp: 60 }; break;
-                    case 'vpp': presetValues = { hr: 88, spo2: 84, resp: 40 }; break;
-                    case 'vpp_ct': presetValues = { hr: 56, spo2: 65, resp: 0 }; break;
+                    case 'normal': p = { hr: 142, spo2: 94, resp: 45 }; break;
+                    case 'brady': p = { hr: 68, spo2: 75, resp: 20 }; break;
+                    case 'desat': p = { hr: 110, spo2: 84, resp: 60 }; break;
+                    case 'vpp': p = { hr: 88, spo2: 84, resp: 40 }; break;
+                    case 'vpp_ct': p = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
-                const newTargets = { ...targets, ...presetValues };
-                setTargets(newTargets);
-                targetsRef.current = newTargets;
-
-                const now = Date.now(); const durationMs = transitionDuration * 1000;
-                onUpdate({ ...presetValues, transition: (durationMs > 0) ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: presetValues.hr, startSpo2: vitals.spo2, targetSpo2: presetValues.spo2, startResp: vitals.resp, targetResp: presetValues.resp } : null });
+                const now = Date.now();
+                onUpdate({ ...p, transition: { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp } });
                 logAction(`Escenario: ${name}`);
             };
 
             return (
-                <div className="h-screen overflow-y-auto bg-slate-900 text-white p-4 pb-20">
-                    <header className="flex justify-between items-center mb-6 bg-slate-800 p-4 rounded-lg">
-                        <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Wifi className="w-4 h-4"/> Control Remoto</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm text-slate-400 font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
-                            <div className={`w-3 h-3 rounded-full ${vitals.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        </div>
+                <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
+                    <header className="flex-none flex justify-between items-center p-4 bg-slate-800">
+                        <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> Control</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
+                        <span className="text-sm font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
                     </header>
+
                     {showDebrief && (
-                        <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col">
-                            <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full">
-                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold text-lg">Registro de Eventos</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
+                        <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowDebrief(false)}>
+                            <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold">Eventos</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
                                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                    {eventLog.length === 0 && <p className="text-slate-500 text-center mt-4">Sin eventos registrados.</p>}
-                                    {eventLog.map((log, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">{log.time}</span><span className="text-slate-200">{log.msg}</span></div>))}
+                                    {eventLog.map((l, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">{l.time}</span><span>{l.msg}</span></div>))}
                                 </div>
                             </div>
                         </div>
                     )}
-                    <div className="space-y-6 max-w-lg mx-auto">
-                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-amber-400 font-bold flex gap-2"><Icons.Clock className="w-5 h-5"/> Tiempo Transición</label><span className="text-white font-mono font-bold text-xl">{transitionDuration}s</span></div>
-                            <input 
-                                type="range" min="0" max="90" step="10" 
-                                value={transitionDuration} 
-                                onChange={(e) => setTransitionDuration(parseInt(e.target.value))}
-                                onMouseUp={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
-                                onTouchEnd={() => logAction(`Ajuste Tiempo Transición: ${transitionDuration}s`)}
-                                className="w-full h-8 time-slider cursor-pointer touch-none" 
-                            />
-                            <div className="flex justify-between text-xs text-slate-500 mt-1"><span>Inmediato</span><span>90 seg</span></div>
+
+                    <div className="flex-1 p-4 space-y-6">
+                        <div className="bg-slate-800 p-4 rounded-xl">
+                            <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
+                            <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
                         </div>
-                        <div className="w-full"><button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60 transition-all"><Icons.Activity className="w-5 h-5"/> Reproducir Quejido</button></div>
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-[#42B334] font-bold flex gap-2"><Icons.Heart className="w-5 h-5"/> FC: {targets.hr}</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.hr}</span></div>
-                            <input 
-                                type="range" min="0" max="200" 
-                                value={targets.hr} 
-                                onChange={(e) => handleSliderChange('hr', parseInt(e.target.value))}
-                                onMouseDown={handleSliderStart}
-                                onTouchStart={handleSliderStart}
-                                onMouseUp={() => handleCommitChange('hr')}
-                                onTouchEnd={() => handleCommitChange('hr')}
-                                onClick={() => handleCommitChange('hr')}
-                                className="w-full h-12 accent-[#42B334] cursor-pointer touch-none" 
-                            />
+                        <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60"><Icons.Activity className="w-5 h-5"/> Quejido</button>
+                        <div className="bg-slate-800 p-6 rounded-xl">
+                            <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>FC: {targets.hr}</span><span className="text-xs opacity-50">Act: {vitals.hr}</span></div>
+                            <input type="range" min="0" max="220" value={targets.hr} onChange={e => setTargets({...targets, hr: parseInt(e.target.value)})} onTouchEnd={() => handleCommitChange('hr', targets.hr)} onMouseUp={() => handleCommitChange('hr', targets.hr)} className="w-full h-12"/>
                         </div>
-                        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                            <div className="flex justify-between mb-2"><label className="text-yellow-400 font-bold flex gap-2"><Icons.Activity className="w-5 h-5"/> SpO2: {targets.spo2}%</label><span className="text-slate-400 text-xs mt-1">Actual: {vitals.spo2}%</span></div>
-                            <input 
-                                type="range" min="0" max="100" 
-                                value={targets.spo2} 
-                                onChange={(e) => handleSliderChange('spo2', parseInt(e.target.value))} 
-                                onMouseDown={handleSliderStart}
-                                onTouchStart={handleSliderStart}
-                                onMouseUp={() => handleCommitChange('spo2')}
-                                onTouchEnd={() => handleCommitChange('spo2')}
-                                onClick={() => handleCommitChange('spo2')}
-                                className="w-full h-12 accent-yellow-400 cursor-pointer touch-none" 
-                            />
+                        <div className="bg-slate-800 p-6 rounded-xl">
+                            <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {targets.spo2}%</span><span className="text-xs opacity-50">Act: {vitals.spo2}%</span></div>
+                            <input type="range" min="0" max="100" value={targets.spo2} onChange={e => setTargets({...targets, spo2: parseInt(e.target.value)})} onTouchEnd={() => handleCommitChange('spo2', targets.spo2)} onMouseUp={() => handleCommitChange('spo2', targets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
                             <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
-                            <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold">Desaturación</button>
+                            <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold text-sm">Desaturación</button>
                             <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
-                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT (Masaje)</button>
+                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT</button>
                         </div>
-                        <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Silenciar/Activar Alarmas'); }} className={`w-full py-4 rounded-lg font-bold flex justify-center gap-2 ${vitals.alarmMuted ? 'bg-orange-600' : 'bg-slate-700'}`}>{vitals.alarmMuted ? 'Alarmas Silenciadas' : 'Silenciar Alarmas'}</button>
+                        <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
+                    </div>
+
+                    <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" />
+                </div>
+            );
+        };
+
+        const RoleSelection = ({ onSelect }) => {
+            const [sid, setSid] = useState(Math.floor(1000 + Math.random() * 9000).toString());
+            return (
+                <div className="h-screen bg-slate-900 flex items-center justify-center p-6">
+                    <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 text-center">
+                        <Icons.Activity className="w-16 h-16 text-green-500 mx-auto mb-4"/>
+                        <h1 className="text-3xl font-bold mb-1">NeoMonitor</h1>
+                        <p className="text-slate-400 text-xs mb-8 italic">Software gratuito para educación médica</p>
+                        <div className="mb-8">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 text-left">Sesión</label>
+                            <input type="number" value={sid} onChange={e => setSid(e.target.value)} className="w-full bg-black text-white text-3xl text-center p-3 rounded-lg border border-slate-600 focus:border-green-500 outline-none font-mono"/>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <button onClick={() => onSelect('monitor', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center">
+                                <Icons.Monitor className="w-8 h-8 mb-2 text-green-400"/> <span className="font-bold">Monitor</span>
+                            </button>
+                            <button onClick={() => onSelect('control', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center">
+                                <Icons.Smartphone className="w-8 h-8 mb-2 text-blue-400"/> <span className="font-bold">Control</span>
+                            </button>
+                        </div>
+                        <SponsorSpace className="h-24 rounded-xl" />
                     </div>
                 </div>
             );
         };
+
         const App = () => {
-            const [user, setUser] = useState(null);
             const [mode, setMode] = useState('select');
+            const [user, setUser] = useState(null);
             const [sessionId, setSessionId] = useState('');
             const [vitals, setVitals] = useState(DEFAULT_VITALS);
-            const [isConnected, setIsConnected] = useState(true);
-            const [isDemoMode, setIsDemoMode] = useState(false);
-            const [demoTimeLeft, setDemoTimeLeft] = useState(300);
-            const [licenseExpired, setLicenseExpired] = useState(false); // NUEVO ESTADO
 
             useEffect(() => {
-                let interval = null;
-                if (isDemoMode && demoTimeLeft > 0) {
-                    interval = setInterval(() => { 
-                        const newTime = demoTimeLeft - 1;
-                        setDemoTimeLeft(newTime);
-                        localStorage.setItem('neosim_demo_timer', newTime);
-                    }, 1000);
-                } else if (demoTimeLeft === 0) { clearInterval(interval); }
-                return () => clearInterval(interval);
-            }, [isDemoMode, demoTimeLeft]);
-
-            const handleDemoStart = () => {
-                setIsDemoMode(true);
-                const savedTime = localStorage.getItem('neosim_demo_timer');
-                if (savedTime && parseInt(savedTime) > 0) {
-                    setDemoTimeLeft(parseInt(savedTime));
-                } else {
-                    setDemoTimeLeft(300);
-                    localStorage.setItem('neosim_demo_timer', 300);
-                }
-                if (auth) {
-                    auth.signInAnonymously().then(u => { setUser(u.user); }).catch(err => {
-                        console.warn("Auth anónima falló, usando usuario local.", err);
-                        setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' });
-                    });
-                } else { setUser({ uid: 'demo-user', email: 'demo@neomonitor.com' }); }
-            };
-
-            const handleLogout = () => {
-                if (auth) {
-                    auth.signOut().then(() => {
-                        setUser(null);
-                        setIsDemoMode(false);
-                        localStorage.removeItem('neosim_demo_timer'); 
-                        setMode('select');
-                    });
-                } else {
-                    setUser(null);
-                    setMode('select');
-                }
-            };
+                auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
+                const p = new URLSearchParams(window.location.search);
+                if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
+            }, []);
 
             useEffect(() => {
-                if (!auth) return;
-                const unsub = auth.onAuthStateChanged(async (u) => {
-                    if (u) {
-                        if (u.isAnonymous) {
-                            setIsDemoMode(true);
-                            const savedTime = localStorage.getItem('neosim_demo_timer');
-                            if (savedTime) setDemoTimeLeft(parseInt(savedTime));
-                            setUser(u);
-                        } else {
-                            // ----------------------------------------------------------------
-                            // === VERIFICACIÓN DE LICENCIA ===
-                            // ----------------------------------------------------------------
-                            try {
-                                if (db) {
-                                    const doc = await db.collection('usuarios').doc(u.uid).get();
-                                    if (doc.exists) {
-                                        const data = doc.data();
-                                        if (data.fecha_vencimiento) {
-                                            const vencimiento = data.fecha_vencimiento.toDate();
-                                            const hoy = new Date();
-                                            // Si venció, activamos el bloqueo pero dejamos setUser(u) 
-                                            // para que el renderizado muestre la pantalla de bloqueo en lugar del Login
-                                            if (hoy > vencimiento) {
-                                                setLicenseExpired(true);
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (error) {
-                                console.error("Error verificando licencia:", error);
-                            }
-                            setIsDemoMode(false);
-                            setUser(u);
-                        }
-                    } else {
-                        setUser(null);
-                    }
-                });
+                if (!sessionId || !db) return;
+                const unsub = db.collection("sessions").doc(sessionId).onSnapshot(doc => { if (doc.exists) setVitals(doc.data()); });
                 return () => unsub();
-            }, []);
+            }, [sessionId]);
 
-            useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                const urlMode = params.get('mode');
-                const urlSession = params.get('session');
-                if (urlMode && urlSession) { setMode(urlMode); setSessionId(urlSession); }
-            }, []);
-
-            useEffect(() => {
-                if (!sessionId || !user || !db) return;
-                let unsubscribe;
-                const connect = () => {
-                    try {
-                        unsubscribe = db.collection("sessions").doc(sessionId).onSnapshot(
-                            (doc) => { if (doc.exists) { setVitals({...doc.data(), connected: true}); setIsConnected(true); } }, 
-                            (error) => { 
-                                console.log("Reconectando...", error); 
-                                if (isDemoMode) { setIsConnected(true); } else { setIsConnected(false); setTimeout(connect, 2000); }
-                            }
-                        );
-                    } catch(e) { setIsConnected(false); }
-                };
-                connect();
-                return () => unsubscribe && unsubscribe();
-            }, [sessionId, user, isDemoMode]);
-
-            const handleUpdate = async (newVitals) => { 
-                if (sessionId && db) {
-                    try { await db.collection("sessions").doc(sessionId).set(newVitals, { merge: true }); } 
-                    catch (e) { if (isDemoMode) setVitals(prev => ({...prev, ...newVitals})); }
-                } else if (isDemoMode) { setVitals(prev => ({...prev, ...newVitals})); }
+            const handleUpdate = async (v) => {
+                setVitals(v);
+                if (db && sessionId) { try { await db.collection("sessions").doc(sessionId).set(v, { merge: true }); } catch(e){} }
             };
-            const onSelect = (m, id) => { setMode(m); setSessionId(id); };
 
-            if (!user) return <LoginScreen onDemoStart={handleDemoStart} />;
-
-            // --- PANTALLA DE BLOQUEO UNIFICADA (DEMO / LICENCIA) ---
-            if (licenseExpired || (isDemoMode && demoTimeLeft === 0)) {
-                const title = licenseExpired ? "Licencia No Válida" : "Tiempo de Prueba Agotado";
-                const message = licenseExpired 
-                    ? "Tu licencia de NeoMonitor ha caducado o no es válida."
-                    : "Has disfrutado de los 5 minutos de demostración gratuita.";
-
-                return (
-                    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
-                        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-600 max-w-md w-full">
-                            <div className="flex justify-center mb-6 text-red-500">
-                                {licenseExpired ? <Icons.Lock className="w-20 h-20" /> : <Icons.Clock className="w-20 h-20 text-yellow-400" />}
-                            </div>
-                            
-                            <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
-                            <p className="text-slate-300 mb-8 text-lg">{message}</p>
-                            
-                            <div className="bg-slate-900 p-6 rounded-xl mb-6 border border-slate-700">
-                                <p className="text-sm text-slate-400 mb-3">Para continuar utilizando el simulador profesionalmente:</p>
-                                <button 
-                                    onClick={() => window.location.href = "https://www.getneomonitor.pro"} 
-                                    className="w-full py-4 bg-[#42B334] hover:bg-green-600 text-black font-bold text-lg rounded-lg transition-transform transform hover:scale-105 shadow-lg"
-                                >
-                                    {licenseExpired ? "Renovar Licencia Ahora" : "Comprar Licencia Pro"}
-                                </button>
-                            </div>
-
-                            <button onClick={() => {
-                                localStorage.removeItem('neosim_demo_timer'); 
-                                setLicenseExpired(false);
-                                if(auth) auth.signOut();
-                                window.location.reload();
-                            }} className="text-slate-500 hover:text-white text-sm underline mt-4">
-                                Volver a la pantalla de inicio
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
+            if (!user) return <div className="h-screen bg-black flex items-center justify-center text-green-500">Conectando...</div>;
 
             return (
-                <div className="font-sans antialiased relative">
-                    {isDemoMode && (
-                        <div className="fixed top-0 right-0 bg-yellow-500 text-black font-bold px-3 py-1 rounded-bl-lg z-50 text-xs shadow-lg">
-                            Demo: {Math.floor(demoTimeLeft / 60)}:{(demoTimeLeft % 60).toString().padStart(2, '0')}
-                        </div>
-                    )}
-                    {mode === 'select' && <RoleSelection onSelect={onSelect} onLogout={handleLogout} />}
-                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} connectionStatus={isConnected} />}
+                <div className="font-sans antialiased">
+                    {mode === 'select' && <RoleSelection onSelect={(m, s) => { setMode(m); setSessionId(s); }} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} />}
                     {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
                 </div>
             );
