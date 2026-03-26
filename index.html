@@ -5,13 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeoMonitor (Free Edition)</title>
     
-    <!-- Google Analytics -->
+    <!-- Google Analytics - Reemplaza G-XXXXXXXXXX con tu ID real -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-XXXXXXXXXX');
+
+      // Función auxiliar para rastrear eventos personalizados
+      function trackNeoEvent(action, label) {
+        // Log en consola para pruebas del usuario
+        console.log(`[GA Event] Acción: ${action} | Etiqueta: ${label}`);
+        
+        if (typeof gtag === 'function') {
+          gtag('event', action, {
+            'event_category': 'NeoMonitor_Interactions',
+            'event_label': label
+          });
+        }
+      }
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -117,8 +130,11 @@
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
 
         // --- COMPONENTE SPONSOR ---
-        const SponsorSpace = ({ className = "", compact = false }) => (
-            <div className={`sponsor-container ${className}`} onClick={() => window.open('https://tu-sitio-o-del-sponsor.com', '_blank')}>
+        const SponsorSpace = ({ className = "", compact = false, source = "Monitor" }) => (
+            <div className={`sponsor-container ${className}`} onClick={() => {
+                trackNeoEvent('sponsor_click', source);
+                window.open('https://tu-sitio-o-del-sponsor.com', '_blank');
+            }}>
                 <div className="flex flex-col items-center">
                     <span className="text-[10px] text-slate-500 font-bold mb-0.5">SPONSOR</span>
                     <div className="bg-slate-700/50 w-full px-4 py-1 rounded flex items-center justify-center">
@@ -323,7 +339,7 @@
                 playBeep(vitals.spo2 < 89 ? 400 : 800);
             };
 
-            const start = () => { initAudio(); setAudioEnabled(true); };
+            const start = () => { initAudio(); setAudioEnabled(true); trackNeoEvent('monitor_start', sessionId); };
 
             const getBorderColor = () => {
                 if (alarmState === 'none' || vitals.alarmMuted) return 'border-slate-900';
@@ -373,7 +389,7 @@
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold">---</span></div>
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold">--/--</span></div>
                             <div className="p-2 flex items-center justify-center">
-                                <SponsorSpace className="w-full h-full" />
+                                <SponsorSpace className="w-full h-full" source="Monitor" />
                             </div>
                         </div>
                     </div>
@@ -399,7 +415,11 @@
 
             useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
 
-            const logAction = (message) => { const timestamp = new Date().toLocaleTimeString(); setEventLog(prev => [{time: timestamp, msg: message}, ...prev]); };
+            const logAction = (message) => { 
+              const timestamp = new Date().toLocaleTimeString(); 
+              setEventLog(prev => [{time: timestamp, msg: message}, ...prev]);
+              trackNeoEvent('controller_action', message);
+            };
 
             const handleCommitChange = (field, value) => {
                 const now = Date.now();
@@ -477,7 +497,7 @@
                         <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
                     </div>
 
-                    <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" />
+                    <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" source="Control" />
                 </div>
             );
         };
@@ -502,7 +522,7 @@
                                 <Icons.Smartphone className="w-8 h-8 mb-2 text-blue-400"/> <span className="font-bold">Control</span>
                             </button>
                         </div>
-                        <SponsorSpace className="h-24 rounded-xl" />
+                        <SponsorSpace className="h-24 rounded-xl" source="Menu_Inicial" />
                     </div>
                 </div>
             );
@@ -517,7 +537,11 @@
             useEffect(() => {
                 auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
                 const p = new URLSearchParams(window.location.search);
-                if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
+                if (p.get('mode') && p.get('session')) { 
+                    setMode(p.get('mode')); 
+                    setSessionId(p.get('session'));
+                    trackNeoEvent('direct_url_access', p.get('mode'));
+                }
             }, []);
 
             useEffect(() => {
@@ -535,7 +559,11 @@
 
             return (
                 <div className="font-sans antialiased">
-                    {mode === 'select' && <RoleSelection onSelect={(m, s) => { setMode(m); setSessionId(s); }} />}
+                    {mode === 'select' && <RoleSelection onSelect={(m, s) => { 
+                      setMode(m); 
+                      setSessionId(s); 
+                      trackNeoEvent('role_selection', m);
+                    }} />}
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} />}
                     {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
                 </div>
