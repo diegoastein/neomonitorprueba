@@ -544,7 +544,7 @@
                             <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
                             <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
                         </div>
-                        <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60"><Icons.Activity className="w-5 h-5"/> Quejido</button>
+                        
                         <div className="bg-slate-800 p-6 rounded-xl">
                             <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>FC: {localTargets.hr}</span><span className="text-xs opacity-50">Act: {vitals.hr}</span></div>
                             <input type="range" min="0" max="220" value={localTargets.hr} onChange={e => setLocalTargets({ ...localTargets, hr: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('hr', localTargets.hr)} onMouseUp={() => handleCommitChange('hr', localTargets.hr)} className="w-full h-12"/>
@@ -553,14 +553,15 @@
                             <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">Act: {vitals.spo2}%</span></div>
                             <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
                             <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
                             <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold text-sm">Desaturación</button>
                             <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
-                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT</button>
+                            <button onClick={() => triggerSound('grunt', 'Quejido')} className="p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold">Quejido</button>
+                            <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold">VPP + CT</button>
                         </div>
-                        <button onClick={() => { onUpdate({ ...currentVitals, alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
                     </div>
                     <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" source="Control" />
                 </div>
