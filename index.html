@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoMonitor (Gratis) </title>
+    <title>NeoMonitor (Free Edition)</title>
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
@@ -505,11 +505,19 @@
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
             const [targets, setTargets] = useState(currentVitals);
+            
+            // TIEMPO DE SIMULACIÓN: Capturamos el inicio del control
+            const startTimeRef = useRef(Date.now());
 
             useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
 
             const logAction = (message) => { 
-              const timestamp = new Date().toLocaleTimeString(); 
+              // Calculamos el tiempo transcurrido en segundos
+              const elapsedTotalSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              const mins = Math.floor(elapsedTotalSeconds / 60);
+              const secs = elapsedTotalSeconds % 60;
+              const timestamp = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+              
               setEventLog(prev => [{time: timestamp, msg: message}, ...prev]);
               trackNeoEvent('controller_action', message);
             };
@@ -558,9 +566,10 @@
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowDebrief(false)}>
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
-                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold">Eventos</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold">Debriefing (Sim: MM:SS)</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
                                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                    {eventLog.map((l, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">{l.time}</span><span>{l.msg}</span></div>))}
+                                    {eventLog.length === 0 ? <p className="text-slate-500 italic text-center mt-10">Sin eventos registrados</p> : null}
+                                    {eventLog.map((l, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">[{l.time}]</span><span>{l.msg}</span></div>))}
                                 </div>
                             </div>
                         </div>
