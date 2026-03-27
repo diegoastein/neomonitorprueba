@@ -62,18 +62,6 @@
         }
         .sponsor-container:hover { background: rgba(255,255,255,0.05); border-color: #475569; }
 
-        .force-landscape-container { width: 100vw; height: 100vh; overflow: hidden; position: relative; }
-
-        @media screen and (max-width: 900px) and (orientation: portrait) {
-            .force-landscape {
-                position: absolute; top: 50%; left: 50%; width: 100vh; height: 100vw;
-                transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center;
-            }
-        }
-        @media screen and (min-width: 901px), (orientation: landscape) {
-            .force-landscape { width: 100%; height: 100%; }
-        }
-
         .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
         
         @keyframes zoomIn {
@@ -82,41 +70,54 @@
         }
         .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
 
-        /* Optimización para pantallas pequeñas en horizontal (ej. 7 pulgadas) */
-        @media (max-height: 600px) and (orientation: landscape) {
+        /* Optimización agresiva para pantallas pequeñas (7" o menos) */
+        @media (max-height: 500px) {
+            .monitor-screen {
+                border-width: 4px !important; /* Bordes más finos */
+            }
             .monitor-screen .top-bar, .monitor-screen .bottom-bar {
-                padding-top: 0.25rem !important;
-                padding-bottom: 0.25rem !important;
-                font-size: 0.75rem !important;
+                padding: 0.2rem 0.5rem !important;
+                font-size: 0.7rem !important;
+                height: 32px !important;
             }
             .monitor-screen .soft-key {
-                padding: 0.25rem 0.5rem !important;
-                font-size: 0.7rem !important;
+                padding: 0.2rem 0.4rem !important;
+                font-size: 0.65rem !important;
             }
             .monitor-screen .main-row {
-                grid-template-columns: 1fr 180px !important; 
+                grid-template-columns: 1fr 150px !important; /* Columna de números más compacta */
             }
             .monitor-screen .number-container {
                 padding-right: 0.5rem !important;
             }
             .monitor-screen .number-label {
-                font-size: 1rem !important;
-                margin-bottom: 0 !important;
+                font-size: 0.8rem !important;
+                margin-bottom: -4px !important;
             }
             .monitor-screen .number-display {
-                font-size: 12vh !important; 
+                font-size: 14vh !important;
                 line-height: 1 !important;
             }
             .monitor-screen .extra-info-row {
-                grid-template-columns: 1fr 1fr 180px !important;
+                grid-template-columns: 1fr 1fr 150px !important;
             }
             .monitor-screen .extra-info-val {
-                font-size: 1.5rem !important;
+                font-size: 1.2rem !important;
             }
             .monitor-screen .sponsor-container {
-                transform: scale(0.9);
-                transform-origin: center right;
+                height: 100% !important;
+                border: none !important;
             }
+            .monitor-screen .sponsor-container span {
+                font-size: 8px !important;
+            }
+        }
+
+        /* Estilos para el botón QR */
+        .qr-button {
+            background: linear-gradient(180deg, #166534 0%, #14532d 100%);
+            border-color: #22c55e;
+            color: #bbf7d0;
         }
     </style>
 </head>
@@ -376,15 +377,12 @@
             };
 
             const start = () => { 
-                // ACTIVAR PANTALLA COMPLETA AL INICIAR
                 if (document.documentElement.requestFullscreen) {
                     document.documentElement.requestFullscreen().catch(err => {
-                        console.warn(`Error al intentar pantalla completa: ${err.message}`);
+                        console.warn(`Error: ${err.message}`);
                     });
                 } else if (document.documentElement.webkitRequestFullscreen) {
                     document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) {
-                    document.documentElement.msRequestFullscreen();
                 }
 
                 initAudio(); 
@@ -419,7 +417,7 @@
                     )}
 
                     {qrExpanded && (
-                        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
+                        <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
                             <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
                                 <button onClick={() => setQrExpanded(false)} className="absolute -top-12 right-0 text-white"><Icons.X className="w-8 h-8" /></button>
                                 <img 
@@ -469,9 +467,9 @@
                         <div className="flex gap-2">
                             <div className="soft-key px-4 py-2">Silenciar</div>
                             <div className="soft-key px-4 py-2">Menú</div>
-                            <div className="soft-key px-3 py-2 flex items-center gap-1 text-green-400 border-green-900/50" onClick={() => setQrExpanded(true)}>
+                            <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}>
                                 <Icons.QrCode className="w-4 h-4" />
-                                <span className="hidden sm:inline">VINCULAR</span>
+                                <span>VINCULAR</span>
                             </div>
                         </div>
                         <div className="flex gap-4 items-center font-mono">
