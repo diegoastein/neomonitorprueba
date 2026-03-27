@@ -75,11 +75,9 @@
             .monitor-screen {
                 border-width: 4px !important;
             }
-            /* Ocultar ondas */
             .waveform-col {
                 display: none !important;
             }
-            /* Ajustar grid a una sola columna centrada */
             .monitor-screen .main-row {
                 grid-template-columns: 1fr !important;
             }
@@ -93,16 +91,14 @@
                 margin-bottom: 0px !important;
             }
             .monitor-screen .number-display {
-                font-size: 22vw !important; /* Más grandes y proporcionales al ancho en vertical */
+                font-size: 22vw !important;
             }
-            /* Fila inferior compacta */
             .monitor-screen .extra-info-row {
                 grid-template-columns: 1fr 1fr !important;
             }
             .monitor-screen .sponsor-col {
-                display: none !important; /* Ocultar sponsor en mini-vertical para ganar espacio */
+                display: none !important;
             }
-            /* Botón Vincular siempre legible */
             .monitor-screen .qr-button span {
                 display: inline !important;
                 font-size: 0.7rem !important;
@@ -127,7 +123,6 @@
             }
         }
 
-        /* Estilos para el botón QR */
         .qr-button {
             background: linear-gradient(180deg, #166534 0%, #14532d 100%);
             border-color: #22c55e;
@@ -174,11 +169,11 @@
             Play: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
             Battery: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
             QrCode: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M7 17h.01"/><path d="M17 7h.01"/><path d="M17 17h.01"/></svg>,
-            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" x2="6" y2="18"></line><line x1="6" x1="6" x2="18" y2="18"></line></svg>,
             Clock: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
             AlertTriangle: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
             List: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
-            Info: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Info: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         };
 
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
@@ -454,7 +449,6 @@
                     </div>
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
-                        {/* Fila FC */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
@@ -462,7 +456,6 @@
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
                             </div>
                         </div>
-                        {/* Fila SpO2 */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
@@ -470,7 +463,6 @@
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
                             </div>
                         </div>
-                        {/* Fila Datos Extras */}
                         <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800 extra-info-row">
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold extra-info-val">---</span></div>
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold extra-info-val">--/--</span></div>
@@ -506,20 +498,47 @@
             const [eventLog, setEventLog] = useState([]);
             const [targets, setTargets] = useState(currentVitals);
             
-            // TIEMPO DE SIMULACIÓN: Capturamos el inicio del control
-            const startTimeRef = useRef(Date.now());
+            // ESTADO DE LA SIMULACIÓN
+            const [isSimRunning, setIsSimRunning] = useState(false);
+            const [simStartTime, setSimStartTime] = useState(null);
+            const [displayTime, setDisplayTime] = useState("00:00");
 
             useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
 
-            const logAction = (message) => { 
-              // Calculamos el tiempo transcurrido en segundos
-              const elapsedTotalSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+            // Cronómetro visual para la cabecera
+            useEffect(() => {
+                let interval;
+                if (isSimRunning && simStartTime) {
+                    interval = setInterval(() => {
+                        const elapsed = Math.floor((Date.now() - simStartTime) / 1000);
+                        const mins = Math.floor(elapsed / 60);
+                        const secs = elapsed % 60;
+                        setDisplayTime(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+                    }, 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isSimRunning, simStartTime]);
+
+            const logAction = (message, force = false) => { 
+              // Solo registrar si la simulación está corriendo (o si es el disparo inicial)
+              if (!isSimRunning && !force) return;
+              
+              const baseTime = force ? Date.now() : simStartTime;
+              const elapsedTotalSeconds = Math.floor((Date.now() - baseTime) / 1000);
               const mins = Math.floor(elapsedTotalSeconds / 60);
               const secs = elapsedTotalSeconds % 60;
               const timestamp = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
               
-              setEventLog(prev => [{time: timestamp, msg: message}, ...prev]);
+              // El primer suceso figura arriba, los que siguen abajo (...prev al final)
+              setEventLog(prev => [...prev, {time: timestamp, msg: message}]);
               trackNeoEvent('controller_action', message);
+            };
+
+            const startSimulation = () => {
+                const now = Date.now();
+                setSimStartTime(now);
+                setIsSimRunning(true);
+                logAction("Simulación Iniciada", true);
             };
 
             const handleCommitChange = (field, value) => {
@@ -540,7 +559,10 @@
                 });
             };
 
-            const triggerSound = (type, name) => { onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
+            const triggerSound = (type, name) => { 
+                onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); 
+                logAction(`Sonido: ${name}`); 
+            };
 
             const applyPreset = (type, name) => {
                 let p = {};
@@ -559,23 +581,50 @@
             return (
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
                     <header className="flex-none flex justify-between items-center p-4 bg-slate-800">
-                        <div className="flex items-center gap-2"><h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> Control</h2><button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button></div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="font-bold text-blue-400 flex items-center gap-2">
+                                <Icons.Smartphone className="w-4 h-4"/> Control
+                            </h2>
+                            {isSimRunning && <span className="ml-2 px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded border border-red-500 font-mono animate-pulse">{displayTime}</span>}
+                            <button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                <Icons.List className="w-3 h-3"/> Debriefing
+                            </button>
+                        </div>
                         <span className="text-sm font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
                     </header>
 
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowDebrief(false)}>
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
-                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold">Debriefing (Sim: MM:SS)</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+                                    <h3 className="font-bold">Debriefing (Min:Seg)</h3>
+                                    <button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-black/20">
                                     {eventLog.length === 0 ? <p className="text-slate-500 italic text-center mt-10">Sin eventos registrados</p> : null}
-                                    {eventLog.map((l, i) => (<div key={i} className="flex gap-3 text-sm border-b border-slate-700/50 pb-2"><span className="text-slate-400 font-mono">[{l.time}]</span><span>{l.msg}</span></div>))}
+                                    {eventLog.map((l, i) => (
+                                        <div key={i} className="flex gap-3 text-sm border-b border-slate-700/30 pb-2">
+                                            <span className="text-slate-400 font-mono w-14 flex-none">[{l.time}]</span>
+                                            <span>{l.msg}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     )}
 
                     <div className="flex-1 p-4 space-y-6">
+                        {!isSimRunning ? (
+                            <button onClick={startSimulation} className="w-full p-6 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-xl flex items-center justify-center gap-4 shadow-lg border-2 border-blue-400 transition-all active:scale-95">
+                                <Icons.Play className="w-8 h-8 fill-white"/>
+                                COMENZAR SIMULACIÓN
+                            </button>
+                        ) : (
+                            <div className="text-center py-2 border-b border-slate-700">
+                                <p className="text-green-500 text-xs font-bold uppercase tracking-widest">Simulación en progreso</p>
+                            </div>
+                        )}
+
                         <div className="bg-slate-800 p-4 rounded-xl">
                             <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
                             <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
