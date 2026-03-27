@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeoMonitor (Free Edition)</title>
     
-    <!-- Google Analytics - Reemplaza G-XXXXXXXXXX con tu ID real -->
+    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -13,11 +13,8 @@
       gtag('js', new Date());
       gtag('config', 'G-DK9H6YBTY9');
 
-      // Función auxiliar para rastrear eventos personalizados
       function trackNeoEvent(action, label) {
-        // Log en consola para pruebas del usuario
         console.log(`[GA Event] Acción: ${action} | Etiqueta: ${label}`);
-        
         if (typeof gtag === 'function') {
           gtag('event', action, {
             'event_category': 'NeoMonitor_Interactions',
@@ -52,7 +49,6 @@
         input[type=range] { accent-color: #42B334; }
         input[type=range].time-slider { accent-color: #f59e0b; }
         
-        /* Espacio para Sponsor - Estilo Logo */
         .sponsor-container {
             background: transparent;
             border: 1px solid rgba(71, 85, 105, 0.3);
@@ -79,6 +75,13 @@
         }
 
         .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
+        
+        /* Animación para el QR expandido */
+        @keyframes zoomIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -129,7 +132,6 @@
 
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
 
-        // --- COMPONENTE SPONSOR ---
         const SponsorSpace = ({ className = "", compact = false, source = "Monitor" }) => (
             <div className={`sponsor-container ${className}`} onClick={() => {
                 trackNeoEvent('sponsor_click', source);
@@ -305,6 +307,7 @@
             const [time, setTime] = useState(new Date());
             const [alarmState, setAlarmState] = useState('none');
             const [flash, setFlash] = useState(false);
+            const [qrExpanded, setQrExpanded] = useState(false);
 
             useEffect(() => {
                 const t = setInterval(() => setTime(new Date()), 1000);
@@ -349,6 +352,9 @@
 
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
+            // URL para el control remoto
+            const controlUrl = `${window.location.origin}${window.location.pathname}?mode=control&session=${sessionId}`;
+
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated`}>
                     {!audioEnabled && (
@@ -356,6 +362,22 @@
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">
                                 TOCAR PARA INICIAR MONITOR
                             </button>
+                        </div>
+                    )}
+
+                    {/* QR Modal Expandido */}
+                    {qrExpanded && (
+                        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
+                            <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setQrExpanded(false)} className="absolute -top-12 right-0 text-white"><Icons.X className="w-8 h-8" /></button>
+                                <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(controlUrl)}`}
+                                    alt="Control QR"
+                                    className="w-full h-full"
+                                />
+                            </div>
+                            <p className="mt-6 text-white font-bold text-center">Escanea para conectar el celular como control</p>
+                            <p className="text-slate-400 text-sm mt-2 font-mono">ID de Sesión: {sessionId}</p>
                         </div>
                     )}
 
@@ -395,7 +417,15 @@
                     </div>
 
                     <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500">
-                        <div className="flex gap-2"><div className="soft-key px-4 py-2">Silenciar</div><div className="soft-key px-4 py-2">Menú</div></div>
+                        <div className="flex gap-2">
+                            <div className="soft-key px-4 py-2">Silenciar</div>
+                            <div className="soft-key px-4 py-2">Menú</div>
+                            {/* BOTÓN QR AGREGADO AQUÍ */}
+                            <div className="soft-key px-3 py-2 flex items-center gap-1 text-green-400 border-green-900/50" onClick={() => setQrExpanded(true)}>
+                                <Icons.QrCode className="w-4 h-4" />
+                                <span className="hidden sm:inline">CONTROL</span>
+                            </div>
+                        </div>
                         <div className="flex gap-4 items-center font-mono">
                             <span>{time.toLocaleTimeString()}</span>
                             <Icons.Wifi className="w-4 h-4 text-green-500" />
