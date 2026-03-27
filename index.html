@@ -94,7 +94,7 @@
                 font-size: 0.7rem !important;
             }
             .monitor-screen .main-row {
-                grid-template-columns: 1fr 180px !important; /* Reducir ancho de la columna de números */
+                grid-template-columns: 1fr 180px !important; 
             }
             .monitor-screen .number-container {
                 padding-right: 0.5rem !important;
@@ -104,7 +104,7 @@
                 margin-bottom: 0 !important;
             }
             .monitor-screen .number-display {
-                font-size: 12vh !important; /* Tamaño de fuente relativo a la altura */
+                font-size: 12vh !important; 
                 line-height: 1 !important;
             }
             .monitor-screen .extra-info-row {
@@ -375,7 +375,22 @@
                 playBeep(vitals.spo2 < 89 ? 400 : 800);
             };
 
-            const start = () => { initAudio(); setAudioEnabled(true); trackNeoEvent('monitor_start', sessionId); };
+            const start = () => { 
+                // ACTIVAR PANTALLA COMPLETA AL INICIAR
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.warn(`Error al intentar pantalla completa: ${err.message}`);
+                    });
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+
+                initAudio(); 
+                setAudioEnabled(true); 
+                trackNeoEvent('monitor_start', sessionId); 
+            };
 
             const getBorderColor = () => {
                 if (alarmState === 'none' || vitals.alarmMuted) return 'border-slate-900';
