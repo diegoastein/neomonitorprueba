@@ -176,7 +176,7 @@
             Info: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null };
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false };
 
         const SponsorSpace = ({ className = "", compact = false, source = "Monitor" }) => (
             <div className={`sponsor-container ${className}`} onClick={() => {
@@ -359,29 +359,33 @@
             }, []);
 
             useEffect(() => {
+                if (!vitals.simRunning) {
+                  setAlarmState('none');
+                  return;
+                }
                 let level = 'none';
                 if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
                 else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 89) level = 'warning';
                 setAlarmState(level);
                 const interval = setInterval(() => setFlash(p => !p), level === 'critical' ? 300 : 800);
                 return () => clearInterval(interval);
-            }, [vitals.hr, vitals.spo2]);
+            }, [vitals.hr, vitals.spo2, vitals.simRunning]);
 
             useEffect(() => {
                 let interval;
-                if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none') {
+                if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none' && vitals.simRunning) {
                     playAlarmSequence(alarmState);
                     interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
                 }
                 return () => clearInterval(interval);
-            }, [alarmState, audioEnabled, vitals.alarmMuted]);
+            }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.simRunning]);
 
             useEffect(() => {
-                if (vitals.soundTimestamp > 0 && vitals.soundType) playClinicalSound(vitals.soundType);
-            }, [vitals.soundTimestamp, vitals.soundType]);
+                if (vitals.simRunning && vitals.soundTimestamp > 0 && vitals.soundType) playClinicalSound(vitals.soundType);
+            }, [vitals.soundTimestamp, vitals.soundType, vitals.simRunning]);
 
             const handleBeat = () => {
-                if (!audioEnabled || vitals.alarmMuted) return;
+                if (!audioEnabled || vitals.alarmMuted || !vitals.simRunning) return;
                 playBeep(vitals.spo2 < 89 ? 400 : 800);
             };
 
@@ -400,7 +404,7 @@
             };
 
             const getBorderColor = () => {
-                if (alarmState === 'none' || vitals.alarmMuted) return 'border-slate-900';
+                if (alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning) return 'border-slate-900';
                 if (alarmState === 'critical') return flash ? 'border-red-600 bg-red-900/10' : 'border-red-900';
                 return flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900';
             };
@@ -418,10 +422,27 @@
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated monitor-screen`}>
                     {!audioEnabled && (
-                        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">
                                 TOCAR PARA INICIAR MONITOR
                             </button>
+                        </div>
+                    )}
+
+                    {audioEnabled && !vitals.simRunning && (
+                        <div className="absolute inset-0 bg-black z-40 flex flex-col items-center justify-center text-center p-6 border-4 border-slate-800 m-2 rounded-xl">
+                            <Icons.Monitor className="w-12 h-12 text-slate-700 mb-4" />
+                            <h2 className="text-xl font-bold text-slate-500 uppercase tracking-widest mb-4">Simulación sin iniciar</h2>
+                            
+                            <div className="bg-white p-3 rounded-lg shadow-lg mb-4">
+                                <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(controlUrl)}`}
+                                    alt="Sincronizar Control"
+                                    className="w-32 h-32"
+                                />
+                            </div>
+                            <p className="text-xs text-slate-500 font-mono mb-2">ID SESIÓN: {sessionId}</p>
+                            <p className="text-slate-600 text-sm italic">Escanea para conectar el control o espera comando...</p>
                         </div>
                     )}
 
@@ -451,18 +472,22 @@
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
                         {/* Fila FC */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">
+                              {vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}
+                            </div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
-                                <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
                             </div>
                         </div>
                         {/* Fila SpO2 */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">
+                              {vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}
+                            </div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
-                                <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
                             </div>
                         </div>
                         {/* Fila Datos Extras */}
@@ -501,52 +526,50 @@
             const [eventLog, setEventLog] = useState([]);
             const [targets, setTargets] = useState(currentVitals);
             
-            // ESTADO DE LA SIMULACIÓN
-            const [isSimRunning, setIsSimRunning] = useState(false);
             const [simStartTime, setSimStartTime] = useState(null);
             const [displayTime, setDisplayTime] = useState("00:00");
 
             useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
 
-            // Cronómetro visual para la cabecera
             useEffect(() => {
                 let interval;
-                if (isSimRunning && simStartTime) {
+                if (currentVitals.simRunning) {
+                    if (!simStartTime) setSimStartTime(Date.now());
                     interval = setInterval(() => {
-                        const elapsed = Math.floor((Date.now() - simStartTime) / 1000);
+                        const start = simStartTime || Date.now();
+                        const elapsed = Math.floor((Date.now() - start) / 1000);
                         const mins = Math.floor(elapsed / 60);
                         const secs = elapsed % 60;
                         setDisplayTime(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
                     }, 1000);
+                } else {
+                    setSimStartTime(null);
+                    setDisplayTime("00:00");
                 }
                 return () => clearInterval(interval);
-            }, [isSimRunning, simStartTime]);
+            }, [currentVitals.simRunning, simStartTime]);
 
             const logAction = (message, force = false) => { 
-              // Registrar si la simulación está corriendo o si es el disparo inicial/final forzado
-              if (!isSimRunning && !force) return;
+              if (!currentVitals.simRunning && !force) return;
               
-              const baseTime = (force && !isSimRunning) ? Date.now() : simStartTime;
-              const elapsedTotalSeconds = Math.floor((Date.now() - baseTime) / 1000);
+              const baseTime = (force && !currentVitals.simRunning) ? Date.now() : simStartTime;
+              const elapsedTotalSeconds = baseTime ? Math.floor((Date.now() - baseTime) / 1000) : 0;
               const mins = Math.floor(elapsedTotalSeconds / 60);
               const secs = elapsedTotalSeconds % 60;
               const timestamp = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
               
-              // Primer suceso arriba, nuevos abajo
               setEventLog(prev => [...prev, {time: timestamp, msg: message}]);
               trackNeoEvent('controller_action', message);
             };
 
             const toggleSimulation = () => {
-                if (!isSimRunning) {
-                    const now = Date.now();
-                    setSimStartTime(now);
-                    setIsSimRunning(true);
+                const isNowRunning = !currentVitals.simRunning;
+                if (isNowRunning) {
                     logAction("Simulación Iniciada", true);
+                    onUpdate({ ...targets, simRunning: true });
                 } else {
                     logAction("Simulación Finalizada", true);
-                    setIsSimRunning(false);
-                    // El cronómetro se detiene porque isSimRunning pasa a false
+                    onUpdate({ ...targets, simRunning: false });
                 }
             };
 
@@ -583,7 +606,7 @@
                     case 'vpp_ct': p = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
                 const now = Date.now();
-                onUpdate({ ...p, transition: { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp } });
+                onUpdate({ ...targets, ...p, transition: { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp } });
                 logAction(`Escenario: ${name}`);
             };
 
@@ -594,7 +617,7 @@
                             <h2 className="font-bold text-blue-400 flex items-center gap-2">
                                 <Icons.Smartphone className="w-4 h-4"/> Control
                             </h2>
-                            {isSimRunning && <span className="ml-2 px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded border border-red-500 font-mono animate-pulse">{displayTime}</span>}
+                            {currentVitals.simRunning && <span className="ml-2 px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded border border-red-500 font-mono animate-pulse">{displayTime}</span>}
                             <button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1">
                                 <Icons.List className="w-3 h-3"/> Debriefing
                             </button>
@@ -626,14 +649,21 @@
                         <button 
                             onClick={toggleSimulation} 
                             className={`w-full p-6 rounded-xl font-bold text-xl flex items-center justify-center gap-4 shadow-lg border-2 transition-all active:scale-95 ${
-                                isSimRunning 
-                                ? "bg-red-600 hover:bg-red-500 border-red-400" 
-                                : "bg-blue-600 hover:bg-blue-500 border-blue-400"
+                                currentVitals.simRunning 
+                                ? "bg-red-600 hover:bg-red-500 border-red-400 shadow-red-900/40" 
+                                : "bg-blue-600 hover:bg-blue-500 border-blue-400 shadow-blue-900/40"
                             }`}
                         >
-                            {isSimRunning ? <Icons.X className="w-8 h-8"/> : <Icons.Play className="w-8 h-8 fill-white"/>}
-                            {isSimRunning ? "FINALIZAR SIMULACIÓN" : "COMENZAR SIMULACIÓN"}
+                            {currentVitals.simRunning ? <Icons.X className="w-8 h-8"/> : <Icons.Play className="w-8 h-8 fill-white"/>}
+                            {currentVitals.simRunning ? "FINALIZAR SIMULACIÓN" : "COMENZAR SIMULACIÓN"}
                         </button>
+
+                        {!currentVitals.simRunning && (
+                            <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg flex items-start gap-3">
+                                <Icons.Info className="w-5 h-5 text-amber-500 flex-none mt-0.5" />
+                                <p className="text-xs text-amber-200 italic">Ajusta los valores deseados debajo. El monitor se activará cuando presiones el botón azul.</p>
+                            </div>
+                        )}
 
                         <div className="bg-slate-800 p-4 rounded-xl">
                             <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
@@ -655,7 +685,7 @@
                             <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
                             <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT</button>
                         </div>
-                        <button onClick={() => { onUpdate({ alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
+                        <button onClick={() => { onUpdate({ ...targets, alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
                     </div>
 
                     <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" source="Control" />
