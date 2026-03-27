@@ -558,12 +558,18 @@
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
                             <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
                             <button onClick={() => applyPreset('desat', 'Desaturación')} className="p-4 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-400 font-bold text-sm">Desaturación</button>
-                            <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
                             <button onClick={() => triggerSound('grunt', 'Quejido')} className="p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold">Quejido</button>
+                            <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
                             <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold">VPP + CT</button>
                         </div>
                     </div>
-                    <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" source="Control" />
+                    
+                    <div className="flex-none bg-slate-900 p-2 flex flex-col items-center">
+                        <div className="w-full opacity-30 font-mono text-[10px] tracking-widest border border-slate-700 rounded py-1 bg-black/20 text-center mb-1">
+                            ESPACIO PARA SPONSOR
+                        </div>
+                        <SponsorSpace compact className="h-10 w-full" source="Control" />
+                    </div>
                 </div>
             );
         };
