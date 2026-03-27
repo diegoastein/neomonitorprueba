@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeoMonitor (Free Edition)</title>
     
+    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -404,21 +405,21 @@
                     </div>
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
-                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
+                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}</div>
-                            <div className="flex flex-col items-end pr-8 justify-center number-container">
+                            <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
                             </div>
                         </div>
-                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
+                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}</div>
-                            <div className="flex flex-col items-end pr-8 justify-center number-container">
+                            <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
                             </div>
                         </div>
-                        <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800 extra-info-row">
+                        <div className="flex-1 grid grid-cols-[1fr_1fr_280px] h-full divide-x divide-slate-800 extra-info-row">
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold extra-info-val">---</span></div>
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold extra-info-val">--/--</span></div>
                             <div className="p-2 flex items-center justify-center sponsor-col"><SponsorSpace className="w-full h-full" source="Monitor" /></div>
