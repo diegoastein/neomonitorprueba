@@ -566,7 +566,8 @@
                 const isNowRunning = !currentVitals.simRunning;
                 if (isNowRunning) {
                     logAction("Simulación Iniciada", true);
-                    onUpdate({ ...targets, simRunning: true });
+                    // IMPORTANTE: Al iniciar, enviamos los targets actuales pero transition: null para que el monitor comience exactamente donde debe
+                    onUpdate({ ...targets, simRunning: true, transition: null });
                 } else {
                     logAction("Simulación Finalizada", true);
                     onUpdate({ ...targets, simRunning: false });
@@ -579,10 +580,13 @@
                 if (field === 'hr') logAction(`Cambio FC: ${value} lpm`);
                 if (field === 'spo2') logAction(`Cambio SpO2: ${value}%`);
 
+                // Si la simulación NO está corriendo, actualizamos valores de forma instantánea (preparación de escenario)
+                const shouldInterpolate = durationMs > 0 && currentVitals.simRunning;
+
                 onUpdate({ 
                     ...targets, 
                     [field]: value,
-                    transition: (durationMs > 0) ? { 
+                    transition: shouldInterpolate ? { 
                         startTime: now, duration: durationMs, 
                         startHr: vitals.hr, targetHr: field === 'hr' ? value : targets.hr, 
                         startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : targets.spo2,
@@ -606,7 +610,17 @@
                     case 'vpp_ct': p = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
                 const now = Date.now();
-                onUpdate({ ...targets, ...p, transition: { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp } });
+                // Si la simulación NO está corriendo, aplicamos preset instantáneamente
+                onUpdate({ 
+                  ...targets, 
+                  ...p, 
+                  transition: currentVitals.simRunning ? { 
+                    startTime: now, duration: transitionDuration * 1000, 
+                    startHr: vitals.hr, targetHr: p.hr, 
+                    startSpo2: vitals.spo2, targetSpo2: p.spo2, 
+                    startResp: vitals.resp, targetResp: p.resp 
+                  } : null 
+                });
                 logAction(`Escenario: ${name}`);
             };
 
@@ -661,7 +675,7 @@
                         {!currentVitals.simRunning && (
                             <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg flex items-start gap-3">
                                 <Icons.Info className="w-5 h-5 text-amber-500 flex-none mt-0.5" />
-                                <p className="text-xs text-amber-200 italic">Ajusta los valores deseados debajo. El monitor se activará cuando presiones el botón azul.</p>
+                                <p className="text-xs text-amber-200 italic">Ajusta los valores deseados debajo. El monitor se activará instantáneamente con estos parámetros.</p>
                             </div>
                         )}
 
