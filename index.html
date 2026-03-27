@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeoMonitor (Free Edition)</title>
     
-    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -70,7 +69,6 @@
         }
         .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
 
-        /* Optimización Vertical */
         @media (max-width: 600px) and (orientation: portrait) {
             .monitor-screen { border-width: 4px !important; }
             .waveform-col { display: none !important; }
@@ -83,7 +81,6 @@
             .monitor-screen .qr-button span { display: inline !important; font-size: 0.7rem !important; }
         }
 
-        /* Optimización Horizontal Baja */
         @media (max-height: 500px) and (orientation: landscape) {
             .monitor-screen { border-width: 4px !important; }
             .monitor-screen .top-bar, .monitor-screen .bottom-bar { padding: 0.2rem 0.5rem !important; font-size: 0.7rem !important; height: 32px !important; }
@@ -384,10 +381,10 @@
                             <Icons.Monitor className="w-12 h-12 text-slate-700 mb-4" />
                             <h2 className="text-xl font-bold text-slate-500 uppercase tracking-widest mb-4">Simulación sin iniciar</h2>
                             <div className="bg-white p-3 rounded-lg shadow-lg mb-4">
-                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(controlUrl)}`} alt="Sincronizar Control" className="w-32 h-32" />
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(controlUrl)}`} alt="Sincronizar Control" className="w-[180px] h-[180px]" />
                             </div>
-                            <p className="text-xs text-slate-500 font-mono mb-2">ID SESIÓN: {sessionId}</p>
-                            <p className="text-slate-600 text-sm italic">Escanea para conectar el control o espera comando...</p>
+                            <p className="text-xs text-slate-400 font-mono mb-2">ID SESIÓN: {sessionId}</p>
+                            <p className="text-slate-400 text-sm italic">Escanea para conectar el control o espera comando...</p>
                         </div>
                     )}
 
@@ -409,14 +406,14 @@
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}</div>
-                            <div className="flex flex-col items-end pr-6 justify-center number-container">
+                            <div className="flex flex-col items-end pr-8 justify-center number-container">
                                 <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
                             </div>
                         </div>
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}</div>
-                            <div className="flex flex-col items-end pr-6 justify-center number-container">
+                            <div className="flex flex-col items-end pr-8 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
                             </div>
@@ -434,7 +431,12 @@
                             <div className="soft-key px-4 py-2">Menú</div>
                             <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}><Icons.QrCode className="w-4 h-4" /><span>VINCULAR</span></div>
                         </div>
-                        <div className="flex gap-4 items-center font-mono"><span>{time.toLocaleTimeString()}</span><Icons.Wifi className="w-4 h-4 text-green-500" /><Icons.Battery className="w-4 h-4 text-green-500" /></div>
+                        
+                        <div className="flex-1 flex justify-center opacity-30 font-mono text-[10px] tracking-widest border border-slate-800 mx-4 rounded py-1 bg-black/20">
+                            ESPACIO PARA SPONSOR
+                        </div>
+
+                        <div className="flex gap-4 items-center font-mono"><span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span><Icons.Wifi className="w-4 h-4 text-green-500" /><Icons.Battery className="w-4 h-4 text-green-500" /></div>
                     </div>
                 </div>
             );
@@ -445,17 +447,11 @@
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            
-            // Estado local de Sliders, se sincroniza solo cuando Firebase cambia significativamente
             const [localTargets, setLocalTargets] = useState({ hr: currentVitals.hr, spo2: currentVitals.spo2 });
-            
             const [simStartTime, setSimStartTime] = useState(null);
             const [displayTime, setDisplayTime] = useState("00:00");
 
-            // Sincronizar sliders si Firebase cambia externamente (ej: un preset)
-            useEffect(() => {
-                setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 });
-            }, [currentVitals.hr, currentVitals.spo2]);
+            useEffect(() => { setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 }); }, [currentVitals.hr, currentVitals.spo2]);
 
             useEffect(() => {
                 let interval;
@@ -468,10 +464,7 @@
                         const secs = elapsed % 60;
                         setDisplayTime(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
                     }, 1000);
-                } else {
-                    setSimStartTime(null);
-                    setDisplayTime("00:00");
-                }
+                } else { setSimStartTime(null); setDisplayTime("00:00"); }
                 return () => clearInterval(interval);
             }, [currentVitals.simRunning, simStartTime]);
 
@@ -487,13 +480,8 @@
 
             const toggleSimulation = () => {
                 const isNowRunning = !currentVitals.simRunning;
-                if (isNowRunning) {
-                    logAction("Simulación Iniciada", true);
-                    onUpdate({ ...currentVitals, simRunning: true, transition: null });
-                } else {
-                    logAction("Simulación Finalizada", true);
-                    onUpdate({ ...currentVitals, simRunning: false });
-                }
+                if (isNowRunning) { logAction("Simulación Iniciada", true); onUpdate({ ...currentVitals, simRunning: true, transition: null }); }
+                else { logAction("Simulación Finalizada", true); onUpdate({ ...currentVitals, simRunning: false }); }
             };
 
             const handleCommitChange = (field, value) => {
@@ -501,21 +489,8 @@
                 const durationMs = transitionDuration * 1000;
                 if (field === 'hr') logAction(`Cambio FC: ${value} lpm`);
                 if (field === 'spo2') logAction(`Cambio SpO2: ${value}%`);
-
-                // CORRECCIÓN CLAVE: Usamos currentVitals (las props reales) para el spread, NO el estado local.
-                // Así mantenemos simRunning, alarmMuted, etc. intactos.
                 const shouldInterpolate = durationMs > 0 && currentVitals.simRunning;
-
-                onUpdate({ 
-                    ...currentVitals, 
-                    [field]: value,
-                    transition: shouldInterpolate ? { 
-                        startTime: now, duration: durationMs, 
-                        startHr: vitals.hr, targetHr: field === 'hr' ? value : currentVitals.hr, 
-                        startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : currentVitals.spo2,
-                        startResp: vitals.resp, targetResp: 45 
-                    } : null 
-                });
+                onUpdate({ ...currentVitals, [field]: value, transition: shouldInterpolate ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: field === 'hr' ? value : currentVitals.hr, startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : currentVitals.spo2, startResp: vitals.resp, targetResp: 45 } : null });
             };
 
             const triggerSound = (type, name) => { onUpdate({ ...currentVitals, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
@@ -530,13 +505,7 @@
                     case 'vpp_ct': p = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
                 const now = Date.now();
-                onUpdate({ 
-                  ...currentVitals, ...p, 
-                  transition: currentVitals.simRunning ? { 
-                    startTime: now, duration: transitionDuration * 1000, 
-                    startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp 
-                  } : null 
-                });
+                onUpdate({ ...currentVitals, ...p, transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp } : null });
                 logAction(`Escenario: ${name}`);
             };
 
@@ -570,13 +539,11 @@
                             {currentVitals.simRunning ? <Icons.X className="w-8 h-8"/> : <Icons.Play className="w-8 h-8 fill-white"/>}
                             {currentVitals.simRunning ? "FINALIZAR SIMULACIÓN" : "COMENZAR SIMULACIÓN"}
                         </button>
-
                         <div className="bg-slate-800 p-4 rounded-xl">
                             <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
                             <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
                         </div>
                         <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60"><Icons.Activity className="w-5 h-5"/> Quejido</button>
-                        
                         <div className="bg-slate-800 p-6 rounded-xl">
                             <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>FC: {localTargets.hr}</span><span className="text-xs opacity-50">Act: {vitals.hr}</span></div>
                             <input type="range" min="0" max="220" value={localTargets.hr} onChange={e => setLocalTargets({ ...localTargets, hr: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('hr', localTargets.hr)} onMouseUp={() => handleCommitChange('hr', localTargets.hr)} className="w-full h-12"/>
@@ -585,7 +552,6 @@
                             <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">Act: {vitals.spo2}%</span></div>
                             <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
-                        
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
                             <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
