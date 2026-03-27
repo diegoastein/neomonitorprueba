@@ -76,12 +76,48 @@
 
         .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
         
-        /* Animación para el QR expandido */
         @keyframes zoomIn {
             from { transform: scale(0.5); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
         .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
+
+        /* Optimización para pantallas pequeñas en horizontal (ej. 7 pulgadas) */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .monitor-screen .top-bar, .monitor-screen .bottom-bar {
+                padding-top: 0.25rem !important;
+                padding-bottom: 0.25rem !important;
+                font-size: 0.75rem !important;
+            }
+            .monitor-screen .soft-key {
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.7rem !important;
+            }
+            .monitor-screen .main-row {
+                grid-template-columns: 1fr 180px !important; /* Reducir ancho de la columna de números */
+            }
+            .monitor-screen .number-container {
+                padding-right: 0.5rem !important;
+            }
+            .monitor-screen .number-label {
+                font-size: 1rem !important;
+                margin-bottom: 0 !important;
+            }
+            .monitor-screen .number-display {
+                font-size: 12vh !important; /* Tamaño de fuente relativo a la altura */
+                line-height: 1 !important;
+            }
+            .monitor-screen .extra-info-row {
+                grid-template-columns: 1fr 1fr 180px !important;
+            }
+            .monitor-screen .extra-info-val {
+                font-size: 1.5rem !important;
+            }
+            .monitor-screen .sponsor-container {
+                transform: scale(0.9);
+                transform-origin: center right;
+            }
+        }
     </style>
 </head>
 <body>
@@ -146,7 +182,6 @@
             </div>
         );
 
-        // --- AUDIO ENGINE ---
         let audioCtx;
         const initAudio = () => {
             if (!audioCtx) {
@@ -212,7 +247,6 @@
             }
         };
 
-        // --- WAVEFORMS ---
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
@@ -314,7 +348,6 @@
                 return () => clearInterval(t);
             }, []);
 
-            // LÓGICA DE ALARMAS
             useEffect(() => {
                 let level = 'none';
                 if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
@@ -352,11 +385,16 @@
 
             const getTextColor = (base) => (alarmState !== 'none' && !vitals.alarmMuted && flash) ? 'text-white' : base;
 
-            // URL para el control remoto
-            const controlUrl = `${window.location.origin}${window.location.pathname}?mode=control&session=${sessionId}`;
+            const getControlUrl = () => {
+                const origin = window.location.origin;
+                const isPreview = origin.includes('googleusercontent') || origin.includes('webcontainer') || origin === 'null';
+                const base = isPreview ? 'https://neomonitor.pro/' : (origin + window.location.pathname);
+                return `${base}?mode=control&session=${sessionId}`;
+            };
+            const controlUrl = getControlUrl();
 
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated`}>
+                <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated monitor-screen`}>
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center">
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">
@@ -365,7 +403,6 @@
                         </div>
                     )}
 
-                    {/* QR Modal Expandido */}
                     {qrExpanded && (
                         <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
                             <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
@@ -376,12 +413,12 @@
                                     className="w-full h-full"
                                 />
                             </div>
-                            <p className="mt-6 text-white font-bold text-center">Escanea para conectar el celular como control</p>
-                            <p className="text-slate-400 text-sm mt-2 font-mono">ID de Sesión: {sessionId}</p>
+                            <p className="mt-6 text-white font-bold text-center px-4">Escanea con tu celular para usarlo como control remoto</p>
+                            <p className="text-slate-400 text-sm mt-2 font-mono">Sesión: {sessionId}</p>
                         </div>
                     )}
 
-                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800">
+                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 top-bar">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
                         <div className="flex gap-4 items-center">
                             {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
@@ -390,40 +427,36 @@
                     </div>
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
-                        {/* Fila FC */}
-                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full">
+                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
-                            <div className="flex flex-col items-end pr-6 justify-center">
-                                <span className="text-[#42B334] font-bold text-lg">FC</span>
-                                <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')}`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
+                            <div className="flex flex-col items-end pr-6 justify-center number-container">
+                                <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
                             </div>
                         </div>
-                        {/* Fila SpO2 */}
-                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full">
+                        <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
                             <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
-                            <div className="flex flex-col items-end pr-6 justify-center">
-                                <span className="text-yellow-400 font-bold text-lg">SpO2</span>
-                                <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')}`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
+                            <div className="flex flex-col items-end pr-6 justify-center number-container">
+                                <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
+                                <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
                             </div>
                         </div>
-                        {/* Fila Inferior + Sponsor */}
-                        <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800">
-                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold">---</span></div>
-                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold">--/--</span></div>
+                        <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800 extra-info-row">
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold extra-info-val">---</span></div>
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold extra-info-val">--/--</span></div>
                             <div className="p-2 flex items-center justify-center">
                                 <SponsorSpace className="w-full h-full" source="Monitor" />
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500">
+                    <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500 bottom-bar">
                         <div className="flex gap-2">
                             <div className="soft-key px-4 py-2">Silenciar</div>
                             <div className="soft-key px-4 py-2">Menú</div>
-                            {/* BOTÓN QR AGREGADO AQUÍ */}
                             <div className="soft-key px-3 py-2 flex items-center gap-1 text-green-400 border-green-900/50" onClick={() => setQrExpanded(true)}>
                                 <Icons.QrCode className="w-4 h-4" />
-                                <span className="hidden sm:inline">CONTROL</span>
+                                <span className="hidden sm:inline">VINCULAR</span>
                             </div>
                         </div>
                         <div className="flex gap-4 items-center font-mono">
