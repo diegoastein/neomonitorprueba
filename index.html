@@ -70,46 +70,60 @@
         }
         .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
 
-        /* Optimización agresiva para pantallas pequeñas (7" o menos) */
-        @media (max-height: 500px) {
+        /* Optimización para modo Vertical en pantallas chicas (Celulares/Tablets 7") */
+        @media (max-width: 600px) and (orientation: portrait) {
             .monitor-screen {
-                border-width: 4px !important; /* Bordes más finos */
+                border-width: 4px !important;
+            }
+            /* Ocultar ondas */
+            .waveform-col {
+                display: none !important;
+            }
+            /* Ajustar grid a una sola columna centrada */
+            .monitor-screen .main-row {
+                grid-template-columns: 1fr !important;
+            }
+            .monitor-screen .number-container {
+                align-items: center !important;
+                padding-right: 0 !important;
+                justify-content: center !important;
+            }
+            .monitor-screen .number-label {
+                font-size: 1.2rem !important;
+                margin-bottom: 0px !important;
+            }
+            .monitor-screen .number-display {
+                font-size: 22vw !important; /* Más grandes y proporcionales al ancho en vertical */
+            }
+            /* Fila inferior compacta */
+            .monitor-screen .extra-info-row {
+                grid-template-columns: 1fr 1fr !important;
+            }
+            .monitor-screen .sponsor-col {
+                display: none !important; /* Ocultar sponsor en mini-vertical para ganar espacio */
+            }
+            /* Botón Vincular siempre legible */
+            .monitor-screen .qr-button span {
+                display: inline !important;
+                font-size: 0.7rem !important;
+            }
+        }
+
+        /* Optimización para modo Horizontal en pantallas muy bajas */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .monitor-screen {
+                border-width: 4px !important;
             }
             .monitor-screen .top-bar, .monitor-screen .bottom-bar {
                 padding: 0.2rem 0.5rem !important;
                 font-size: 0.7rem !important;
                 height: 32px !important;
             }
-            .monitor-screen .soft-key {
-                padding: 0.2rem 0.4rem !important;
-                font-size: 0.65rem !important;
-            }
             .monitor-screen .main-row {
-                grid-template-columns: 1fr 150px !important; /* Columna de números más compacta */
-            }
-            .monitor-screen .number-container {
-                padding-right: 0.5rem !important;
-            }
-            .monitor-screen .number-label {
-                font-size: 0.8rem !important;
-                margin-bottom: -4px !important;
+                grid-template-columns: 1fr 160px !important;
             }
             .monitor-screen .number-display {
-                font-size: 14vh !important;
-                line-height: 1 !important;
-            }
-            .monitor-screen .extra-info-row {
-                grid-template-columns: 1fr 1fr 150px !important;
-            }
-            .monitor-screen .extra-info-val {
-                font-size: 1.2rem !important;
-            }
-            .monitor-screen .sponsor-container {
-                height: 100% !important;
-                border: none !important;
-            }
-            .monitor-screen .sponsor-container span {
-                font-size: 8px !important;
+                font-size: 15vh !important;
             }
         }
 
@@ -440,24 +454,27 @@
                     </div>
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
+                        {/* Fila FC */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/></div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.hr || '--'}</span>
                             </div>
                         </div>
+                        {/* Fila SpO2 */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col"><WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/></div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.spo2 || '--'}</span>
                             </div>
                         </div>
+                        {/* Fila Datos Extras */}
                         <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800 extra-info-row">
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold extra-info-val">---</span></div>
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold extra-info-val">--/--</span></div>
-                            <div className="p-2 flex items-center justify-center">
+                            <div className="p-2 flex items-center justify-center sponsor-col">
                                 <SponsorSpace className="w-full h-full" source="Monitor" />
                             </div>
                         </div>
