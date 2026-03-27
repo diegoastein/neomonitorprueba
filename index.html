@@ -70,64 +70,28 @@
         }
         .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
 
-        /* Optimización para modo Vertical en pantallas chicas (Celulares/Tablets 7") */
+        /* Optimización Vertical */
         @media (max-width: 600px) and (orientation: portrait) {
-            .monitor-screen {
-                border-width: 4px !important;
-            }
-            .waveform-col {
-                display: none !important;
-            }
-            .monitor-screen .main-row {
-                grid-template-columns: 1fr !important;
-            }
-            .monitor-screen .number-container {
-                align-items: center !important;
-                padding-right: 0 !important;
-                justify-content: center !important;
-            }
-            .monitor-screen .number-label {
-                font-size: 1.2rem !important;
-                margin-bottom: 0px !important;
-            }
-            .monitor-screen .number-display {
-                font-size: 22vw !important;
-            }
-            .monitor-screen .extra-info-row {
-                grid-template-columns: 1fr 1fr !important;
-            }
-            .monitor-screen .sponsor-col {
-                display: none !important;
-            }
-            .monitor-screen .qr-button span {
-                display: inline !important;
-                font-size: 0.7rem !important;
-            }
+            .monitor-screen { border-width: 4px !important; }
+            .waveform-col { display: none !important; }
+            .monitor-screen .main-row { grid-template-columns: 1fr !important; }
+            .monitor-screen .number-container { align-items: center !important; padding-right: 0 !important; justify-content: center !important; }
+            .monitor-screen .number-label { font-size: 1.2rem !important; margin-bottom: 0px !important; }
+            .monitor-screen .number-display { font-size: 22vw !important; }
+            .monitor-screen .extra-info-row { grid-template-columns: 1fr 1fr !important; }
+            .monitor-screen .sponsor-col { display: none !important; }
+            .monitor-screen .qr-button span { display: inline !important; font-size: 0.7rem !important; }
         }
 
-        /* Optimización para modo Horizontal en pantallas muy bajas */
+        /* Optimización Horizontal Baja */
         @media (max-height: 500px) and (orientation: landscape) {
-            .monitor-screen {
-                border-width: 4px !important;
-            }
-            .monitor-screen .top-bar, .monitor-screen .bottom-bar {
-                padding: 0.2rem 0.5rem !important;
-                font-size: 0.7rem !important;
-                height: 32px !important;
-            }
-            .monitor-screen .main-row {
-                grid-template-columns: 1fr 160px !important;
-            }
-            .monitor-screen .number-display {
-                font-size: 15vh !important;
-            }
+            .monitor-screen { border-width: 4px !important; }
+            .monitor-screen .top-bar, .monitor-screen .bottom-bar { padding: 0.2rem 0.5rem !important; font-size: 0.7rem !important; height: 32px !important; }
+            .monitor-screen .main-row { grid-template-columns: 1fr 160px !important; }
+            .monitor-screen .number-display { font-size: 15vh !important; }
         }
 
-        .qr-button {
-            background: linear-gradient(180deg, #166534 0%, #14532d 100%);
-            border-color: #22c55e;
-            color: #bbf7d0;
-        }
+        .qr-button { background: linear-gradient(180deg, #166534 0%, #14532d 100%); border-color: #22c55e; color: #bbf7d0; }
     </style>
 </head>
 <body>
@@ -359,10 +323,7 @@
             }, []);
 
             useEffect(() => {
-                if (!vitals.simRunning) {
-                  setAlarmState('none');
-                  return;
-                }
+                if (!vitals.simRunning) { setAlarmState('none'); return; }
                 let level = 'none';
                 if (vitals.hr < 60 || vitals.hr === 0 || vitals.spo2 < 80) level = 'critical';
                 else if (vitals.hr < 100 || vitals.hr > 180 || vitals.spo2 < 89) level = 'warning';
@@ -390,17 +351,8 @@
             };
 
             const start = () => { 
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.warn(`Error: ${err.message}`);
-                    });
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    document.documentElement.webkitRequestFullscreen();
-                }
-
-                initAudio(); 
-                setAudioEnabled(true); 
-                trackNeoEvent('monitor_start', sessionId); 
+                if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => {}); }
+                initAudio(); setAudioEnabled(true); 
             };
 
             const getBorderColor = () => {
@@ -423,9 +375,7 @@
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${getBorderColor()} hardware-accelerated monitor-screen`}>
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
-                            <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">
-                                TOCAR PARA INICIAR MONITOR
-                            </button>
+                            <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">TOCAR PARA INICIAR MONITOR</button>
                         </div>
                     )}
 
@@ -433,13 +383,8 @@
                         <div className="absolute inset-0 bg-black z-40 flex flex-col items-center justify-center text-center p-6 border-4 border-slate-800 m-2 rounded-xl">
                             <Icons.Monitor className="w-12 h-12 text-slate-700 mb-4" />
                             <h2 className="text-xl font-bold text-slate-500 uppercase tracking-widest mb-4">Simulación sin iniciar</h2>
-                            
                             <div className="bg-white p-3 rounded-lg shadow-lg mb-4">
-                                <img 
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(controlUrl)}`}
-                                    alt="Sincronizar Control"
-                                    className="w-32 h-32"
-                                />
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(controlUrl)}`} alt="Sincronizar Control" className="w-32 h-32" />
                             </div>
                             <p className="text-xs text-slate-500 font-mono mb-2">ID SESIÓN: {sessionId}</p>
                             <p className="text-slate-600 text-sm italic">Escanea para conectar el control o espera comando...</p>
@@ -450,53 +395,36 @@
                         <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
                             <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
                                 <button onClick={() => setQrExpanded(false)} className="absolute -top-12 right-0 text-white"><Icons.X className="w-8 h-8" /></button>
-                                <img 
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(controlUrl)}`}
-                                    alt="Control QR"
-                                    className="w-full h-full"
-                                />
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(controlUrl)}`} alt="Control QR" className="w-full h-full" />
                             </div>
                             <p className="mt-6 text-white font-bold text-center px-4">Escanea con tu celular para usarlo como control remoto</p>
-                            <p className="text-slate-400 text-sm mt-2 font-mono">Sesión: {sessionId}</p>
                         </div>
                     )}
 
                     <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 top-bar">
                         <div className="flex gap-4"><span>NEONATAL</span><span>CAMA: 01</span></div>
-                        <div className="flex gap-4 items-center">
-                            {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
-                            <span>ID: {sessionId}</span>
-                        </div>
+                        <div className="flex gap-4 items-center">{vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}<span>ID: {sessionId}</span></div>
                     </div>
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
-                        {/* Fila FC */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">
-                              {vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}
-                            </div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}</div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-[#42B334] font-bold text-lg number-label">FC</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-[#42B334]')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
                             </div>
                         </div>
-                        {/* Fila SpO2 */}
                         <div className="flex-[1.5] grid grid-cols-[1fr_240px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">
-                              {vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}
-                            </div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}</div>
                             <div className="flex flex-col items-end pr-6 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none ${getTextColor('text-yellow-400')} number-display`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
                             </div>
                         </div>
-                        {/* Fila Datos Extras */}
                         <div className="flex-1 grid grid-cols-[1fr_1fr_240px] h-full divide-x divide-slate-800 extra-info-row">
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold extra-info-val">---</span></div>
                             <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">PNI</span><span className="text-2xl font-bold extra-info-val">--/--</span></div>
-                            <div className="p-2 flex items-center justify-center sponsor-col">
-                                <SponsorSpace className="w-full h-full" source="Monitor" />
-                            </div>
+                            <div className="p-2 flex items-center justify-center sponsor-col"><SponsorSpace className="w-full h-full" source="Monitor" /></div>
                         </div>
                     </div>
 
@@ -504,16 +432,9 @@
                         <div className="flex gap-2">
                             <div className="soft-key px-4 py-2">Silenciar</div>
                             <div className="soft-key px-4 py-2">Menú</div>
-                            <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}>
-                                <Icons.QrCode className="w-4 h-4" />
-                                <span>VINCULAR</span>
-                            </div>
+                            <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}><Icons.QrCode className="w-4 h-4" /><span>VINCULAR</span></div>
                         </div>
-                        <div className="flex gap-4 items-center font-mono">
-                            <span>{time.toLocaleTimeString()}</span>
-                            <Icons.Wifi className="w-4 h-4 text-green-500" />
-                            <Icons.Battery className="w-4 h-4 text-green-500" />
-                        </div>
+                        <div className="flex gap-4 items-center font-mono"><span>{time.toLocaleTimeString()}</span><Icons.Wifi className="w-4 h-4 text-green-500" /><Icons.Battery className="w-4 h-4 text-green-500" /></div>
                     </div>
                 </div>
             );
@@ -524,12 +445,17 @@
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
             const [eventLog, setEventLog] = useState([]);
-            const [targets, setTargets] = useState(currentVitals);
+            
+            // Estado local de Sliders, se sincroniza solo cuando Firebase cambia significativamente
+            const [localTargets, setLocalTargets] = useState({ hr: currentVitals.hr, spo2: currentVitals.spo2 });
             
             const [simStartTime, setSimStartTime] = useState(null);
             const [displayTime, setDisplayTime] = useState("00:00");
 
-            useEffect(() => { setTargets(currentVitals); }, [currentVitals.hr, currentVitals.spo2]);
+            // Sincronizar sliders si Firebase cambia externamente (ej: un preset)
+            useEffect(() => {
+                setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 });
+            }, [currentVitals.hr, currentVitals.spo2]);
 
             useEffect(() => {
                 let interval;
@@ -551,26 +477,22 @@
 
             const logAction = (message, force = false) => { 
               if (!currentVitals.simRunning && !force) return;
-              
               const baseTime = (force && !currentVitals.simRunning) ? Date.now() : simStartTime;
               const elapsedTotalSeconds = baseTime ? Math.floor((Date.now() - baseTime) / 1000) : 0;
               const mins = Math.floor(elapsedTotalSeconds / 60);
               const secs = elapsedTotalSeconds % 60;
               const timestamp = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-              
               setEventLog(prev => [...prev, {time: timestamp, msg: message}]);
-              trackNeoEvent('controller_action', message);
             };
 
             const toggleSimulation = () => {
                 const isNowRunning = !currentVitals.simRunning;
                 if (isNowRunning) {
                     logAction("Simulación Iniciada", true);
-                    // IMPORTANTE: Al iniciar, enviamos los targets actuales pero transition: null para que el monitor comience exactamente donde debe
-                    onUpdate({ ...targets, simRunning: true, transition: null });
+                    onUpdate({ ...currentVitals, simRunning: true, transition: null });
                 } else {
                     logAction("Simulación Finalizada", true);
-                    onUpdate({ ...targets, simRunning: false });
+                    onUpdate({ ...currentVitals, simRunning: false });
                 }
             };
 
@@ -580,25 +502,23 @@
                 if (field === 'hr') logAction(`Cambio FC: ${value} lpm`);
                 if (field === 'spo2') logAction(`Cambio SpO2: ${value}%`);
 
-                // Si la simulación NO está corriendo, actualizamos valores de forma instantánea (preparación de escenario)
+                // CORRECCIÓN CLAVE: Usamos currentVitals (las props reales) para el spread, NO el estado local.
+                // Así mantenemos simRunning, alarmMuted, etc. intactos.
                 const shouldInterpolate = durationMs > 0 && currentVitals.simRunning;
 
                 onUpdate({ 
-                    ...targets, 
+                    ...currentVitals, 
                     [field]: value,
                     transition: shouldInterpolate ? { 
                         startTime: now, duration: durationMs, 
-                        startHr: vitals.hr, targetHr: field === 'hr' ? value : targets.hr, 
-                        startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : targets.spo2,
+                        startHr: vitals.hr, targetHr: field === 'hr' ? value : currentVitals.hr, 
+                        startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : currentVitals.spo2,
                         startResp: vitals.resp, targetResp: 45 
                     } : null 
                 });
             };
 
-            const triggerSound = (type, name) => { 
-                onUpdate({ ...targets, soundType: type, soundTimestamp: Date.now() }); 
-                logAction(`Sonido: ${name}`); 
-            };
+            const triggerSound = (type, name) => { onUpdate({ ...currentVitals, soundType: type, soundTimestamp: Date.now() }); logAction(`Sonido: ${name}`); };
 
             const applyPreset = (type, name) => {
                 let p = {};
@@ -610,15 +530,11 @@
                     case 'vpp_ct': p = { hr: 56, spo2: 65, resp: 0 }; break;
                 }
                 const now = Date.now();
-                // Si la simulación NO está corriendo, aplicamos preset instantáneamente
                 onUpdate({ 
-                  ...targets, 
-                  ...p, 
+                  ...currentVitals, ...p, 
                   transition: currentVitals.simRunning ? { 
                     startTime: now, duration: transitionDuration * 1000, 
-                    startHr: vitals.hr, targetHr: p.hr, 
-                    startSpo2: vitals.spo2, targetSpo2: p.spo2, 
-                    startResp: vitals.resp, targetResp: p.resp 
+                    startHr: vitals.hr, targetHr: p.hr, startSpo2: vitals.spo2, targetSpo2: p.spo2, startResp: vitals.resp, targetResp: p.resp 
                   } : null 
                 });
                 logAction(`Escenario: ${name}`);
@@ -628,13 +544,9 @@
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
                     <header className="flex-none flex justify-between items-center p-4 bg-slate-800">
                         <div className="flex items-center gap-2">
-                            <h2 className="font-bold text-blue-400 flex items-center gap-2">
-                                <Icons.Smartphone className="w-4 h-4"/> Control
-                            </h2>
+                            <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> Control</h2>
                             {currentVitals.simRunning && <span className="ml-2 px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded border border-red-500 font-mono animate-pulse">{displayTime}</span>}
-                            <button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1">
-                                <Icons.List className="w-3 h-3"/> Debriefing
-                            </button>
+                            <button onClick={() => setShowDebrief(true)} className="ml-4 bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> Debriefing</button>
                         </div>
                         <span className="text-sm font-mono border border-slate-600 px-2 py-0.5 rounded">ID: {sessionId}</span>
                     </header>
@@ -642,17 +554,11 @@
                     {showDebrief && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowDebrief(false)}>
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
-                                <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-                                    <h3 className="font-bold">Debriefing (Min:Seg)</h3>
-                                    <button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button>
-                                </div>
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center"><h3 className="font-bold">Debriefing (Min:Seg)</h3><button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button></div>
                                 <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-black/20">
                                     {eventLog.length === 0 ? <p className="text-slate-500 italic text-center mt-10">Sin eventos registrados</p> : null}
                                     {eventLog.map((l, i) => (
-                                        <div key={i} className="flex gap-3 text-sm border-b border-slate-700/30 pb-2">
-                                            <span className="text-slate-400 font-mono w-14 flex-none">[{l.time}]</span>
-                                            <span>{l.msg}</span>
-                                        </div>
+                                        <div key={i} className="flex gap-3 text-sm border-b border-slate-700/30 pb-2"><span className="text-slate-400 font-mono w-14 flex-none">[{l.time}]</span><span>{l.msg}</span></div>
                                     ))}
                                 </div>
                             </div>
@@ -660,38 +566,26 @@
                     )}
 
                     <div className="flex-1 p-4 space-y-6">
-                        <button 
-                            onClick={toggleSimulation} 
-                            className={`w-full p-6 rounded-xl font-bold text-xl flex items-center justify-center gap-4 shadow-lg border-2 transition-all active:scale-95 ${
-                                currentVitals.simRunning 
-                                ? "bg-red-600 hover:bg-red-500 border-red-400 shadow-red-900/40" 
-                                : "bg-blue-600 hover:bg-blue-500 border-blue-400 shadow-blue-900/40"
-                            }`}
-                        >
+                        <button onClick={toggleSimulation} className={`w-full p-6 rounded-xl font-bold text-xl flex items-center justify-center gap-4 shadow-lg border-2 transition-all active:scale-95 ${currentVitals.simRunning ? "bg-red-600 hover:bg-red-500 border-red-400" : "bg-blue-600 hover:bg-blue-500 border-blue-400"}`}>
                             {currentVitals.simRunning ? <Icons.X className="w-8 h-8"/> : <Icons.Play className="w-8 h-8 fill-white"/>}
                             {currentVitals.simRunning ? "FINALIZAR SIMULACIÓN" : "COMENZAR SIMULACIÓN"}
                         </button>
-
-                        {!currentVitals.simRunning && (
-                            <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg flex items-start gap-3">
-                                <Icons.Info className="w-5 h-5 text-amber-500 flex-none mt-0.5" />
-                                <p className="text-xs text-amber-200 italic">Ajusta los valores deseados debajo. El monitor se activará instantáneamente con estos parámetros.</p>
-                            </div>
-                        )}
 
                         <div className="bg-slate-800 p-4 rounded-xl">
                             <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> Transición</label><span>{transitionDuration}s</span></div>
                             <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
                         </div>
                         <button onClick={() => triggerSound('grunt', 'Quejido')} className="w-full p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg text-orange-400 font-bold flex items-center justify-center gap-2 hover:bg-orange-900/60"><Icons.Activity className="w-5 h-5"/> Quejido</button>
+                        
                         <div className="bg-slate-800 p-6 rounded-xl">
-                            <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>FC: {targets.hr}</span><span className="text-xs opacity-50">Act: {vitals.hr}</span></div>
-                            <input type="range" min="0" max="220" value={targets.hr} onChange={e => setTargets({...targets, hr: parseInt(e.target.value)})} onTouchEnd={() => handleCommitChange('hr', targets.hr)} onMouseUp={() => handleCommitChange('hr', targets.hr)} className="w-full h-12"/>
+                            <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>FC: {localTargets.hr}</span><span className="text-xs opacity-50">Act: {vitals.hr}</span></div>
+                            <input type="range" min="0" max="220" value={localTargets.hr} onChange={e => setLocalTargets({ ...localTargets, hr: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('hr', localTargets.hr)} onMouseUp={() => handleCommitChange('hr', localTargets.hr)} className="w-full h-12"/>
                         </div>
                         <div className="bg-slate-800 p-6 rounded-xl">
-                            <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {targets.spo2}%</span><span className="text-xs opacity-50">Act: {vitals.spo2}%</span></div>
-                            <input type="range" min="0" max="100" value={targets.spo2} onChange={e => setTargets({...targets, spo2: parseInt(e.target.value)})} onTouchEnd={() => handleCommitChange('spo2', targets.spo2)} onMouseUp={() => handleCommitChange('spo2', targets.spo2)} className="w-full h-12 accent-yellow-400"/>
+                            <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">Act: {vitals.spo2}%</span></div>
+                            <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
+                        
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => applyPreset('normal', 'Normalidad')} className="p-4 bg-emerald-900/40 border border-emerald-500/50 rounded-lg text-emerald-400 font-bold">Normal</button>
                             <button onClick={() => applyPreset('brady', 'Bradicardia')} className="p-4 bg-yellow-900/40 border border-yellow-500/50 rounded-lg text-yellow-400 font-bold">Bradicardia</button>
@@ -699,9 +593,8 @@
                             <button onClick={() => applyPreset('vpp', 'VPP')} className="p-4 bg-indigo-900/40 border border-indigo-500/50 rounded-lg text-indigo-400 font-bold">VPP</button>
                             <button onClick={() => applyPreset('vpp_ct', 'VPP + Masaje')} className="col-span-2 p-4 bg-red-900/40 border border-red-500/50 rounded-lg text-red-500 font-bold flex items-center justify-center gap-2"><Icons.AlertTriangle className="w-4 h-4"/> VPP + CT</button>
                         </div>
-                        <button onClick={() => { onUpdate({ ...targets, alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
+                        <button onClick={() => { onUpdate({ ...currentVitals, alarmMuted: !vitals.alarmMuted }); logAction('Alarma silenciada/activada'); }} className={`w-full py-4 rounded-lg font-bold border ${vitals.alarmMuted ? 'bg-orange-600 border-orange-400' : 'bg-slate-700 border-slate-600'}`}>{vitals.alarmMuted ? 'Alarmas Off' : 'Silenciar Alarmas'}</button>
                     </div>
-
                     <SponsorSpace compact className="h-14 flex-none border-t border-slate-700" source="Control" />
                 </div>
             );
@@ -712,20 +605,12 @@
             return (
                 <div className="h-screen bg-slate-900 flex items-center justify-center p-6">
                     <div className="max-w-md w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 text-center">
-                        <Icons.Activity className="w-16 h-16 text-green-500 mx-auto mb-4"/>
-                        <h1 className="text-3xl font-bold mb-1">NeoMonitor</h1>
+                        <Icons.Activity className="w-16 h-16 text-green-500 mx-auto mb-4"/><h1 className="text-3xl font-bold mb-1">NeoMonitor</h1>
                         <p className="text-slate-400 text-xs mb-8 italic">Software gratuito para educación médica</p>
-                        <div className="mb-8">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 text-left">Sesión</label>
-                            <input type="number" value={sid} onChange={e => setSid(e.target.value)} className="w-full bg-black text-white text-3xl text-center p-3 rounded-lg border border-slate-600 focus:border-green-500 outline-none font-mono"/>
-                        </div>
+                        <div className="mb-8"><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 text-left">Sesión</label><input type="number" value={sid} onChange={e => setSid(e.target.value)} className="w-full bg-black text-white text-3xl text-center p-3 rounded-lg border border-slate-600 focus:border-green-500 outline-none font-mono"/></div>
                         <div className="grid grid-cols-2 gap-4 mb-8">
-                            <button onClick={() => onSelect('monitor', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center">
-                                <Icons.Monitor className="w-8 h-8 mb-2 text-green-400"/> <span className="font-bold">Monitor</span>
-                            </button>
-                            <button onClick={() => onSelect('control', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center">
-                                <Icons.Smartphone className="w-8 h-8 mb-2 text-blue-400"/> <span className="font-bold">Control</span>
-                            </button>
+                            <button onClick={() => onSelect('monitor', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center"><Icons.Monitor className="w-8 h-8 mb-2 text-green-400"/><span className="font-bold">Monitor</span></button>
+                            <button onClick={() => onSelect('control', sid)} className="bg-slate-700 p-6 rounded-xl hover:bg-slate-600 transition-all flex flex-col items-center"><Icons.Smartphone className="w-8 h-8 mb-2 text-blue-400"/><span className="font-bold">Control</span></button>
                         </div>
                         <SponsorSpace className="h-24 rounded-xl" source="Menu_Inicial" />
                     </div>
@@ -742,11 +627,7 @@
             useEffect(() => {
                 auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
                 const p = new URLSearchParams(window.location.search);
-                if (p.get('mode') && p.get('session')) { 
-                    setMode(p.get('mode')); 
-                    setSessionId(p.get('session'));
-                    trackNeoEvent('direct_url_access', p.get('mode'));
-                }
+                if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
 
             useEffect(() => {
@@ -764,11 +645,7 @@
 
             return (
                 <div className="font-sans antialiased">
-                    {mode === 'select' && <RoleSelection onSelect={(m, s) => { 
-                      setMode(m); 
-                      setSessionId(s); 
-                      trackNeoEvent('role_selection', m);
-                    }} />}
+                    {mode === 'select' && <RoleSelection onSelect={(m, s) => { setMode(m); setSessionId(s); }} />}
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} />}
                     {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} />}
                 </div>
