@@ -3,9 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoMonitor (Free Edition)</title>
     
-    <!-- Google Analytics -->
+    <title>NeoMonitor | Simulador Neonatal de Signos Vitales Online</title>
+    <meta name="description" content="Simulador neonatal profesional para entrenamiento en RCP. Convierte cualquier dispositivo en un monitor de signos vitales con control remoto. Desarrollado por el Dr. Diego Steinberg.">
+    <meta name="keywords" content="simulador neonatal, RCP neonatal, monitor signos vitales, reanimación neonatal, capacitación médica, Diego Steinberg, simulación clínica">
+    <meta name="author" content="Dr. Diego Steinberg">
+
+    <meta property="og:title" content="NeoMonitor - Simulador Neonatal Profesional">
+    <meta property="og:description" content="Entrenamiento de alta fidelidad sin equipos costosos. Usalo gratis en neomonitor.pro">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://neomonitor.pro">
+    
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -35,7 +43,6 @@
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
-    <!-- QR Scan Library -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     
     <style>
@@ -141,7 +148,6 @@
 
         const { useState, useEffect, useRef } = React;
 
-        // Diccionario de traducciones para internacionalización
         const TRANSLATIONS = {
             es: {
                 loading: "Cargando NeoMonitor...",
@@ -237,7 +243,7 @@
                 simNotStarted: "Simulação não iniciada",
                 id: "ID",
                 sessionId: "ID DA SESSÃO",
-                scanPrompt: "Escaneie para conectar o controle ou aguarde o comando...",
+                scanPrompt: "Escaneie para conectar o controle o aguarde o comando...",
                 scanManual: "Insira o ID que aparece ao lado do código QR",
                 placeholderId: "Insira o ID",
                 scanCamera: "Escanear Monitor",
@@ -250,7 +256,7 @@
                 guideTitle: "Guia de Conexão",
                 step1: "Passo 1",
                 step2: "Passo 2",
-                guideStep1: "Escolha MONITOR no seu Tablet ou PC",
+                guideStep1: "Escolha MONITOR no seu Tablet o PC",
                 guideStep2: "Escolha CONTROLE no seu celular e escaneie o QR",
                 guideBtn: "Entendido, vamos começar!",
                 control: "Controle",
@@ -726,7 +732,6 @@
             </div>
         );
 
-        // Subcomponente Selector de Idiomas
         const LanguageSelector = ({ currentLang, onSelect }) => {
             const [isOpen, setIsOpen] = useState(false);
             const menuRef = useRef(null);
