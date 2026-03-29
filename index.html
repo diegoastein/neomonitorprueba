@@ -14,7 +14,7 @@
       gtag('config', 'G-DK9H6YBTY9');
 
       function trackNeoEvent(eventName, label, details = {}) {
-        console.log(`[GA Event] Event: ${eventName} | Label: ${label}`, details);
+        console.log(`[GA Event] Evento: ${eventName} | Label: ${label}`, details);
         if (typeof gtag === 'function') {
           gtag('event', eventName, {
             'event_label': label,
@@ -286,7 +286,9 @@
             Camera: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
             ArrowRight: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
             Help: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-            Heart: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            Heart: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Globe: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+            ChevronDown: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         };
 
         const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false };
@@ -724,6 +726,52 @@
             </div>
         );
 
+        // Subcomponente Selector de Idiomas
+        const LanguageSelector = ({ currentLang, onSelect }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const menuRef = useRef(null);
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (menuRef.current && !menuRef.current.contains(event.target)) setIsOpen(false);
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            const langs = [
+                { id: 'es', label: 'Español' },
+                { id: 'en', label: 'English' },
+                { id: 'pt', label: 'Português' }
+            ];
+
+            return (
+                <div className="absolute top-6 right-6 z-[80]" ref={menuRef}>
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-800 transition-all shadow-lg min-w-[80px] justify-between"
+                    >
+                        <span className="text-xs font-bold text-white uppercase">{currentLang}</span>
+                        <Icons.ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {isOpen && (
+                        <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl animate-zoom origin-top-right min-w-[120px]">
+                            {langs.map(l => (
+                                <button
+                                    key={l.id}
+                                    onClick={() => { onSelect(l.id); setIsOpen(false); }}
+                                    className={`w-full text-left px-4 py-3 text-xs font-medium border-b border-slate-800 last:border-0 hover:bg-slate-800 transition-colors ${currentLang === l.id ? 'bg-slate-800 text-blue-400' : 'text-slate-400'}`}
+                                >
+                                    {l.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         const App = () => {
             const [mode, setMode] = useState('select');
             const [lang, setLang] = useState(
@@ -759,11 +807,7 @@
                         {showGuide && <AnimatedGuide onClose={() => setShowGuide(false)} t={t} />}
                         {showScanner && <QRScannerView onScan={(s) => { setMode('control'); setSessionId(s); }} onCancel={() => setShowScanner(false)} t={t} />}
                         
-                        <div className="absolute top-6 right-6 flex gap-2">
-                            <button onClick={() => setLang('es')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${lang === 'es' ? 'bg-white text-black border-white' : 'text-slate-500 border-slate-700'}`}>ES</button>
-                            <button onClick={() => setLang('pt')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${lang === 'pt' ? 'bg-white text-black border-white' : 'text-slate-500 border-slate-700'}`}>PT</button>
-                            <button onClick={() => setLang('en')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${lang === 'en' ? 'bg-white text-black border-white' : 'text-slate-500 border-slate-700'}`}>EN</button>
-                        </div>
+                        <LanguageSelector currentLang={lang} onSelect={setLang} />
 
                         <header className="mb-10">
                             <Icons.Activity className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse"/>
