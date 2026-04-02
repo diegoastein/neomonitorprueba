@@ -631,7 +631,7 @@
                  const gain = audioCtx.createGain();
                  osc.connect(gain);
                  gain.connect(audioCtx.destination);
-                 osc.type = 'square'; 
+                 osc.type = 'square';
                  osc.frequency.value = freq;
                  gain.gain.setValueAtTime(0.08, start);
                  gain.gain.setValueAtTime(0, start + duration);
@@ -643,6 +643,35 @@
              } else if (type === 'warning') {
                  createTone(600, now, 0.2); createTone(600, now + 0.4, 0.2);
              }
+        };
+
+        const playGrunt = () => {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(75, now + 0.35);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.18, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.45);
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(280, now);
+            osc2.frequency.exponentialRampToValueAtTime(150, now + 0.3);
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.linearRampToValueAtTime(0.07, now + 0.04);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc2.start(now);
+            osc2.stop(now + 0.4);
         };
 
         const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
@@ -762,6 +791,11 @@
                 }
                 return () => clearInterval(interval);
             }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.simRunning]);
+
+            useEffect(() => {
+                if (!audioEnabled || !targetVitals.soundTimestamp || targetVitals.soundType !== 'grunt') return;
+                playGrunt();
+            }, [targetVitals.soundTimestamp]);
 
             const handleBeat = () => {
                 if (!audioEnabled || vitals.alarmMuted || !vitals.simRunning) return;
@@ -966,6 +1000,7 @@
             const [showPresentation, setShowPresentation] = useState(false);
             const [selectedNTSkills, setSelectedNTSkills] = useState([]);
             const [technicalSkills, setTechnicalSkills] = useState(['', '', '']);
+            const [lastApplied, setLastApplied] = useState(null);
 
             useEffect(() => { setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 }); }, [currentVitals.hr, currentVitals.spo2]);
 
@@ -1069,6 +1104,8 @@
             };
 
             const applyPreset = (preset) => {
+                setLastApplied(preset.key);
+                setTimeout(() => setLastApplied(null), 700);
                 if (preset.grunt) { onUpdate({ ...currentVitals, soundType: 'grunt', soundTimestamp: Date.now() }); logAction(`Preset: ${t.presets[preset.key] || preset.key}`); return; }
                 const now = Date.now();
                 const name = t.presets[preset.key] || preset.key;
@@ -1294,8 +1331,9 @@
                         {!activeCase ? (
                             <div className="grid grid-cols-2 gap-3">
                                 {patientCfg.presets.map(preset => (
-                                    <button key={preset.key} onClick={() => applyPreset(preset)} className={`p-4 border rounded-lg font-bold text-sm ${preset.style}`}>
-                                        {t.presets[preset.key] || preset.key}
+                                    <button key={preset.key} onClick={() => applyPreset(preset)}
+                                        className={`p-4 border rounded-lg font-bold text-sm transition-all duration-75 active:scale-95 ${preset.style} ${lastApplied === preset.key ? 'scale-95 ring-2 ring-white/70 brightness-150' : ''}`}>
+                                        {lastApplied === preset.key ? '✓ ' : ''}{t.presets[preset.key] || preset.key}
                                     </button>
                                 ))}
                             </div>
