@@ -908,7 +908,7 @@
             );
         };
 
-        const CaseEditorModal = ({ caseData, onSave, onPublish, onCancel }) => {
+        const CaseEditorModal = ({ caseData, onSave, onPublish, onCancel, translating = false }) => {
             const [title, setTitle] = useState(caseData.title || '');
             const [presentation, setPresentation] = useState(caseData.presentation || '');
             const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
@@ -919,8 +919,8 @@
             const removeStage = (i) => setStages(prev => prev.filter((_, idx) => idx !== i));
             const updateStage = (i, field, value) => setStages(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
             const buildCase = () => ({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages, authorName: authorName.trim() });
-            const handleSave = () => { if (!title.trim() || stages.length === 0) return; onSave(buildCase()); };
-            const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish) return; onPublish(buildCase()); setPublished(true); };
+            const handleSave = () => { if (!title.trim() || stages.length === 0 || translating) return; onSave(buildCase()); };
+            const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish || translating) return; onPublish(buildCase()); setPublished(true); };
 
             return (
                 <div className="fixed inset-0 bg-black/95 z-[60] p-4 flex flex-col">
@@ -983,12 +983,14 @@
                         </div>
                         <div className="p-4 border-t border-slate-700 flex flex-col gap-2 flex-none">
                             <div className="flex gap-3">
-                                <button onClick={onCancel} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
-                                <button onClick={handleSave} disabled={!title.trim()} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors">Guardar</button>
+                                <button onClick={onCancel} disabled={translating} className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
+                                <button onClick={handleSave} disabled={!title.trim() || translating} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {translating ? <span className="animate-spin">⟳</span> : 'Guardar'}
+                                </button>
                             </div>
                             {onPublish && (
-                                <button onClick={handlePublish} disabled={!title.trim() || published} className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
-                                    {published ? '✓ Publicado en Biblioteca' : '🌐 Publicar en Biblioteca'}
+                                <button onClick={handlePublish} disabled={!title.trim() || published || translating} className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {translating ? <span className="animate-spin">⟳</span> : published ? '✓ Publicado en Biblioteca' : '🌐 Publicar en Biblioteca'}
                                 </button>
                             )}
                         </div>
@@ -1042,10 +1044,22 @@
                 return () => clearInterval(interval);
             }, [currentVitals.simRunning, simStartTime]);
 
+            const [communityCases, setCommunityCases] = useState([]);
+            const [translating, setTranslating] = useState(false);
+
             useEffect(() => {
                 if (!db || !userId || userId === 'guest') return;
                 const unsub = db.collection('userCases').where('userId', '==', userId).onSnapshot(snap => {
                     setUserCases(snap.docs.map(d => ({ ...d.data(), id: d.id, _firestore: true })));
+                });
+                return () => unsub();
+            }, [db, userId]);
+
+            // Admin: cargar TODOS los casos de comunidad (sin filtro userId)
+            useEffect(() => {
+                if (!db || userId !== 'diegosteinberg@gmail.com') return;
+                const unsub = db.collection('userCases').onSnapshot(snap => {
+                    setCommunityCases(snap.docs.map(d => ({ ...d.data(), id: d.id, _firestore: true })));
                 });
                 return () => unsub();
             }, [db, userId]);
@@ -1055,14 +1069,70 @@
             const getPresentation = (c) => { if (!c.presentation) return null; return typeof c.presentation === 'string' ? c.presentation : (c.presentation[lang] || c.presentation.es); };
             const patientCfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
 
-            const saveCase = (caseData) => {
+            const translateText = async (text, targetLang) => {
+                if (!text) return '';
+                try {
+                    const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E`, {
+                        method: 'POST',
+                        body: JSON.stringify({ q: text, target: targetLang, source: 'es' })
+                    });
+                    const data = await response.json();
+                    return data.data?.translations?.[0]?.translatedText || text;
+                } catch (err) {
+                    console.warn('Translation error:', err);
+                    return text;
+                }
+            };
+
+            const translateCase = async (caseData) => {
+                setTranslating(true);
+                try {
+                    const titleEs = typeof caseData.title === 'string' ? caseData.title : caseData.title.es;
+                    const presentationEs = typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation.es;
+
+                    const [titleEn, titlePt, presentationEn, presentationPt] = await Promise.all([
+                        translateText(titleEs, 'en'),
+                        translateText(titleEs, 'pt'),
+                        translateText(presentationEs, 'en'),
+                        translateText(presentationEs, 'pt')
+                    ]);
+
+                    const translatedStages = await Promise.all(caseData.stages.map(async (stage) => {
+                        const stageName = typeof stage.name === 'string' ? stage.name : stage.name.es;
+                        const [nameEn, namePt] = await Promise.all([
+                            translateText(stageName, 'en'),
+                            translateText(stageName, 'pt')
+                        ]);
+                        return {
+                            ...stage,
+                            name: { es: stageName, en: nameEn, pt: namePt }
+                        };
+                    }));
+
+                    return {
+                        ...caseData,
+                        title: { es: titleEs, en: titleEn, pt: titlePt },
+                        presentation: { es: presentationEs, en: presentationEn, pt: presentationPt },
+                        stages: translatedStages
+                    };
+                } catch (err) {
+                    console.error('Translation failed:', err);
+                    return caseData;
+                } finally {
+                    setTranslating(false);
+                }
+            };
+
+            const saveCase = async (caseData) => {
                 if (!db || !userId || userId === 'guest') return;
-                const { _firestore, ...clean } = caseData;
-                const payload = { ...clean, userId, updatedAt: Date.now() };
+                const translatedCase = await translateCase(caseData);
+                const { _firestore, id, ...clean } = translatedCase;
+                // Nuevos casos van directamente a library (compartidos)
+                // Casos existentes en library se actualizan en la misma colección
                 if (caseData.id && _firestore) {
-                    db.collection('userCases').doc(caseData.id).set(payload);
+                    db.collection('library').doc(caseData.id).set({ ...clean, userId, updatedAt: Date.now() });
                 } else {
-                    db.collection('userCases').add(payload);
+                    db.collection('library').add({ ...clean, userId, createdAt: Date.now() });
                 }
                 setShowCaseEditor(false);
                 setEditingCase(null);
@@ -1206,7 +1276,7 @@
                         </div>
                     </header>
 
-                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} />}
+                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} translating={translating} />}
 
                     {showCaseSelector && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowCaseSelector(false)}>
@@ -1250,6 +1320,22 @@
                                                     <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
                                                     <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} etapas</div>
                                                 </button>
+                                            ) : null
+                                        ))}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-orange-600 uppercase tracking-widest font-bold pt-3 border-t border-slate-700 mt-3">📋 Casos de comunidad para curar</p>}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id ? (
+                                                <div key={c.id} className="flex gap-2">
+                                                    <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                        className="flex-1 text-left bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                        <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                        <div className="text-xs text-slate-400">{c.authorName ? `${c.authorName} • ` : ''}{Array.isArray(c.stages) ? c.stages.length : 0} etapas</div>
+                                                    </button>
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                        <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                    </div>
+                                                </div>
                                             ) : null
                                         ))}
                                     </div>
