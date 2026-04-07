@@ -908,15 +908,19 @@
             );
         };
 
-        const CaseEditorModal = ({ caseData, onSave, onCancel }) => {
+        const CaseEditorModal = ({ caseData, onSave, onPublish, onCancel }) => {
             const [title, setTitle] = useState(caseData.title || '');
             const [presentation, setPresentation] = useState(caseData.presentation || '');
             const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
+            const [authorName, setAuthorName] = useState(caseData.authorName || '');
+            const [published, setPublished] = useState(false);
 
             const addStage = () => setStages(prev => [...prev, { name: '', hr: 120, spo2: 92, transition: 10 }]);
             const removeStage = (i) => setStages(prev => prev.filter((_, idx) => idx !== i));
             const updateStage = (i, field, value) => setStages(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
-            const handleSave = () => { if (!title.trim() || stages.length === 0) return; onSave({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages }); };
+            const buildCase = () => ({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages, authorName: authorName.trim() });
+            const handleSave = () => { if (!title.trim() || stages.length === 0) return; onSave(buildCase()); };
+            const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish) return; onPublish(buildCase()); setPublished(true); };
 
             return (
                 <div className="fixed inset-0 bg-black/95 z-[60] p-4 flex flex-col">
@@ -935,6 +939,11 @@
                                 <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Presentación del paciente</label>
                                 <textarea value={presentation} onChange={e => setPresentation(e.target.value)} placeholder="Descripción clínica del paciente para los alumnos..."
                                     className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 resize-none" rows={3}/>
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Autor (opcional)</label>
+                                <input type="text" value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="Tu nombre o institución"
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-blue-500"/>
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-2">
@@ -972,9 +981,16 @@
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 border-t border-slate-700 flex gap-3 flex-none">
-                            <button onClick={onCancel} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
-                            <button onClick={handleSave} disabled={!title.trim()} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors">Guardar</button>
+                        <div className="p-4 border-t border-slate-700 flex flex-col gap-2 flex-none">
+                            <div className="flex gap-3">
+                                <button onClick={onCancel} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
+                                <button onClick={handleSave} disabled={!title.trim()} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors">Guardar</button>
+                            </div>
+                            {onPublish && (
+                                <button onClick={handlePublish} disabled={!title.trim() || published} className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {published ? '✓ Publicado en Biblioteca' : '🌐 Publicar en Biblioteca'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -995,6 +1011,10 @@
             const [userCases, setUserCases] = useState([]);
             const [showCaseEditor, setShowCaseEditor] = useState(false);
             const [editingCase, setEditingCase] = useState(null);
+            const [selectorTab, setSelectorTab] = useState('mis');
+            const [libraryCases, setLibraryCases] = useState([]);
+            const [libTabPType, setLibTabPType] = useState(patientType);
+            const [libraryLoading, setLibraryLoading] = useState(false);
             const [debriefTab, setDebriefTab] = useState('objetivos');
             const [gasNotes, setGasNotes] = useState({ gather: '', analyze: '', summarize: '' });
             const [showPresentation, setShowPresentation] = useState(false);
@@ -1053,6 +1073,22 @@
                 db.collection('userCases').doc(caseId).delete();
                 if (activeCase && activeCase.id === caseId) { setActiveCase(null); setStageIndex(-1); }
             };
+
+            const saveToLibrary = (caseData) => {
+                if (!db) return;
+                const { _firestore, id, ...clean } = caseData;
+                db.collection('library').add({ ...clean, userId: userId || 'anon', createdAt: Date.now() });
+                setShowCaseEditor(false);
+                setEditingCase(null);
+            };
+
+            useEffect(() => {
+                if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
+                setLibraryLoading(true);
+                db.collection('library').orderBy('createdAt', 'desc').limit(80).get()
+                    .then(snap => { setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id }))); setLibraryLoading(false); })
+                    .catch(() => setLibraryLoading(false));
+            }, [showCaseSelector, selectorTab]);
 
             const logAction = (message, force = false) => {
                 if (!currentVitals.simRunning && !force) return;
@@ -1150,7 +1186,7 @@
                         </div>
                     </header>
 
-                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} />}
+                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} />}
 
                     {showCaseSelector && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowCaseSelector(false)}>
@@ -1159,35 +1195,78 @@
                                     <h3 className="font-bold flex items-center gap-2"><Icons.List className="w-4 h-4 text-blue-400"/> Casos Clínicos</h3>
                                     <button onClick={() => setShowCaseSelector(false)}><Icons.X className="w-6 h-6"/></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                    <button onClick={() => { setEditingCase({ title: '', stages: [{ name: '', hr: 120, spo2: 92, transition: 10 }], patientType }); setShowCaseEditor(true); setShowCaseSelector(false); }}
-                                        className="w-full text-left bg-green-900/30 hover:bg-green-900/50 border border-green-500/40 rounded-xl p-4 transition-colors active:scale-95 flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-green-700/50 rounded-full flex items-center justify-center text-green-300 font-bold text-xl flex-none">+</div>
-                                        <span className="font-bold text-green-300">Nuevo caso</span>
-                                    </button>
-                                    {userCases.filter(c => !c.patientType || c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Mis casos</p>}
-                                    {userCases.filter(c => !c.patientType || c.patientType === patientType).map(c => (
-                                        <div key={c.id} className="flex gap-2">
-                                            <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
-                                                className="flex-1 text-left bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                <div className="flex border-b border-slate-700 flex-none">
+                                    <button onClick={() => setSelectorTab('mis')} className={`flex-1 py-2.5 text-sm font-bold transition-colors ${selectorTab === 'mis' ? 'bg-slate-700 text-white border-b-2 border-blue-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>Mis casos</button>
+                                    <button onClick={() => { setSelectorTab('biblioteca'); setLibTabPType(patientType); }} className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${selectorTab === 'biblioteca' ? 'bg-slate-700 text-white border-b-2 border-green-400' : 'text-slate-400 hover:bg-slate-700/50'}`}><Icons.Globe className="w-3.5 h-3.5"/> Biblioteca</button>
+                                </div>
+                                {selectorTab === 'mis' ? (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                        <button onClick={() => { setEditingCase({ title: '', stages: [{ name: '', hr: 120, spo2: 92, transition: 10 }], patientType }); setShowCaseEditor(true); setShowCaseSelector(false); }}
+                                            className="w-full text-left bg-green-900/30 hover:bg-green-900/50 border border-green-500/40 rounded-xl p-4 transition-colors active:scale-95 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-green-700/50 rounded-full flex items-center justify-center text-green-300 font-bold text-xl flex-none">+</div>
+                                            <span className="font-bold text-green-300">Nuevo caso</span>
+                                        </button>
+                                        {userCases.filter(c => !c.patientType || c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Mis casos</p>}
+                                        {userCases.filter(c => !c.patientType || c.patientType === patientType).map(c => (
+                                            <div key={c.id} className="flex gap-2">
+                                                <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                    className="flex-1 text-left bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                    <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                    <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
+                                                </button>
+                                                <div className="flex flex-col gap-1">
+                                                    <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                    <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {CLINICAL_CASES.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
+                                        {CLINICAL_CASES.filter(c => c.patientType === patientType).map(c => (
+                                            <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
                                                 <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
                                                 <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
                                             </button>
-                                            <div className="flex flex-col gap-1">
-                                                <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
-                                                <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
-                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col overflow-hidden">
+                                        <div className="flex border-b border-slate-700/50 flex-none px-3 pt-2 gap-1">
+                                            {['neonatal', 'pediatrico', 'adulto'].map(pt => (
+                                                <button key={pt} onClick={() => setLibTabPType(pt)}
+                                                    className={`flex-1 py-2 text-xs font-bold rounded-t-lg transition-colors ${libTabPType === pt ? (pt === 'neonatal' ? 'bg-green-900/50 text-green-300 border-b-2 border-green-400' : pt === 'pediatrico' ? 'bg-yellow-900/50 text-yellow-300 border-b-2 border-yellow-400' : 'bg-blue-900/50 text-blue-300 border-b-2 border-blue-400') : 'text-slate-500 hover:text-slate-300'}`}>
+                                                    {pt === 'neonatal' ? 'Neonatal' : pt === 'pediatrico' ? 'Pediátrico' : 'Adulto'}
+                                                </button>
+                                            ))}
                                         </div>
-                                    ))}
-                                    {CLINICAL_CASES.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
-                                    {CLINICAL_CASES.filter(c => c.patientType === patientType).map(c => (
-                                        <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
-                                            className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
-                                            <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
-                                            <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
-                                        </button>
-                                    ))}
-                                </div>
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                            {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">Cargando biblioteca...</div>}
+                                            {!libraryLoading && libraryCases.filter(c => c.patientType === libTabPType).length === 0 && (
+                                                <div className="text-center text-slate-500 py-10">
+                                                    <Icons.Globe className="w-10 h-10 mx-auto mb-3 opacity-30"/>
+                                                    <p className="text-sm">No hay casos en la biblioteca aún</p>
+                                                    <p className="text-xs mt-2 opacity-60">Creá un caso y publicalo para ser el primero</p>
+                                                </div>
+                                            )}
+                                            {!libraryLoading && libraryCases.filter(c => c.patientType === libTabPType).map(c => (
+                                                <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <div className="font-bold text-white text-sm leading-tight flex-1">{c.title}</div>
+                                                        <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
+                                                            Usar
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                        <span>{c.stages?.length || 0} etapas</span>
+                                                        {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
+                                                    </div>
+                                                    {c.presentation && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.presentation}</p>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
