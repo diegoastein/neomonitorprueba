@@ -305,6 +305,16 @@
                 loadCases();
             }, []);
 
+            const normalizeCases = (cases) => {
+                return cases.map(c => ({
+                    ...c,
+                    stages: (c.stages || []).map(stage => ({
+                        ...stage,
+                        name: typeof stage.name === 'object' ? stage.name : { es: stage.name || '', en: stage.name || '', pt: stage.name || '' }
+                    }))
+                }));
+            };
+
             const loadCases = async () => {
                 setLoading(true);
                 try {
@@ -321,7 +331,9 @@
                     }));
 
                     // Combinar: predefinidos primero, luego comunidad
-                    const allCases = [...predefined, ...community];
+                    let allCases = [...predefined, ...community];
+                    // Normalizar estructura de todas las etapas
+                    allCases = normalizeCases(allCases);
                     setCases(allCases);
                 } catch (error) {
                     console.error('Error loading cases:', error);
@@ -436,6 +448,18 @@
             const updateStage = (stageIndex, field, value) => {
                 const updated = { ...editingCase };
                 updated.stages[stageIndex][field] = value;
+                setEditingCase(updated);
+            };
+
+            const addStageToEdit = () => {
+                const updated = { ...editingCase };
+                updated.stages.push({ name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 });
+                setEditingCase(updated);
+            };
+
+            const removeStageFromEdit = (idx) => {
+                const updated = { ...editingCase };
+                updated.stages.splice(idx, 1);
                 setEditingCase(updated);
             };
 
@@ -758,7 +782,15 @@
                                     </div>
 
                                     <div>
-                                        <h3 className="text-lg font-semibold mb-4">Etapas</h3>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-lg font-semibold">Etapas</h3>
+                                            <button
+                                                onClick={addStageToEdit}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                                            >
+                                                + Agregar etapa
+                                            </button>
+                                        </div>
                                         <div className="space-y-4">
                                             {editingCase.stages.map((stage, idx) => (
                                                 <div key={idx} className="bg-slate-800 p-4 rounded border border-slate-700">
@@ -807,6 +839,14 @@
                                                                 onChange={(e) => updateStage(idx, 'transition', parseInt(e.target.value))}
                                                             />
                                                         </div>
+                                                    </div>
+                                                    <div className="flex justify-end gap-2 mt-3">
+                                                        <button
+                                                            onClick={() => removeStageFromEdit(idx)}
+                                                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                                                        >
+                                                            Eliminar etapa
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -859,7 +899,7 @@
 
                                     <div className="flex gap-2 pt-4">
                                         <button
-                                            onClick={() => setEditingCase({ ...selectedCase })}
+                                            onClick={() => setEditingCase(normalizeCases([selectedCase])[0])}
                                             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold"
                                         >
                                             Editar
