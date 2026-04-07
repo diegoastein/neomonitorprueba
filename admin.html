@@ -306,15 +306,18 @@
             }, []);
 
             const normalizeCases = (cases) => {
-                return cases.map(c => ({
-                    ...c,
-                    title: typeof c.title === 'object' ? c.title : { es: c.title || '', en: c.title || '', pt: c.title || '' },
-                    presentation: typeof c.presentation === 'object' ? c.presentation : { es: c.presentation || '', en: c.presentation || '', pt: c.presentation || '' },
-                    stages: (c.stages || []).map(stage => ({
-                        ...stage,
-                        name: typeof stage.name === 'object' ? stage.name : { es: stage.name || '', en: stage.name || '', pt: stage.name || '' }
-                    }))
-                }));
+                return cases.map(c => {
+                    const normalizeField = (val) => val && typeof val === 'object' ? val : { es: val || '', en: val || '', pt: val || '' };
+                    return {
+                        ...c,
+                        title: normalizeField(c.title),
+                        presentation: normalizeField(c.presentation),
+                        stages: (c.stages || []).map(stage => ({
+                            ...stage,
+                            name: normalizeField(stage.name)
+                        }))
+                    };
+                });
             };
 
             const loadCases = async () => {
