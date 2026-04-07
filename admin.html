@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeoMonitor Admin - Gestión de Casos Clínicos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; margin: 0; font-family: sans-serif; }
+        input[type="text"], input[type="number"], textarea, select {
+            background: #1e293b; color: white; border: 1px solid #475569;
+            border-radius: 4px; padding: 8px; font-family: sans-serif;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Firebase config (same as main app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
+            authDomain: "monitor-36c41.firebaseapp.com",
+            projectId: "monitor-36c41",
+            storageBucket: "monitor-36c41.firebasestorage.app",
+            messagingSenderId: "830562769122",
+            appId: "1:830562769122:web:1db7060de0c80556db66bb"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Default CLINICAL_CASES structure (from main app)
+        const DEFAULT_CLINICAL_CASES = [
+            {
+                id: 'rcp_basica',
+                patientType: 'neonatal',
+                title: { es: 'RCP Neonatal Básica', en: 'Basic Neonatal CPR', pt: 'RCP Neonatal Básica' },
+                presentation: { es: 'RN de 38 sem EG. Parto vaginal prolongado. Nace sin llanto, apneico, hipotonía marcada. Líquido amniótico claro. Equipo de reanimación presente.', en: 'Newborn 38 weeks GA. Prolonged vaginal delivery. Born without cry, apneic, marked hypotonia. Clear amniotic fluid. Resuscitation team present.', pt: 'RN de 38 sem IG. Parto vaginal prolongado. Nasce sem choro, apneico, hipotonia acentuada. Líquido amniótico claro. Equipe de reanimação presente.' },
+                stages: [
+                    { name: { es: 'Presentación inicial', en: 'Initial presentation', pt: 'Apresentação inicial' }, hr: 142, spo2: 91, transition: 5 },
+                    { name: { es: 'Apnea / Bradicardia severa', en: 'Apnea / Severe bradycardia', pt: 'Apneia / Bradicardia grave' }, hr: 0, spo2: 65, transition: 8 },
+                    { name: { es: 'Inicio VPP', en: 'PPV initiated', pt: 'Início VPP' }, hr: 68, spo2: 78, transition: 15 },
+                    { name: { es: 'Respuesta a VPP', en: 'Response to PPV', pt: 'Resposta à VPP' }, hr: 118, spo2: 88, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 144, spo2: 94, transition: 10 },
+                ]
+            },
+        ];
+
+        function LoginPage({ onAuthenticate }) {
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = () => {
+                if (password === 'neomonitor2024') {
+                    localStorage.setItem('neomonitor_admin_auth', 'true');
+                    onAuthenticate();
+                } else {
+                    setError('Contraseña incorrecta');
+                    setPassword('');
+                }
+            };
+
+            return (
+                <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-slate-900">
+                    <div className="bg-slate-800 p-8 rounded-lg border border-slate-700 w-96">
+                        <h1 className="text-3xl font-bold mb-2 text-center">NeoMonitor</h1>
+                        <p className="text-center text-slate-400 mb-6">Panel de Administración</p>
+
+                        <div className="mb-4">
+                            <label className="block text-sm mb-2">Clave de Acceso</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                                placeholder="Ingresa la clave"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+
+                        <button
+                            onClick={handleLogin}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded active:scale-95 transition"
+                        >
+                            Acceder
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function AdminPanel({ onLogout }) {
+            const [cases, setCases] = useState([]);
+            const [selectedCase, setSelectedCase] = useState(null);
+            const [editingCase, setEditingCase] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [syncStatus, setSyncStatus] = useState('');
+
+            useEffect(() => {
+                loadCases();
+            }, []);
+
+            const loadCases = async () => {
+                setLoading(true);
+                try {
+                    const docSnap = await db.collection('admin').doc('clinical_cases').get();
+                    if (docSnap.exists) {
+                        setCases(docSnap.data().cases || DEFAULT_CLINICAL_CASES);
+                    } else {
+                        setCases(DEFAULT_CLINICAL_CASES);
+                    }
+                } catch (error) {
+                    console.error('Error loading cases:', error);
+                    setCases(DEFAULT_CLINICAL_CASES);
+                }
+                setLoading(false);
+            };
+
+            const saveCases = async (updatedCases) => {
+                setSyncStatus('Sincronizando...');
+                try {
+                    await db.collection('admin').doc('clinical_cases').set({ cases: updatedCases });
+                    setSyncStatus('✓ Sincronizado');
+                    setTimeout(() => setSyncStatus(''), 2000);
+                } catch (error) {
+                    setSyncStatus('✗ Error al sincronizar');
+                    console.error('Error saving cases:', error);
+                }
+            };
+
+            const deleteCase = (id) => {
+                if (confirm('¿Estás seguro de que quieres eliminar este caso?')) {
+                    const updated = cases.filter(c => c.id !== id);
+                    setCases(updated);
+                    saveCases(updated);
+                    setSelectedCase(null);
+                }
+            };
+
+            const updateStage = (stageIndex, field, value) => {
+                const updated = { ...editingCase };
+                updated.stages[stageIndex][field] = value;
+                setEditingCase(updated);
+            };
+
+            const saveEdit = () => {
+                const updated = cases.map(c => c.id === editingCase.id ? editingCase : c);
+                setCases(updated);
+                saveCases(updated);
+                setSelectedCase(editingCase);
+                setEditingCase(null);
+            };
+
+            const patientTypes = { neonatal: 'Neonatal', pediatrico: 'Pediátrico', adulto: 'Adulto' };
+
+            if (loading) {
+                return <div className="w-full h-screen flex items-center justify-center text-xl">Cargando casos...</div>;
+            }
+
+            return (
+                <div className="flex h-screen">
+                    {/* Sidebar */}
+                    <div className="w-80 bg-slate-900 border-r border-slate-700 overflow-y-auto">
+                        <div className="p-6 border-b border-slate-700">
+                            <h1 className="text-2xl font-bold mb-1">NeoMonitor</h1>
+                            <p className="text-slate-400 text-sm">Gestión de Casos</p>
+                        </div>
+
+                        <div className="p-4 space-y-2">
+                            {cases.map(c => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => {
+                                        setSelectedCase(c);
+                                        setEditingCase(null);
+                                    }}
+                                    className={`w-full text-left p-3 rounded border transition ${
+                                        selectedCase?.id === c.id
+                                            ? 'bg-blue-600 border-blue-400'
+                                            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                    }`}
+                                >
+                                    <div className="font-semibold">{c.title.es}</div>
+                                    <div className="text-xs text-slate-400">{patientTypes[c.patientType]}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex flex-col">
+                        {/* Header */}
+                        <div className="bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center">
+                            <div>
+                                {selectedCase ? (
+                                    <div>
+                                        <h2 className="text-2xl font-bold">{selectedCase.title.es}</h2>
+                                        <p className="text-slate-400 text-sm">{patientTypes[selectedCase.patientType]}</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-400">Selecciona un caso para editar</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-sm text-slate-400">{syncStatus}</span>
+                                <button
+                                    onClick={onLogout}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                                >
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editor */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {editingCase ? (
+                                <div className="max-w-4xl space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-2">ID (no editable)</label>
+                                        <input type="text" value={editingCase.id} disabled className="w-full opacity-50" />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título ES</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.es}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, es: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título EN</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.en}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, en: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título PT</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.pt}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, pt: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación ES</label>
+                                            <textarea
+                                                value={editingCase.presentation.es}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, es: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación EN</label>
+                                            <textarea
+                                                value={editingCase.presentation.en}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, en: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación PT</label>
+                                            <textarea
+                                                value={editingCase.presentation.pt}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, pt: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">Etapas</h3>
+                                        <div className="space-y-4">
+                                            {editingCase.stages.map((stage, idx) => (
+                                                <div key={idx} className="bg-slate-800 p-4 rounded border border-slate-700">
+                                                    <div className="grid grid-cols-3 gap-4 mb-3">
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.es}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, es: e.target.value })}
+                                                            placeholder="Nombre ES"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.en}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, en: e.target.value })}
+                                                            placeholder="Nombre EN"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.pt}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, pt: e.target.value })}
+                                                            placeholder="Nombre PT"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">HR</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.hr}
+                                                                onChange={(e) => updateStage(idx, 'hr', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">SpO2</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.spo2}
+                                                                onChange={(e) => updateStage(idx, 'spo2', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">Transición (s)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.transition}
+                                                                onChange={(e) => updateStage(idx, 'transition', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={saveEdit}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Guardar Cambios
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingCase(null)}
+                                            className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : selectedCase ? (
+                                <div className="max-w-4xl space-y-4">
+                                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                                        <h3 className="text-lg font-semibold mb-2">Presentación</h3>
+                                        <p className="text-slate-300 whitespace-pre-wrap">{selectedCase.presentation.es}</p>
+                                    </div>
+
+                                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                                        <h3 className="text-lg font-semibold mb-4">Etapas ({selectedCase.stages.length})</h3>
+                                        <div className="space-y-2">
+                                            {selectedCase.stages.map((stage, idx) => (
+                                                <div key={idx} className="bg-slate-700/50 p-3 rounded flex justify-between items-center">
+                                                    <div>
+                                                        <div className="font-semibold">{stage.name.es}</div>
+                                                        <div className="text-sm text-slate-400">HR: {stage.hr} | SpO2: {stage.spo2}% | Transición: {stage.transition}s</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={() => setEditingCase({ ...selectedCase })}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Editar
+                                        </button>
+                                        <button
+                                            onClick={() => deleteCase(selectedCase.id)}
+                                            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [authenticated, setAuthenticated] = useState(
+                localStorage.getItem('neomonitor_admin_auth') === 'true'
+            );
+
+            const handleLogout = () => {
+                localStorage.removeItem('neomonitor_admin_auth');
+                setAuthenticated(false);
+            };
+
+            return authenticated ? (
+                <AdminPanel onLogout={handleLogout} />
+            ) : (
+                <LoginPage onAuthenticate={() => setAuthenticated(true)} />
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

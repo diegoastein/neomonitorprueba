@@ -1220,8 +1220,8 @@
                                                 </div>
                                             </div>
                                         ))}
-                                        {CLINICAL_CASES.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
-                                        {CLINICAL_CASES.filter(c => c.patientType === patientType).map(c => (
+                                        {clinicalCases.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
+                                        {clinicalCases.filter(c => c.patientType === patientType).map(c => (
                                             <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
                                                 className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
                                                 <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
@@ -1615,6 +1615,7 @@
             const [showGuide, setShowGuide] = useState(false);
             const [vitalsLoaded, setVitalsLoaded] = useState(false);
             const [sid] = useState(Math.floor(1000 + Math.random() * 9000).toString());
+            const [clinicalCases, setClinicalCases] = useState(CLINICAL_CASES);
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -1626,6 +1627,17 @@
                 auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
                 const p = new URLSearchParams(window.location.search);
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
+            }, []);
+
+            // Load clinical cases from Firebase if available
+            useEffect(() => {
+                if (!db) return;
+                const unsub = db.collection("admin").doc("clinical_cases").onSnapshot(doc => {
+                    if (doc.exists && doc.data().cases) {
+                        setClinicalCases(doc.data().cases);
+                    }
+                });
+                return () => unsub();
             }, []);
 
             // Listener limpio: solo setVitals. lang y patientType se derivan automáticamente.
