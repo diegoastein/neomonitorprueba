@@ -308,6 +308,8 @@
             const normalizeCases = (cases) => {
                 return cases.map(c => ({
                     ...c,
+                    title: typeof c.title === 'object' ? c.title : { es: c.title || '', en: c.title || '', pt: c.title || '' },
+                    presentation: typeof c.presentation === 'object' ? c.presentation : { es: c.presentation || '', en: c.presentation || '', pt: c.presentation || '' },
                     stages: (c.stages || []).map(stage => ({
                         ...stage,
                         name: typeof stage.name === 'object' ? stage.name : { es: stage.name || '', en: stage.name || '', pt: stage.name || '' }
@@ -509,10 +511,10 @@
                                             : 'bg-slate-800 border-slate-700 hover:border-slate-600'
                                     }`}
                                 >
-                                    <div className="font-semibold">{c.title.es}</div>
+                                    <div className="font-semibold">{typeof c.title === 'object' ? c.title.es : c.title}</div>
                                     <div className="text-xs text-slate-400 flex items-center gap-2">
                                         <span>{patientTypes[c.patientType]}</span>
-                                        {c._source === 'library' && <span className="bg-green-600 px-1.5 py-0.5 rounded text-[10px]">Comunidad</span>}
+                                        {c._source === 'library' && <span className="bg-green-800 text-green-100 px-1.5 py-0.5 rounded text-[10px]">Comunidad</span>}
                                     </div>
                                 </button>
                             ))}
@@ -880,20 +882,23 @@
 
                                     <div className="bg-slate-800 p-4 rounded border border-slate-700">
                                         <h3 className="text-lg font-semibold mb-2">Presentación</h3>
-                                        <p className="text-slate-300 whitespace-pre-wrap">{selectedCase.presentation.es}</p>
+                                        <p className="text-slate-300 whitespace-pre-wrap">{typeof selectedCase.presentation === 'object' ? selectedCase.presentation.es : selectedCase.presentation}</p>
                                     </div>
 
                                     <div className="bg-slate-800 p-4 rounded border border-slate-700">
                                         <h3 className="text-lg font-semibold mb-4">Etapas ({selectedCase.stages.length})</h3>
                                         <div className="space-y-2">
-                                            {selectedCase.stages.map((stage, idx) => (
-                                                <div key={idx} className="bg-slate-700/50 p-3 rounded flex justify-between items-center">
-                                                    <div>
-                                                        <div className="font-semibold">{stage.name.es}</div>
-                                                        <div className="text-sm text-slate-400">HR: {stage.hr} | SpO2: {stage.spo2}% | Transición: {stage.transition}s</div>
+                                            {selectedCase.stages.map((stage, idx) => {
+                                                const stageName = typeof stage.name === 'object' ? (stage.name.es || `Etapa ${idx + 1}`) : stage.name || `Etapa ${idx + 1}`;
+                                                return (
+                                                    <div key={idx} className="bg-slate-700/50 p-3 rounded flex justify-between items-center">
+                                                        <div>
+                                                            <div className="font-semibold">{stageName}</div>
+                                                            <div className="text-sm text-slate-400">HR: {stage.hr} | SpO2: {stage.spo2}% | Transición: {stage.transition}s</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
