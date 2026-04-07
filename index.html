@@ -999,7 +999,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -1130,9 +1130,9 @@
                 // Nuevos casos van directamente a library (compartidos)
                 // Casos existentes en library se actualizan en la misma colección
                 if (caseData.id && _firestore) {
-                    db.collection('library').doc(caseData.id).set({ ...clean, userId, updatedAt: Date.now() });
+                    db.collection('library').doc(caseData.id).set({ ...clean, userId, userEmail: userEmail || '', updatedAt: Date.now() });
                 } else {
-                    db.collection('library').add({ ...clean, userId, createdAt: Date.now() });
+                    db.collection('library').add({ ...clean, userId, userEmail: userEmail || '', createdAt: Date.now() });
                 }
                 setShowCaseEditor(false);
                 setEditingCase(null);
@@ -1147,7 +1147,7 @@
             const saveToLibrary = (caseData) => {
                 if (!db) return;
                 const { _firestore, id, ...clean } = caseData;
-                db.collection('library').add({ ...clean, userId: userId || 'anon', createdAt: Date.now() });
+                db.collection('library').add({ ...clean, userId: userId || 'anon', userEmail: userEmail || '', createdAt: Date.now() });
                 setShowCaseEditor(false);
                 setEditingCase(null);
             };
@@ -1833,7 +1833,7 @@
             return (
                 <div className="font-sans antialiased">
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
                 </div>
             );
         };
