@@ -1629,15 +1629,16 @@
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
 
-            // Load clinical cases from Firebase if available
+            // Load clinical cases from Firebase if available (one-time load on mount)
             useEffect(() => {
                 if (!db) return;
-                const unsub = db.collection("admin").doc("clinical_cases").onSnapshot(doc => {
+                db.collection("admin").doc("clinical_cases").get().then(doc => {
                     if (doc.exists && doc.data().cases) {
                         setClinicalCases(doc.data().cases);
                     }
+                }).catch(err => {
+                    console.error('Error loading clinical cases:', err);
                 });
-                return () => unsub();
             }, []);
 
             // Listener limpio: solo setVitals. lang y patientType se derivan automáticamente.
