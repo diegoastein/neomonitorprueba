@@ -296,8 +296,10 @@
             const [cases, setCases] = useState([]);
             const [selectedCase, setSelectedCase] = useState(null);
             const [editingCase, setEditingCase] = useState(null);
+            const [creatingCase, setCreatingCase] = useState(false);
             const [loading, setLoading] = useState(true);
             const [syncStatus, setSyncStatus] = useState('');
+            const [newCaseForm, setNewCaseForm] = useState(null);
 
             useEffect(() => {
                 loadCases();
@@ -340,6 +342,65 @@
                 }
             };
 
+            const initializeNewCase = () => {
+                setNewCaseForm({
+                    id: '',
+                    patientType: 'neonatal',
+                    title: { es: '', en: '', pt: '' },
+                    presentation: { es: '', en: '', pt: '' },
+                    stages: [{ name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }]
+                });
+                setCreatingCase(true);
+                setSelectedCase(null);
+                setEditingCase(null);
+            };
+
+            const createCase = () => {
+                if (!newCaseForm.id.trim()) {
+                    alert('El ID es requerido');
+                    return;
+                }
+                if (cases.some(c => c.id === newCaseForm.id)) {
+                    alert('Ya existe un caso con este ID');
+                    return;
+                }
+                if (!newCaseForm.stages || newCaseForm.stages.length === 0) {
+                    alert('Debe haber al menos una etapa');
+                    return;
+                }
+                const updated = [...cases, newCaseForm];
+                setCases(updated);
+                saveCases(updated);
+                setCreatingCase(false);
+                setSelectedCase(newCaseForm);
+                setNewCaseForm(null);
+            };
+
+            const addStage = () => {
+                setNewCaseForm({
+                    ...newCaseForm,
+                    stages: [...newCaseForm.stages, { name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }]
+                });
+            };
+
+            const removeStage = (idx) => {
+                setNewCaseForm({
+                    ...newCaseForm,
+                    stages: newCaseForm.stages.filter((_, i) => i !== idx)
+                });
+            };
+
+            const updateStageInForm = (idx, field, value) => {
+                const updated = { ...newCaseForm };
+                if (field.startsWith('name.')) {
+                    const lang = field.split('.')[1];
+                    updated.stages[idx].name[lang] = value;
+                } else {
+                    updated.stages[idx][field] = field === 'transition' || field === 'hr' || field === 'spo2' ? parseInt(value) || 0 : value;
+                }
+                setNewCaseForm(updated);
+            };
+
             const updateStage = (stageIndex, field, value) => {
                 const updated = { ...editingCase };
                 updated.stages[stageIndex][field] = value;
@@ -367,6 +428,15 @@
                         <div className="p-6 border-b border-slate-700">
                             <h1 className="text-2xl font-bold mb-1">NeoMonitor</h1>
                             <p className="text-slate-400 text-sm">Gestión de Casos</p>
+                        </div>
+
+                        <div className="p-4">
+                            <button
+                                onClick={initializeNewCase}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded mb-4 text-sm"
+                            >
+                                + Nuevo caso
+                            </button>
                         </div>
 
                         <div className="p-4 space-y-2">
@@ -417,7 +487,160 @@
 
                         {/* Editor */}
                         <div className="flex-1 overflow-y-auto p-6">
-                            {editingCase ? (
+                            {creatingCase && newCaseForm ? (
+                                <div className="max-w-4xl space-y-6">
+                                    <h2 className="text-2xl font-bold mb-6">Crear nuevo caso clínico</h2>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">ID (ej: rcp_basica)</label>
+                                            <input
+                                                type="text"
+                                                value={newCaseForm.id}
+                                                onChange={(e) => setNewCaseForm({ ...newCaseForm, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                                                placeholder="snake_case"
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Tipo de Paciente</label>
+                                            <select
+                                                value={newCaseForm.patientType}
+                                                onChange={(e) => setNewCaseForm({ ...newCaseForm, patientType: e.target.value })}
+                                                className="w-full"
+                                            >
+                                                <option value="neonatal">Neonatal</option>
+                                                <option value="pediatrico">Pediátrico</option>
+                                                <option value="adulto">Adulto</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3">Título</h3>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {['es', 'en', 'pt'].map(lang => (
+                                                <div key={lang}>
+                                                    <label className="block text-sm mb-1">{lang.toUpperCase()}</label>
+                                                    <input
+                                                        type="text"
+                                                        value={newCaseForm.title[lang]}
+                                                        onChange={(e) => setNewCaseForm({
+                                                            ...newCaseForm,
+                                                            title: { ...newCaseForm.title, [lang]: e.target.value }
+                                                        })}
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3">Presentación</h3>
+                                        <div className="space-y-2">
+                                            {['es', 'en', 'pt'].map(lang => (
+                                                <div key={lang}>
+                                                    <label className="block text-sm mb-1">{lang.toUpperCase()}</label>
+                                                    <textarea
+                                                        value={newCaseForm.presentation[lang]}
+                                                        onChange={(e) => setNewCaseForm({
+                                                            ...newCaseForm,
+                                                            presentation: { ...newCaseForm.presentation, [lang]: e.target.value }
+                                                        })}
+                                                        className="w-full h-20"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-lg font-semibold">Etapas</h3>
+                                            <button
+                                                onClick={addStage}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                                            >
+                                                + Agregar etapa
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {newCaseForm.stages.map((stage, idx) => (
+                                                <div key={idx} className="bg-slate-800 p-4 rounded border border-slate-700">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <h4 className="font-semibold">Etapa {idx + 1}</h4>
+                                                        {newCaseForm.stages.length > 1 && (
+                                                            <button
+                                                                onClick={() => removeStage(idx)}
+                                                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
+                                                            >
+                                                                Eliminar
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                                        {['es', 'en', 'pt'].map(lang => (
+                                                            <input
+                                                                key={lang}
+                                                                type="text"
+                                                                value={stage.name[lang]}
+                                                                onChange={(e) => updateStageInForm(idx, `name.${lang}`, e.target.value)}
+                                                                placeholder={`Nombre ${lang.toUpperCase()}`}
+                                                                className="text-sm"
+                                                            />
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={stage.hr}
+                                                            onChange={(e) => updateStageInForm(idx, 'hr', e.target.value)}
+                                                            placeholder="HR"
+                                                            className="text-sm"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={stage.spo2}
+                                                            onChange={(e) => updateStageInForm(idx, 'spo2', e.target.value)}
+                                                            placeholder="SpO2"
+                                                            className="text-sm"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={stage.transition}
+                                                            onChange={(e) => updateStageInForm(idx, 'transition', e.target.value)}
+                                                            placeholder="Transición (s)"
+                                                            className="text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={createCase}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Crear caso
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCreatingCase(false);
+                                                setNewCaseForm(null);
+                                            }}
+                                            className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : editingCase ? (
                                 <div className="max-w-4xl space-y-6">
                                     <div>
                                         <label className="block text-sm font-semibold mb-2">ID (no editable)</label>
