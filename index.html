@@ -1085,9 +1085,29 @@
             useEffect(() => {
                 if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
                 setLibraryLoading(true);
-                db.collection('library').orderBy('createdAt', 'desc').limit(80).get()
-                    .then(snap => { setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id }))); setLibraryLoading(false); })
-                    .catch(() => setLibraryLoading(false));
+                const timeout = setTimeout(() => {
+                    setLibraryLoading(false);
+                    console.warn('Library load timeout');
+                }, 5000);
+                try {
+                    db.collection('library').orderBy('createdAt', 'desc').limit(80).get()
+                        .then(snap => {
+                            clearTimeout(timeout);
+                            if (snap && Array.isArray(snap.docs)) {
+                                setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+                            }
+                            setLibraryLoading(false);
+                        })
+                        .catch(err => {
+                            clearTimeout(timeout);
+                            console.warn('Error loading library:', err?.message);
+                            setLibraryLoading(false);
+                        });
+                } catch (err) {
+                    clearTimeout(timeout);
+                    console.warn('Library query error:', err?.message);
+                    setLibraryLoading(false);
+                }
             }, [showCaseSelector, selectorTab]);
 
             const logAction = (message, force = false) => {
@@ -1220,13 +1240,15 @@
                                                 </div>
                                             </div>
                                         ))}
-                                        {clinicalCases.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
-                                        {clinicalCases.filter(c => c.patientType === patientType).map(c => (
-                                            <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
-                                                className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
-                                                <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
-                                                <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
-                                            </button>
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id && c?.stages ? (
+                                                <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                    className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
+                                                    <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                    <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} etapas</div>
+                                                </button>
+                                            ) : null
                                         ))}
                                     </div>
                                 ) : (
@@ -1241,28 +1263,30 @@
                                         </div>
                                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                             {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">Cargando biblioteca...</div>}
-                                            {!libraryLoading && libraryCases.filter(c => c.patientType === libTabPType).length === 0 && (
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).length === 0 && (
                                                 <div className="text-center text-slate-500 py-10">
                                                     <Icons.Globe className="w-10 h-10 mx-auto mb-3 opacity-30"/>
                                                     <p className="text-sm">No hay casos en la biblioteca aún</p>
                                                     <p className="text-xs mt-2 opacity-60">Creá un caso y publicalo para ser el primero</p>
                                                 </div>
                                             )}
-                                            {!libraryLoading && libraryCases.filter(c => c.patientType === libTabPType).map(c => (
-                                                <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
-                                                    <div className="flex justify-between items-start gap-2">
-                                                        <div className="font-bold text-white text-sm leading-tight flex-1">{c.title}</div>
-                                                        <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
-                                                            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
-                                                            Usar
-                                                        </button>
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).map(c => (
+                                                c?.id && c?.title ? (
+                                                    <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="font-bold text-white text-sm leading-tight flex-1">{c.title}</div>
+                                                            <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
+                                                                Usar
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                            <span>{Array.isArray(c.stages) ? c.stages.length : 0} etapas</span>
+                                                            {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
+                                                        </div>
+                                                        {c.presentation && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.presentation}</p>}
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                        <span>{c.stages?.length || 0} etapas</span>
-                                                        {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
-                                                    </div>
-                                                    {c.presentation && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.presentation}</p>}
-                                                </div>
+                                                ) : null
                                             ))}
                                         </div>
                                     </div>
@@ -1615,7 +1639,9 @@
             const [showGuide, setShowGuide] = useState(false);
             const [vitalsLoaded, setVitalsLoaded] = useState(false);
             const [sid] = useState(Math.floor(1000 + Math.random() * 9000).toString());
-            const [clinicalCases, setClinicalCases] = useState(CLINICAL_CASES);
+            const [clinicalCases, setClinicalCases] = useState(() => {
+                return Array.isArray(CLINICAL_CASES) ? CLINICAL_CASES : [];
+            });
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -1632,13 +1658,17 @@
             // Load clinical cases from Firebase if available (one-time load on mount)
             useEffect(() => {
                 if (!db) return;
-                db.collection("admin").doc("clinical_cases").get().then(doc => {
-                    if (doc.exists && doc.data().cases) {
-                        setClinicalCases(doc.data().cases);
-                    }
-                }).catch(err => {
-                    console.error('Error loading clinical cases:', err);
-                });
+                try {
+                    db.collection("admin").doc("clinical_cases").get().then(doc => {
+                        if (doc.exists && doc.data() && Array.isArray(doc.data().cases)) {
+                            setClinicalCases(doc.data().cases);
+                        }
+                    }).catch(err => {
+                        console.warn('Could not load clinical cases from Firebase:', err?.message);
+                    });
+                } catch (err) {
+                    console.warn('Firebase not ready for clinical cases:', err?.message);
+                }
             }, []);
 
             // Listener limpio: solo setVitals. lang y patientType se derivan automáticamente.
