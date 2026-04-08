@@ -1296,8 +1296,13 @@
                             clearTimeout(timeout);
                             if (!abortCtrl.signal.aborted && snap && snap.docs) {
                                 const cases = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                                console.log(`📚 Biblioteca cargada: ${cases.length} casos`);
+                                cases.forEach((c, idx) => {
+                                    console.log(`  [${idx}] "${c.title}" - Tipo título: ${typeof c.title} ${typeof c.title === 'object' ? '(multiidioma)' : '(string - necesita traducción)'}`);
+                                });
                                 setLibraryCases(cases);
                                 // Auto-traducir casos sin traducción (en background)
+                                console.log('🔍 Buscando casos sin traducción...');
                                 cases.forEach(c => ensureCaseTranslated(c));
                                 setLibraryLoading(false);
                             }
