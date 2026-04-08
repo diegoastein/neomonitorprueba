@@ -824,7 +824,13 @@
                     } else if (!flatline && speed > 0) {
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
-                        phaseRef.current += (beatsPerSecond * 2 * Math.PI) * deltaTime;
+                        let phaseIncrement = (beatsPerSecond * 2 * Math.PI) * deltaTime;
+                        // HRV: oscilación respiratoria (~0.3 Hz) + jitter aleatorio para sinusal y VT
+                        if (type === 'ecg' && !isAFib && !isVF) {
+                            const hrModulation = 1.0 + 0.04 * Math.sin(vfTimeRef.current * 0.3) + (Math.random() - 0.5) * 0.04;
+                            phaseIncrement *= hrModulation;
+                        }
+                        phaseRef.current += phaseIncrement;
                         if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
                         const p = phaseRef.current;
 
