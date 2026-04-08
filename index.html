@@ -208,11 +208,20 @@
                 stages: "etapas",
                 noLibraryCases: "No hay casos en la biblioteca aún",
                 createAndPublish: "Creá un caso y publicalo para ser el primero",
+                loadingLibrary: "Cargando biblioteca...",
                 caseTitle: "Título del caso",
                 titlePlaceholder: "Ej: Bradicardia neonatal",
                 presentation: "Presentación del caso",
                 stageName: "Nombre de la etapa",
-                author: "Autor"
+                author: "Autor",
+                viewPresentation: "Ver presentación del caso",
+                casePresentation: "Presentación del caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Sig",
+                caseCompleted: "✓ Caso completado",
+                exit: "Salir",
+                use: "Usar"
             },
             en: {
                 loading: "Loading NeoMonitor...",
@@ -273,11 +282,20 @@
                 stages: "stages",
                 noLibraryCases: "No cases in the library yet",
                 createAndPublish: "Create a case and publish it to be the first",
+                loadingLibrary: "Loading library...",
                 caseTitle: "Case title",
                 titlePlaceholder: "Ex: Neonatal bradycardia",
                 presentation: "Case presentation",
                 stageName: "Stage name",
-                author: "Author"
+                author: "Author",
+                viewPresentation: "View case presentation",
+                casePresentation: "Case presentation",
+                understood: "Understood",
+                startCase: "Start Case",
+                nextStage: "Next",
+                caseCompleted: "✓ Case completed",
+                exit: "Exit",
+                use: "Use"
             },
             pt: {
                 loading: "Carregando NeoMonitor...",
@@ -338,11 +356,20 @@
                 stages: "etapas",
                 noLibraryCases: "Nenhum caso na biblioteca ainda",
                 createAndPublish: "Crie um caso e publique-o para ser o primeiro",
+                loadingLibrary: "Carregando biblioteca...",
                 caseTitle: "Título do caso",
                 titlePlaceholder: "Ex: Bradicardia neonatal",
                 presentation: "Apresentação do caso",
                 stageName: "Nome da etapa",
-                author: "Autor"
+                author: "Autor",
+                viewPresentation: "Ver apresentação do caso",
+                casePresentation: "Apresentação do caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Próx",
+                caseCompleted: "✓ Caso concluído",
+                exit: "Sair",
+                use: "Usar"
             }
         };
 
@@ -1112,9 +1139,24 @@
                 return () => unsub();
             }, [db, userId]);
 
-            const getCaseName = (c) => typeof c.title === 'string' ? c.title : (c.title[lang] || c.title.es);
-            const getStageName = (stage) => typeof stage.name === 'string' ? stage.name : (stage.name[lang] || stage.name.es);
-            const getPresentation = (c) => { if (!c.presentation) return null; return typeof c.presentation === 'string' ? c.presentation : (c.presentation[lang] || c.presentation.es); };
+            const getCaseName = (c) => {
+                if (!c) return '';
+                if (typeof c.title === 'string') return c.title;
+                if (typeof c.title === 'object' && c.title !== null) return c.title[lang] || c.title.es || '';
+                return '';
+            };
+            const getStageName = (stage) => {
+                if (!stage) return '';
+                if (typeof stage.name === 'string') return stage.name;
+                if (typeof stage.name === 'object' && stage.name !== null) return stage.name[lang] || stage.name.es || '';
+                return '';
+            };
+            const getPresentation = (c) => {
+                if (!c || !c.presentation) return null;
+                if (typeof c.presentation === 'string') return c.presentation;
+                if (typeof c.presentation === 'object' && c.presentation !== null) return c.presentation[lang] || c.presentation.es || null;
+                return null;
+            };
             const patientCfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
 
             const translateText = async (text, targetLang) => {
@@ -1415,7 +1457,7 @@
                                             ))}
                                         </div>
                                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                            {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">Cargando biblioteca...</div>}
+                                            {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">{t.loadingLibrary}</div>}
                                             {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).length === 0 && (
                                                 <div className="text-center text-slate-500 py-10">
                                                     <Icons.Globe className="w-10 h-10 mx-auto mb-3 opacity-30"/>
@@ -1430,7 +1472,7 @@
                                                             <div className="font-bold text-white text-sm leading-tight flex-1">{getCaseName(c)}</div>
                                                             <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
                                                                 className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
-                                                                Usar
+                                                                {t.use}
                                                             </button>
                                                         </div>
                                                         <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -1580,7 +1622,7 @@
                             </button>
                             <button onClick={() => setShowCaseSelector(true)}
                                 className={`flex-1 py-2 text-sm font-bold transition-colors ${activeCase ? 'bg-blue-700 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
-                                Caso Clínico
+                                {t.clinicalCases}
                             </button>
                         </div>
 
@@ -1597,13 +1639,13 @@
                             <div className="bg-slate-800 rounded-xl overflow-hidden">
                                 <div className="p-3 bg-blue-900/40 border-b border-slate-700 flex justify-between items-center">
                                     <span className="font-bold text-blue-300 text-sm">{getCaseName(activeCase)}</span>
-                                    <button onClick={() => { setActiveCase(null); setStageIndex(-1); }} className="text-slate-400 hover:text-white text-xs border border-slate-600 px-2 py-0.5 rounded">Salir</button>
+                                    <button onClick={() => { setActiveCase(null); setStageIndex(-1); }} className="text-slate-400 hover:text-white text-xs border border-slate-600 px-2 py-0.5 rounded">{t.exit}</button>
                                 </div>
                                 {getPresentation(activeCase) && (
                                     <div className="p-3 border-b border-slate-700 bg-slate-900/40">
                                         <button onClick={() => setShowPresentation(true)}
                                             className="w-full flex items-center justify-between bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/40 rounded-lg px-3 py-2 transition-colors active:scale-95">
-                                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">Ver presentación del caso</span>
+                                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">{t.viewPresentation}</span>
                                             <span className="text-blue-400 text-lg">📋</span>
                                         </button>
                                     </div>
@@ -1613,7 +1655,7 @@
                                         <div className="bg-slate-800 rounded-2xl flex flex-col overflow-hidden max-w-lg mx-auto w-full max-h-full shadow-2xl" onClick={e => e.stopPropagation()}>
                                             <div className="p-5 border-b border-slate-700 flex justify-between items-center flex-none">
                                                 <div>
-                                                    <p className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-0.5">Presentación del caso</p>
+                                                    <p className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-0.5">{t.casePresentation}</p>
                                                     <h3 className="font-black text-white text-lg">{getCaseName(activeCase)}</h3>
                                                 </div>
                                                 <button onClick={() => setShowPresentation(false)} className="bg-slate-700 rounded-full p-2 ml-4 flex-none"><Icons.X className="w-5 h-5"/></button>
@@ -1624,7 +1666,7 @@
                                             <div className="p-4 border-t border-slate-700 flex-none">
                                                 <button onClick={() => setShowPresentation(false)}
                                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
-                                                    Entendido
+                                                    {t.understood}
                                                 </button>
                                             </div>
                                         </div>
@@ -1648,11 +1690,11 @@
                                         <button onClick={advanceStage}
                                             className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all">
                                             <Icons.ArrowRight className="w-5 h-5"/>
-                                            {stageIndex === -1 ? 'Iniciar Caso' : `Sig: ${getStageName(activeCase.stages[stageIndex + 1])}`}
+                                            {stageIndex === -1 ? t.startCase : `${t.nextStage}: ${getStageName(activeCase.stages[stageIndex + 1])}`}
                                         </button>
                                     ) : (
                                         <div className="w-full py-3 bg-green-900/40 border border-green-500/30 rounded-lg font-bold text-green-400 text-center text-sm">
-                                            ✓ Caso completado
+                                            {t.caseCompleted}
                                         </div>
                                     )}
                                 </div>
