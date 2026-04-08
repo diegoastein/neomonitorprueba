@@ -1250,6 +1250,28 @@
                 if (activeCase && activeCase.id === caseId) { setActiveCase(null); setStageIndex(-1); }
             };
 
+            // Auto-traducir casos antiguos sin traducción (en background)
+            const ensureCaseTranslated = (caseData) => {
+                if (!caseData || !caseData.id || !db) return;
+                // Si ya tiene estructura multiidioma, no hacer nada
+                if (typeof caseData.title === 'object' && caseData.title !== null) return;
+                // Si es string, necesita traducción
+                if (typeof caseData.title === 'string') {
+                    // Traducir en background sin bloquear
+                    (async () => {
+                        try {
+                            const translated = await translateCase(caseData);
+                            const { _firestore, ...clean } = translated;
+                            // Guardar versión traducida en Firestore
+                            await db.collection('library').doc(caseData.id).set(clean);
+                            console.log(`✓ Caso "${caseData.title}" traducido automáticamente`);
+                        } catch (err) {
+                            console.warn(`No se pudo traducir caso ${caseData.id}:`, err?.message);
+                        }
+                    })();
+                }
+            };
+
             useEffect(() => {
                 if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
                 setLibraryLoading(true);
@@ -1266,7 +1288,10 @@
                         .then(snap => {
                             clearTimeout(timeout);
                             if (!abortCtrl.signal.aborted && snap && snap.docs) {
-                                setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+                                const cases = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                                setLibraryCases(cases);
+                                // Auto-traducir casos sin traducción (en background)
+                                cases.forEach(c => ensureCaseTranslated(c));
                                 setLibraryLoading(false);
                             }
                         })
