@@ -397,7 +397,7 @@
                     { key: 'brady',   hr: 52,  spo2: 90,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
                     { key: 'tachy',   hr: 210, spo2: 92,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
                     { key: 'shock',   hr: 148, spo2: 91,  style: 'bg-purple-900/40 border-purple-500/50 text-purple-400' },
-                    { key: 'rcp',     hr: 0,   spo2: 60,  style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf', style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
                 ]
             },
             // ACLS: bradicardia sintomática <50, crítico <40; tachy sintomática >150
@@ -409,10 +409,35 @@
                     { key: 'desat',   hr: 95,  spo2: 85,  style: 'bg-blue-900/40 border-blue-500/50 text-blue-400' },
                     { key: 'brady',   hr: 36,  spo2: 94,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
                     { key: 'tachy',   hr: 158, spo2: 95,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
-                    { key: 'afib',    hr: 118, spo2: 94,  style: 'bg-pink-900/40 border-pink-500/50 text-pink-400' },
-                    { key: 'rcp',     hr: 0,   spo2: 60,  style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                    { key: 'afib',    hr: 118, spo2: 94,  rhythm: 'afib', style: 'bg-pink-900/40 border-pink-500/50 text-pink-400' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf',   style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
                 ]
             }
+        };
+
+        const RHYTHM_OPTIONS = {
+            neonatal:  [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ],
+            pediatrico: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ],
+            adulto: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'afib',  label: { es: 'FA',      en: 'AFib',  pt: 'FA' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ]
+        };
+
+        const RHYTHM_STYLES = {
+            sinus: 'bg-green-900 border-green-500 text-green-200',
+            afib:  'bg-pink-900 border-pink-500 text-pink-200',
+            vt:    'bg-orange-900 border-orange-500 text-orange-200',
+            vf:    'bg-red-900 border-red-500 text-red-200',
         };
 
         const PATIENT_DEFAULTS = {
@@ -441,7 +466,7 @@
             ChevronDown: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false, patientType: 'neonatal' };
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false, patientType: 'neonatal', rhythm: 'sinus' };
 
         const CLINICAL_CASES = [
             // ── NEONATAL ──────────────────────────────────────────────────────
@@ -755,13 +780,21 @@
             osc2.stop(now + 0.4);
         };
 
-        const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
+        const WaveformCanvas = ({ color, speed, type, flatline, onBeat, rhythm = 'sinus' }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
             const lastTimeRef = useRef(performance.now());
+            const absolutePhaseRef = useRef(0);
+            const nextBeatAbsRef = useRef(Math.PI);
+            const lastRRRef = useRef(2 * Math.PI);
+            const vfTimeRef = useRef(0);
 
             useEffect(() => {
+                absolutePhaseRef.current = 0;
+                nextBeatAbsRef.current = Math.PI;
+                lastRRRef.current = 2 * Math.PI;
+                vfTimeRef.current = 0;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 let frameId;
@@ -776,24 +809,69 @@
                     }
                     let newValue = canvas.height / 2;
                     const amplitude = canvas.height / 3;
-                    if (!flatline && speed > 0) {
+                    const mid = canvas.height / 2;
+                    const isVF = rhythm === 'vf';
+                    const isAFib = rhythm === 'afib';
+
+                    if (isVF) {
+                        vfTimeRef.current += deltaTime;
+                        const vt = vfTimeRef.current;
+                        const vfAmp1 = amplitude * (0.3 + 0.25 * Math.abs(Math.sin(vt * 0.7)));
+                        const vfAmp2 = amplitude * (0.2 + 0.15 * Math.abs(Math.sin(vt * 1.3 + 1.2)));
+                        newValue = mid - vfAmp1 * Math.sin(vt * 8.5 + 0.3) - vfAmp2 * Math.sin(vt * 11.2 + 1.8) + (Math.random() * amplitude * 0.08 - 0.04);
+                    } else if (!flatline && speed > 0) {
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
                         phaseRef.current += (beatsPerSecond * 2 * Math.PI) * deltaTime;
                         if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
                         const p = phaseRef.current;
-                        if (type === 'ecg' && onBeat) {
-                             const threshold = Math.PI;
-                             if (prevPhase < threshold && p >= threshold) onBeat();
-                        }
+
                         if (type === 'ecg') {
-                            if (p > 3.0 && p < 3.28) newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50));
-                            else if (p > 3.5 && p < 4.5) newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
-                            else newValue = (canvas.height / 2) + (Math.random() * 1.5 - 0.75);
+                            if (isAFib) {
+                                absolutePhaseRef.current += beatsPerSecond * 2 * Math.PI * deltaTime;
+                                const absP = absolutePhaseRef.current;
+                                const prevAbsP = absP - beatsPerSecond * 2 * Math.PI * deltaTime;
+                                newValue = mid + amplitude * 0.06 * Math.sin(absP * 5.5) + (Math.random() * amplitude * 0.03 - 0.015);
+                                const dist = absP - nextBeatAbsRef.current;
+                                if (dist > -0.14 && dist < 0.14) {
+                                    newValue = mid - amplitude * 2.5 * Math.exp(-dist * dist * 50);
+                                } else if (dist > 0.2 && dist < 1.1) {
+                                    newValue = mid - amplitude * 0.28 * Math.sin((dist - 0.2) * Math.PI / 0.9);
+                                }
+                                if (prevAbsP < nextBeatAbsRef.current && absP >= nextBeatAbsRef.current) {
+                                    onBeat && onBeat();
+                                    const rrVariation = 0.65 + Math.random() * 0.70;
+                                    lastRRRef.current = 2 * Math.PI * rrVariation;
+                                    nextBeatAbsRef.current = absP + lastRRRef.current;
+                                }
+                            } else if (rhythm === 'vt') {
+                                if (onBeat) {
+                                    if (prevPhase < Math.PI && p >= Math.PI) onBeat();
+                                }
+                                const inQRS = p > 2.8 && p < 3.55;
+                                const inT = p > 3.6 && p < 5.0;
+                                if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    newValue = mid - amplitude * 1.8 * Math.exp(-qp * qp * 8) + amplitude * 0.5 * Math.exp(-Math.pow(qp - 0.35, 2) * 20);
+                                } else if (inT) {
+                                    newValue = mid + amplitude * 0.4 * Math.sin((p - 3.6) * Math.PI / 1.4);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
+                            } else {
+                                if (onBeat) {
+                                    if (prevPhase < Math.PI && p >= Math.PI) onBeat();
+                                }
+                                if (p > 3.0 && p < 3.28) newValue = mid - amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50);
+                                else if (p > 3.5 && p < 4.5) newValue = mid - amplitude * 0.3 * Math.sin(p - 3.5);
+                                else newValue = mid + (Math.random() * 1.5 - 0.75);
+                            }
                         } else {
-                            newValue = (canvas.height / 2) - (Math.sin(p) * amplitude * 0.6);
+                            newValue = mid - Math.sin(p) * amplitude * 0.6;
                         }
-                    } else { newValue = (canvas.height / 2) + (Math.random() * 2 - 1); }
+                    } else {
+                        newValue = mid + (Math.random() * 2 - 1);
+                    }
                     dataRef.current.push(newValue);
                     dataRef.current.shift();
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -806,7 +884,7 @@
                 };
                 frameId = requestAnimationFrame(draw);
                 return () => cancelAnimationFrame(frameId);
-            }, [color, speed, type, flatline, onBeat]);
+            }, [color, speed, type, flatline, onBeat, rhythm]);
 
             return <canvas ref={canvasRef} className="w-full h-full block" />;
         };
@@ -953,7 +1031,7 @@
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
                         <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}</div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0 && vitals.rhythm !== 'vf'} onBeat={handleBeat} rhythm={vitals.rhythm || 'sinus'}/>}</div>
                             <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <div className="flex items-center gap-3">
                                     <span className="text-[#42B334] font-bold text-lg number-label">{t.hr}</span>
@@ -1373,9 +1451,14 @@
                 if (preset.grunt) { onUpdate({ ...currentVitals, soundType: 'grunt', soundTimestamp: Date.now() }); logAction(`Preset: ${t.presets[preset.key] || preset.key}`); return; }
                 const now = Date.now();
                 const name = t.presets[preset.key] || preset.key;
-                onUpdate({ ...currentVitals, hr: preset.hr, spo2: preset.spo2, transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: preset.hr, startSpo2: vitals.spo2, targetSpo2: preset.spo2 } : null });
+                onUpdate({ ...currentVitals, hr: preset.hr, spo2: preset.spo2, rhythm: preset.rhythm || 'sinus', transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: preset.hr, startSpo2: vitals.spo2, targetSpo2: preset.spo2 } : null });
                 logAction(`Preset: ${name}`);
                 trackNeoEvent('scenario_preset', `Preset: ${name}`, { preset_type: preset.key });
+            };
+
+            const handleRhythmChange = (rhythmKey) => {
+                onUpdate({ ...currentVitals, rhythm: rhythmKey });
+                logAction(`Ritmo: ${rhythmKey.toUpperCase()}`);
             };
 
             return (
@@ -1646,6 +1729,20 @@
                             <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">{t.act}: {vitals.spo2}%</span></div>
                             <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
+                        {currentVitals.simRunning && (
+                            <div className="bg-slate-800 p-4 rounded-xl">
+                                <label className="text-xs text-green-400 font-bold uppercase tracking-widest mb-3 block">Ritmo ECG</label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {(RHYTHM_OPTIONS[patientType] || RHYTHM_OPTIONS.adulto).map(r => (
+                                        <button key={r.key}
+                                            onClick={() => handleRhythmChange(r.key)}
+                                            className={`py-2 px-4 rounded-lg text-xs font-bold border transition-all active:scale-95 ${(currentVitals.rhythm || 'sinus') === r.key ? RHYTHM_STYLES[r.key] : 'bg-slate-700 border-slate-600 text-slate-300'}`}>
+                                            {r.label[lang] || r.label.es}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="flex rounded-lg overflow-hidden border border-slate-700">
                             <button onClick={() => { setActiveCase(null); setStageIndex(-1); }}
                                 className={`flex-1 py-2 text-sm font-bold transition-colors ${!activeCase ? 'bg-slate-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
