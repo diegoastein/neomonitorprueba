@@ -815,9 +815,12 @@
                     if (isVF) {
                         vfTimeRef.current += deltaTime;
                         const vt = vfTimeRef.current;
-                        const vfAmp1 = amplitude * (0.3 + 0.25 * Math.abs(Math.sin(vt * 0.7)));
-                        const vfAmp2 = amplitude * (0.2 + 0.15 * Math.abs(Math.sin(vt * 1.3 + 1.2)));
-                        newValue = mid - vfAmp1 * Math.sin(vt * 8.5 + 0.3) - vfAmp2 * Math.sin(vt * 11.2 + 1.8) + (Math.random() * amplitude * 0.08 - 0.04);
+                        const coarseDecay = Math.max(0.25, 1.0 - vt / 80);
+                        const vfAmpBase = amplitude * 0.75 * coarseDecay;
+                        const vfAmp1 = vfAmpBase * (0.7 + 0.3 * Math.abs(Math.sin(vt * 0.4)));
+                        const vfAmp2 = vfAmpBase * (0.4 + 0.2 * Math.abs(Math.sin(vt * 0.6 + 1.2)));
+                        const vfAmp3 = vfAmpBase * 0.15;
+                        newValue = mid - vfAmp1 * Math.sin(vt * 37.7 + 0.3) - vfAmp2 * Math.sin(vt * 25.1 + 1.8) - vfAmp3 * Math.sin(vt * 50.3 + 0.9) + (Math.random() * amplitude * 0.06 - 0.03) * coarseDecay;
                     } else if (!flatline && speed > 0) {
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
@@ -827,10 +830,13 @@
 
                         if (type === 'ecg') {
                             if (isAFib) {
+                                vfTimeRef.current += deltaTime;
+                                const afibTime = vfTimeRef.current;
                                 absolutePhaseRef.current += beatsPerSecond * 2 * Math.PI * deltaTime;
                                 const absP = absolutePhaseRef.current;
                                 const prevAbsP = absP - beatsPerSecond * 2 * Math.PI * deltaTime;
-                                newValue = mid + amplitude * 0.06 * Math.sin(absP * 5.5) + (Math.random() * amplitude * 0.03 - 0.015);
+                                const fWaveAmp = amplitude * 0.05 * (0.7 + 0.3 * Math.abs(Math.sin(afibTime * 0.8)));
+                                newValue = mid + fWaveAmp * Math.sin(afibTime * 37.7) + fWaveAmp * 0.5 * Math.sin(afibTime * 44.0 + 0.7) + (Math.random() * amplitude * 0.02 - 0.01);
                                 const dist = absP - nextBeatAbsRef.current;
                                 if (dist > -0.14 && dist < 0.14) {
                                     newValue = mid - amplitude * 2.5 * Math.exp(-dist * dist * 50);
@@ -839,7 +845,7 @@
                                 }
                                 if (prevAbsP < nextBeatAbsRef.current && absP >= nextBeatAbsRef.current) {
                                     onBeat && onBeat();
-                                    const rrVariation = 0.65 + Math.random() * 0.70;
+                                    const rrVariation = 0.50 + Math.random() * 1.00;
                                     lastRRRef.current = 2 * Math.PI * rrVariation;
                                     nextBeatAbsRef.current = absP + lastRRRef.current;
                                 }
@@ -847,13 +853,20 @@
                                 if (onBeat) {
                                     if (prevPhase < Math.PI && p >= Math.PI) onBeat();
                                 }
-                                const inQRS = p > 2.8 && p < 3.55;
-                                const inT = p > 3.6 && p < 5.0;
+                                const vtQRS_start = Math.PI - 1.34;
+                                const vtQRS_end = Math.PI + 1.34;
+                                const vtT_start = 4.78;
+                                const vtT_end = 6.08;
+                                const inQRS = p > vtQRS_start && p < vtQRS_end;
+                                const inT = p > vtT_start && p < vtT_end;
                                 if (inQRS) {
                                     const qp = p - Math.PI;
-                                    newValue = mid - amplitude * 1.8 * Math.exp(-qp * qp * 8) + amplitude * 0.5 * Math.exp(-Math.pow(qp - 0.35, 2) * 20);
+                                    const main = -amplitude * 1.6 * Math.exp(-qp * qp * 0.8);
+                                    const notch = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.8, 2) * 5);
+                                    newValue = mid + main + notch;
                                 } else if (inT) {
-                                    newValue = mid + amplitude * 0.4 * Math.sin((p - 3.6) * Math.PI / 1.4);
+                                    const tp = (p - vtT_start) / (vtT_end - vtT_start);
+                                    newValue = mid + amplitude * 0.45 * Math.sin(tp * Math.PI);
                                 } else {
                                     newValue = mid + (Math.random() * 1.5 - 0.75);
                                 }
@@ -861,9 +874,24 @@
                                 if (onBeat) {
                                     if (prevPhase < Math.PI && p >= Math.PI) onBeat();
                                 }
-                                if (p > 3.0 && p < 3.28) newValue = mid - amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50);
-                                else if (p > 3.5 && p < 4.5) newValue = mid - amplitude * 0.3 * Math.sin(p - 3.5);
-                                else newValue = mid + (Math.random() * 1.5 - 0.75);
+                                const inP = p > 0.881 && p < 1.633;
+                                const inQRS = p > 2.639 && p < 3.644;
+                                const inT = p > 3.895 && p < 5.780;
+                                if (inP) {
+                                    const pp = p - 1.257;
+                                    newValue = mid - amplitude * 0.15 * Math.exp(-pp * pp * 7);
+                                } else if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    const R = -amplitude * 2.2 * Math.exp(-qp * qp * 4);
+                                    const Q = amplitude * 0.3 * Math.exp(-Math.pow(qp + 0.35, 2) * 30);
+                                    const S = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.35, 2) * 30);
+                                    newValue = mid + R + Q + S;
+                                } else if (inT) {
+                                    const tp = (p - 3.895) / (5.780 - 3.895);
+                                    newValue = mid - amplitude * 0.35 * Math.sin(tp * Math.PI);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
                             }
                         } else {
                             newValue = mid - Math.sin(p) * amplitude * 0.6;
