@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeoMonitor - Análisis de Validación Temprana</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .chart-container { position: relative; width: 100%; max-width: 700px; margin: 0 auto; height: 350px; max-height: 400px; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .custom-shadow { box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Chosen Palette: Slate & Sky. Una paleta limpia, profesional y clínica que transmite seriedad y tecnología. -->
+    <!-- Application Structure Plan: Dashboard de una sola página diseñado para la toma de decisiones. Estructura: 1. Resumen Ejecutivo (KPIs), 2. Distribución Geográfica e Idiomas (Alcance), 3. Comportamiento del Usuario (Interacción Real). Se eligió este orden para llevar al espectador de lo general (cuántos son) a lo específico (qué están haciendo realmente con el código). -->
+    <!-- Visualization & Content Choices: 
+        - Métricas Clave -> Goal: Impacto inmediato -> Tarjetas de Datos. 
+        - Distribución por País -> Goal: Mostrar alcance Iberoamericano -> Gráfico de Barras Horizontal (Chart.js). 
+        - Eventos de Interacción -> Goal: Probar que usan el simulador -> Gráfico de Tarta/Donut (Chart.js). 
+        - Justificación: Se omitieron gráficos complejos para priorizar la claridad ante directivos médicos. NO se usó SVG ni Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <div class="max-w-6xl mx-auto space-y-10">
+        
+        <!-- Encabezado -->
+        <header class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">NeoMonitor <span class="text-sky-600">Analytics</span></h1>
+                <p class="text-slate-500 font-medium">Reporte de Validación Temprana: 23 Mar - 06 Abr 2026</p>
+            </div>
+            <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Fase de Testeo Activa</span>
+            </div>
+        </header>
+
+        <!-- Introducción -->
+        <section class="max-w-3xl">
+            <p class="text-lg text-slate-600 leading-relaxed italic">
+                "Este panel sintetiza la actividad orgánica de las primeras dos semanas de NeoMonitor. Los datos demuestran no solo un alcance internacional inmediato, sino una profundidad de interacción que valida la utilidad técnica del simulador en el entorno docente."
+            </p>
+        </section>
+
+        <!-- KPIs Principales -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 custom-shadow">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Usuarios Activos</p>
+                <p class="text-4xl font-bold text-slate-900">392</p>
+                <p class="text-xs text-emerald-600 mt-2 font-semibold">Crecimiento 100% orgánico</p>
+            </div>
+            <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 custom-shadow">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Interacción Media</p>
+                <p class="text-4xl font-bold text-slate-900">1:59 <span class="text-lg font-normal text-slate-400">m</span></p>
+                <p class="text-xs text-slate-500 mt-2 italic">Tiempo por sesión activa</p>
+            </div>
+            <div class="stat-card bg-sky-600 p-6 rounded-2xl border border-sky-500 shadow-lg shadow-sky-200 text-white">
+                <p class="text-xs font-bold text-sky-200 uppercase tracking-widest mb-1">Acciones de Control</p>
+                <p class="text-4xl font-bold">981</p>
+                <p class="text-xs text-sky-100 mt-2">Interacción con el mando</p>
+            </div>
+            <div class="stat-card bg-white p-6 rounded-2xl border border-slate-100 custom-shadow">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cambios Vitales</p>
+                <p class="text-4xl font-bold text-slate-900">481</p>
+                <p class="text-xs text-sky-600 mt-2 font-semibold">Práctica de escenarios</p>
+            </div>
+        </section>
+
+        <!-- Distribución y Alcance -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Países -->
+            <section class="bg-white p-8 rounded-3xl border border-slate-100 custom-shadow space-y-6">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">Alcance Geográfico</h3>
+                    <p class="text-sm text-slate-500">Distribución de usuarios por país (Top 5)</p>
+                </div>
+                <div class="chart-container">
+                    <canvas id="countryChart"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 italic">Nota: Presencia destacada en Argentina, EE.UU. y España en solo 15 días.</p>
+            </section>
+
+            <!-- Idiomas y Perfil -->
+            <section class="bg-white p-8 rounded-3xl border border-slate-100 custom-shadow space-y-6">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">Perfil del Usuario</h3>
+                    <p class="text-sm text-slate-500">Idioma de navegación del dispositivo</p>
+                </div>
+                <div class="chart-container">
+                    <canvas id="langChart"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-slate-800">55%</p>
+                        <p class="text-[10px] text-slate-400 uppercase font-bold">Español</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-slate-800">44%</p>
+                        <p class="text-[10px] text-slate-400 uppercase font-bold">Inglés / Otros</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Comportamiento Detallado -->
+        <section class="bg-slate-900 text-white p-8 md:p-12 rounded-[2.5rem] shadow-xl">
+            <div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-12">
+                <div class="w-full md:w-1/2 space-y-6">
+                    <h3 class="text-2xl font-bold">Evidencia de Uso Práctico</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        El volumen de eventos de <span class="text-sky-400 font-bold">vital_change</span> (481) y <span class="text-sky-400 font-bold">controller_action</span> (981) indica que los usuarios no solo están visualizando la página, sino que están ejecutando acciones de simulación. 
+                    </p>
+                    <p class="text-slate-400 leading-relaxed">
+                        Con un promedio de casi <span class="text-white font-bold">2 minutos por sesión</span>, NeoMonitor se posiciona como una herramienta de consulta rápida y efectiva para el instructor in-situ.
+                    </p>
+                    <div class="flex gap-4 pt-4">
+                        <div class="px-4 py-2 bg-slate-800 rounded-lg border border-slate-700">
+                            <span class="block text-[10px] text-slate-500 uppercase font-black">Vistas Totales</span>
+                            <span class="text-lg font-bold">1.3k</span>
+                        </div>
+                        <div class="px-4 py-2 bg-slate-800 rounded-lg border border-slate-700">
+                            <span class="block text-[10px] text-slate-500 uppercase font-black">Scrolls</span>
+                            <span class="text-lg font-bold">1.2k</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="w-full md:w-1/2">
+                    <div class="chart-container">
+                        <canvas id="eventChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer / Contacto -->
+        <footer class="text-center py-10 space-y-4">
+            <p class="text-sm text-slate-400 font-medium tracking-wide uppercase">Proyecto Personal en Desarrollo &bull; Dr. Diego Steinberg</p>
+            <div class="flex justify-center gap-6">
+                <span class="text-xs text-slate-500 font-bold">www.neomonitor.pro</span>
+                <span class="text-xs text-slate-500 font-bold">@neomonitor.pro</span>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        const ctxCountry = document.getElementById('countryChart').getContext('2d');
+        const ctxLang = document.getElementById('langChart').getContext('2d');
+        const ctxEvent = document.getElementById('eventChart').getContext('2d');
+
+        // Configuración Global
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#64748b';
+
+        // Gráfico de Países
+        new Chart(ctxCountry, {
+            type: 'bar',
+            data: {
+                labels: ['Argentina', 'Estados Unidos', 'España', 'Alemania', 'Australia'],
+                datasets: [{
+                    label: 'Usuarios Activos',
+                    data: [245, 91, 38, 6, 5],
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: 8,
+                    barThickness: 24
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { grid: { display: false }, ticks: { display: false }, border: { display: false } },
+                    y: { grid: { display: false }, border: { display: false } }
+                }
+            }
+        });
+
+        // Gráfico de Idiomas
+        new Chart(ctxLang, {
+            type: 'doughnut',
+            data: {
+                labels: ['Español', 'Inglés', 'Portugués', 'Otros'],
+                datasets: [{
+                    data: [665, 529, 32, 20],
+                    backgroundColor: ['#0284c7', '#38bdf8', '#bae6fd', '#f1f5f9'],
+                    borderWidth: 0,
+                    cutout: '70%'
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                }
+            }
+        });
+
+        // Gráfico de Eventos
+        new Chart(ctxEvent, {
+            type: 'bar',
+            data: {
+                labels: ['Vistas', 'Scrolls', 'Acción Control', 'Enganche', 'Cambio Vital'],
+                datasets: [{
+                    label: 'Eventos Registrados',
+                    data: [1300, 1200, 981, 605, 481],
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                    borderColor: '#38bdf8',
+                    borderWidth: 2,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#0f172a' }
+                },
+                scales: { 
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
