@@ -1066,7 +1066,11 @@
             const translateText = async (text, targetLang) => {
                 if (!text) return '';
                 try {
-                    const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E`, {
+                    // TODO: SECURITY - Move to Firebase Cloud Function or backend proxy
+                    // API key should NOT be in client code - currently exposed in network tab
+                    // Temporary: Use environment variable or secure endpoint
+                    const TRANSLATE_API_KEY = 'AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E'; // MUST be moved to backend
+                    const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${TRANSLATE_API_KEY}`, {
                         method: 'POST',
                         body: JSON.stringify({ q: text, target: targetLang, source: 'es' })
                     });
@@ -1142,9 +1146,10 @@
             useEffect(() => {
                 if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
                 setLibraryLoading(true);
-                let isMounted = true;
+                const abortCtrl = new AbortController();
                 const timeout = setTimeout(() => {
-                    if (isMounted) {
+                    if (!abortCtrl.signal.aborted) {
+                        abortCtrl.abort();
                         setLibraryLoading(false);
                         console.warn('Library load timeout after 8s');
                     }
@@ -1153,14 +1158,14 @@
                     db.collection('library').orderBy('createdAt', 'desc').limit(100).get()
                         .then(snap => {
                             clearTimeout(timeout);
-                            if (isMounted && snap && snap.docs) {
+                            if (!abortCtrl.signal.aborted && snap && snap.docs) {
                                 setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id })));
                                 setLibraryLoading(false);
                             }
                         })
                         .catch(err => {
                             clearTimeout(timeout);
-                            if (isMounted) {
+                            if (!abortCtrl.signal.aborted) {
                                 console.error('Error loading library:', err?.message);
                                 setLibraryLoading(false);
                                 setLibraryCases([]);
@@ -1168,12 +1173,15 @@
                         });
                 } catch (err) {
                     clearTimeout(timeout);
-                    if (isMounted) {
+                    if (!abortCtrl.signal.aborted) {
                         console.error('Library query error:', err?.message);
                         setLibraryLoading(false);
                     }
                 }
-                return () => { isMounted = false; clearTimeout(timeout); };
+                return () => {
+                    abortCtrl.abort();
+                    clearTimeout(timeout);
+                };
             }, [showCaseSelector, selectorTab]);
 
             const logAction = (message, force = false) => {
@@ -1199,12 +1207,19 @@
             };
 
             const advanceStage = () => {
-                if (!activeCase) return;
+                if (!activeCase || !Array.isArray(activeCase.stages) || activeCase.stages.length === 0) {
+                    console.error('Invalid case structure:', activeCase);
+                    return;
+                }
                 const nextIndex = stageIndex + 1;
                 if (nextIndex >= activeCase.stages.length) return;
                 const stage = activeCase.stages[nextIndex];
+                if (!stage || typeof stage.hr !== 'number' || typeof stage.spo2 !== 'number' || typeof stage.transition !== 'number') {
+                    console.error('Invalid stage structure:', stage);
+                    return;
+                }
                 const now = Date.now();
-                const durationMs = stage.transition * 1000;
+                const durationMs = Math.max(0, stage.transition * 1000);
                 const stageName = getStageName(stage);
                 logAction(`Etapa ${nextIndex + 1}/${activeCase.stages.length}: ${stageName}`);
                 trackNeoEvent('case_stage', `Stage ${nextIndex + 1}`, { case: activeCase.id, stage: nextIndex + 1 });
