@@ -418,7 +418,6 @@
         const RHYTHM_OPTIONS = {
             neonatal:  [
                 { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
-                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
             ],
             pediatrico: [
                 { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
@@ -1729,7 +1728,7 @@
                             <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">{t.act}: {vitals.spo2}%</span></div>
                             <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
-                        {currentVitals.simRunning && (
+                        {currentVitals.simRunning && patientType !== 'neonatal' && (
                             <div className="bg-slate-800 p-4 rounded-xl">
                                 <label className="text-xs text-green-400 font-bold uppercase tracking-widest mb-3 block">Ritmo ECG</label>
                                 <div className="flex gap-2 flex-wrap">
@@ -2006,15 +2005,15 @@
 
             useEffect(() => {
                 const defaults = PATIENT_DEFAULTS[patientType] || PATIENT_DEFAULTS.neonatal;
-                setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null }));
+                setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
             }, [patientType]);
 
             // Handlers: actualización optimista + escritura a Firestore.
             // La otra pantalla recibe el cambio vía su listener onSnapshot → setVitals → re-render.
             const handlePatientTypeChange = (type) => {
                 if (vitals.simRunning) return;
-                setVitals(prev => ({ ...prev, patientType: type }));
-                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type }, { merge: true });
+                setVitals(prev => ({ ...prev, patientType: type, rhythm: type === 'neonatal' ? 'sinus' : prev.rhythm }));
+                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type, ...(type === 'neonatal' && { rhythm: 'sinus' }) }, { merge: true });
             };
 
             const handleLangChange = (newLang) => {
