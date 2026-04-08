@@ -1140,21 +1140,24 @@
             }, [db, userId]);
 
             const getCaseName = (c) => {
-                if (!c) return '';
+                if (!c || !c.title) return 'Sin título';
                 if (typeof c.title === 'string') return c.title;
-                if (typeof c.title === 'object' && c.title !== null) return c.title[lang] || c.title.es || '';
-                return '';
+                if (typeof c.title === 'object' && c.title !== null) {
+                    const name = c.title[lang] || c.title.es || c.title.en || c.title.pt || '';
+                    return name || 'Sin título';
+                }
+                return 'Sin título';
             };
             const getStageName = (stage) => {
-                if (!stage) return '';
+                if (!stage || !stage.name) return '';
                 if (typeof stage.name === 'string') return stage.name;
-                if (typeof stage.name === 'object' && stage.name !== null) return stage.name[lang] || stage.name.es || '';
+                if (typeof stage.name === 'object' && stage.name !== null) return stage.name[lang] || stage.name.es || stage.name.en || stage.name.pt || '';
                 return '';
             };
             const getPresentation = (c) => {
                 if (!c || !c.presentation) return null;
                 if (typeof c.presentation === 'string') return c.presentation;
-                if (typeof c.presentation === 'object' && c.presentation !== null) return c.presentation[lang] || c.presentation.es || null;
+                if (typeof c.presentation === 'object' && c.presentation !== null) return c.presentation[lang] || c.presentation.es || c.presentation.en || c.presentation.pt || null;
                 return null;
             };
             const patientCfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
@@ -1223,7 +1226,15 @@
                 try {
                     const translatedCase = await translateCase(caseData);
                     const { _firestore, id, ...clean } = translatedCase;
-                    await db.collection('library').add({ ...clean, userId: userId || 'anon', userEmail: userEmail || '', createdAt: Date.now() });
+                    // Asegurar que patientType se incluye al guardar
+                    const caseToSave = {
+                        ...clean,
+                        patientType: clean.patientType || patientType,
+                        userId: userId || 'anon',
+                        userEmail: userEmail || '',
+                        createdAt: Date.now()
+                    };
+                    await db.collection('library').add(caseToSave);
                     setShowCaseEditor(false);
                     setEditingCase(null);
                 } catch (err) {
@@ -1452,7 +1463,7 @@
                                             {['neonatal', 'pediatrico', 'adulto'].map(pt => (
                                                 <button key={pt} onClick={() => setLibTabPType(pt)}
                                                     className={`flex-1 py-2 text-xs font-bold rounded-t-lg transition-colors ${libTabPType === pt ? (pt === 'neonatal' ? 'bg-green-900/50 text-green-300 border-b-2 border-green-400' : pt === 'pediatrico' ? 'bg-yellow-900/50 text-yellow-300 border-b-2 border-yellow-400' : 'bg-blue-900/50 text-blue-300 border-b-2 border-blue-400') : 'text-slate-500 hover:text-slate-300'}`}>
-                                                    {pt === 'neonatal' ? 'Neonatal' : pt === 'pediatrico' ? 'Pediátrico' : 'Adulto'}
+                                                    {t.patientTypes[pt]}
                                                 </button>
                                             ))}
                                         </div>
