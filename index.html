@@ -908,10 +908,10 @@
             );
         };
 
-        const CaseEditorModal = ({ caseData, onSave, onPublish, onCancel, translating = false }) => {
-            const [title, setTitle] = useState(caseData.title || '');
-            const [presentation, setPresentation] = useState(caseData.presentation || '');
-            const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
+        const CaseEditorModal = ({ caseData, onPublish, onCancel, translating = false }) => {
+            const [title, setTitle] = useState(typeof caseData.title === 'string' ? caseData.title : caseData.title?.es || '');
+            const [presentation, setPresentation] = useState(typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.es || '');
+            const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s, name: typeof s.name === 'string' ? s.name : s.name?.es || '' })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
             const [authorName, setAuthorName] = useState(caseData.authorName || '');
             const [published, setPublished] = useState(false);
 
@@ -919,7 +919,6 @@
             const removeStage = (i) => setStages(prev => prev.filter((_, idx) => idx !== i));
             const updateStage = (i, field, value) => setStages(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
             const buildCase = () => ({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages, authorName: authorName.trim() });
-            const handleSave = () => { if (!title.trim() || stages.length === 0 || translating) return; onSave(buildCase()); };
             const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish || translating) return; onPublish(buildCase()); setPublished(true); };
 
             return (
@@ -984,15 +983,10 @@
                         <div className="p-4 border-t border-slate-700 flex flex-col gap-2 flex-none">
                             <div className="flex gap-3">
                                 <button onClick={onCancel} disabled={translating} className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
-                                <button onClick={handleSave} disabled={!title.trim() || translating} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
-                                    {translating ? <span className="animate-spin">⟳</span> : 'Guardar'}
+                                <button onClick={handlePublish} disabled={!title.trim() || published || translating} className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {translating ? <span className="animate-spin">⟳</span> : published ? '✓ Publicado' : '📤 Publicar en Biblioteca'}
                                 </button>
                             </div>
-                            {onPublish && (
-                                <button onClick={handlePublish} disabled={!title.trim() || published || translating} className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
-                                    {translating ? <span className="animate-spin">⟳</span> : published ? '✓ Publicado en Biblioteca' : '🌐 Publicar en Biblioteca'}
-                                </button>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -1123,19 +1117,20 @@
                 }
             };
 
-            const saveCase = async (caseData) => {
-                if (!db || !userId || userId === 'guest') return;
-                const translatedCase = await translateCase(caseData);
-                const { _firestore, id, ...clean } = translatedCase;
-                // Nuevos casos van directamente a library (compartidos)
-                // Casos existentes en library se actualizan en la misma colección
-                if (caseData.id && _firestore) {
-                    db.collection('library').doc(caseData.id).set({ ...clean, userId, userEmail: userEmail || '', updatedAt: Date.now() });
-                } else {
-                    db.collection('library').add({ ...clean, userId, userEmail: userEmail || '', createdAt: Date.now() });
+            const saveToLibrary = async (caseData) => {
+                if (!db) return;
+                setTranslating(true);
+                try {
+                    const translatedCase = await translateCase(caseData);
+                    const { _firestore, id, ...clean } = translatedCase;
+                    await db.collection('library').add({ ...clean, userId: userId || 'anon', userEmail: userEmail || '', createdAt: Date.now() });
+                    setShowCaseEditor(false);
+                    setEditingCase(null);
+                } catch (err) {
+                    console.error('Error saving to library:', err);
+                } finally {
+                    setTranslating(false);
                 }
-                setShowCaseEditor(false);
-                setEditingCase(null);
             };
 
             const deleteUserCase = (caseId) => {
@@ -1144,40 +1139,41 @@
                 if (activeCase && activeCase.id === caseId) { setActiveCase(null); setStageIndex(-1); }
             };
 
-            const saveToLibrary = (caseData) => {
-                if (!db) return;
-                const { _firestore, id, ...clean } = caseData;
-                db.collection('library').add({ ...clean, userId: userId || 'anon', userEmail: userEmail || '', createdAt: Date.now() });
-                setShowCaseEditor(false);
-                setEditingCase(null);
-            };
-
             useEffect(() => {
                 if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
                 setLibraryLoading(true);
+                let isMounted = true;
                 const timeout = setTimeout(() => {
-                    setLibraryLoading(false);
-                    console.warn('Library load timeout');
-                }, 5000);
+                    if (isMounted) {
+                        setLibraryLoading(false);
+                        console.warn('Library load timeout after 8s');
+                    }
+                }, 8000);
                 try {
-                    db.collection('library').orderBy('createdAt', 'desc').limit(80).get()
+                    db.collection('library').orderBy('createdAt', 'desc').limit(100).get()
                         .then(snap => {
                             clearTimeout(timeout);
-                            if (snap && Array.isArray(snap.docs)) {
+                            if (isMounted && snap && snap.docs) {
                                 setLibraryCases(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+                                setLibraryLoading(false);
                             }
-                            setLibraryLoading(false);
                         })
                         .catch(err => {
                             clearTimeout(timeout);
-                            console.warn('Error loading library:', err?.message);
-                            setLibraryLoading(false);
+                            if (isMounted) {
+                                console.error('Error loading library:', err?.message);
+                                setLibraryLoading(false);
+                                setLibraryCases([]);
+                            }
                         });
                 } catch (err) {
                     clearTimeout(timeout);
-                    console.warn('Library query error:', err?.message);
-                    setLibraryLoading(false);
+                    if (isMounted) {
+                        console.error('Library query error:', err?.message);
+                        setLibraryLoading(false);
+                    }
                 }
+                return () => { isMounted = false; clearTimeout(timeout); };
             }, [showCaseSelector, selectorTab]);
 
             const logAction = (message, force = false) => {
@@ -1276,7 +1272,7 @@
                         </div>
                     </header>
 
-                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} translating={translating} />}
+                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} translating={translating} />}
 
                     {showCaseSelector && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowCaseSelector(false)}>
@@ -1362,7 +1358,7 @@
                                                 c?.id && c?.title ? (
                                                     <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
                                                         <div className="flex justify-between items-start gap-2">
-                                                            <div className="font-bold text-white text-sm leading-tight flex-1">{c.title}</div>
+                                                            <div className="font-bold text-white text-sm leading-tight flex-1">{getCaseName(c)}</div>
                                                             <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
                                                                 className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
                                                                 Usar
@@ -1372,7 +1368,7 @@
                                                             <span>{Array.isArray(c.stages) ? c.stages.length : 0} etapas</span>
                                                             {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
                                                         </div>
-                                                        {c.presentation && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{c.presentation}</p>}
+                                                        {getPresentation(c) && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{getPresentation(c)}</p>}
                                                     </div>
                                                 ) : null
                                             ))}
