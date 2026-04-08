@@ -822,6 +822,7 @@
                         const vfAmp3 = vfAmpBase * 0.15;
                         newValue = mid - vfAmp1 * Math.sin(vt * 37.7 + 0.3) - vfAmp2 * Math.sin(vt * 25.1 + 1.8) - vfAmp3 * Math.sin(vt * 50.3 + 0.9) + (Math.random() * amplitude * 0.06 - 0.03) * coarseDecay;
                     } else if (!flatline && speed > 0) {
+                        vfTimeRef.current += deltaTime;
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
                         let phaseIncrement = (beatsPerSecond * 2 * Math.PI) * deltaTime;
