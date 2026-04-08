@@ -1259,24 +1259,40 @@
             // Auto-traducir casos antiguos sin traducción (en background)
             const ensureCaseTranslated = (caseData) => {
                 if (!caseData || !caseData.id || !db) return;
-                // Si ya tiene estructura multiidioma, no hacer nada
-                if (typeof caseData.title === 'object' && caseData.title !== null) return;
-                // Si es string, necesita traducción
+
+                let needsTranslation = false;
+                let titleForLog = '';
+
+                // Caso 1: estructura string (antigua)
                 if (typeof caseData.title === 'string') {
-                    // Traducir en background sin bloquear (sin setState)
-                    (async () => {
-                        try {
-                            console.log(`🔄 Traduciendo caso "${caseData.title}"...`);
-                            const translated = await translateCaseInternal(caseData);
-                            const { _firestore, id, ...clean } = translated;
-                            // Guardar versión traducida en Firestore (merge para no perder otros campos)
-                            await db.collection('library').doc(caseData.id).update(clean);
-                            console.log(`✓ Caso "${caseData.title}" traducido automáticamente`);
-                        } catch (err) {
-                            console.warn(`⚠️ No se pudo traducir caso ${caseData.id}:`, err?.message);
-                        }
-                    })();
+                    needsTranslation = true;
+                    titleForLog = caseData.title;
                 }
+                // Caso 2: estructura multiidioma pero todos los valores iguales (traducción falló)
+                else if (typeof caseData.title === 'object' && caseData.title !== null) {
+                    const { es, en, pt } = caseData.title;
+                    if (es && en && pt && es === en && en === pt) {
+                        needsTranslation = true;
+                        titleForLog = es;
+                        console.log(`⚠️ Caso "${es}" tiene traducciones idénticas (traducción falló antes)`);
+                    }
+                }
+
+                if (!needsTranslation) return;
+
+                // Traducir en background sin bloquear (sin setState)
+                (async () => {
+                    try {
+                        console.log(`🔄 Traduciendo caso "${titleForLog}"...`);
+                        const translated = await translateCaseInternal(caseData);
+                        const { _firestore, id, ...clean } = translated;
+                        // Guardar versión traducida en Firestore (merge para no perder otros campos)
+                        await db.collection('library').doc(caseData.id).update(clean);
+                        console.log(`✓ Caso "${titleForLog}" traducido automáticamente`);
+                    } catch (err) {
+                        console.warn(`⚠️ No se pudo traducir caso ${caseData.id}:`, err?.message);
+                    }
+                })();
             };
 
             useEffect(() => {
