@@ -1298,7 +1298,11 @@
                                 const cases = snap.docs.map(d => ({ ...d.data(), id: d.id }));
                                 console.log(`📚 Biblioteca cargada: ${cases.length} casos`);
                                 cases.forEach((c, idx) => {
-                                    console.log(`  [${idx}] "${c.title}" - Tipo título: ${typeof c.title} ${typeof c.title === 'object' ? '(multiidioma)' : '(string - necesita traducción)'}`);
+                                    const titleType = typeof c.title;
+                                    const titleStr = titleType === 'object' ? JSON.stringify(c.title) : c.title;
+                                    console.log(`  [${idx}] Título: ${titleStr}`);
+                                    console.log(`       getCaseName() retorna: "${getCaseName(c)}"`);
+                                    console.log(`       Lang actual: ${lang}, patientType: ${c.patientType}`);
                                 });
                                 setLibraryCases(cases);
                                 // Auto-traducir casos sin traducción (en background)
