@@ -336,9 +336,7 @@
                     }));
 
                     // Combinar: predefinidos primero, luego comunidad
-                    let allCases = [...predefined, ...community];
-                    // Normalizar estructura de todas las etapas
-                    allCases = normalizeCases(allCases);
+                    const allCases = normalizeCases([...predefined, ...community]);
                     setCases(allCases);
                 } catch (error) {
                     console.error('Error loading cases:', error);
@@ -457,15 +455,11 @@
             };
 
             const addStageToEdit = () => {
-                const updated = { ...editingCase };
-                updated.stages.push({ name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 });
-                setEditingCase(updated);
+                setEditingCase({ ...editingCase, stages: [...editingCase.stages, { name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }] });
             };
 
             const removeStageFromEdit = (idx) => {
-                const updated = { ...editingCase };
-                updated.stages.splice(idx, 1);
-                setEditingCase(updated);
+                setEditingCase({ ...editingCase, stages: editingCase.stages.filter((_, i) => i !== idx) });
             };
 
             const saveEdit = () => {
@@ -907,7 +901,7 @@
 
                                     <div className="flex gap-2 pt-4">
                                         <button
-                                            onClick={() => setEditingCase(normalizeCases([selectedCase])[0])}
+                                            onClick={() => setEditingCase(selectedCase)}
                                             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold"
                                         >
                                             Editar
