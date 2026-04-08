@@ -928,15 +928,21 @@
             const lastBeatRef = useRef(0);
             const transitionStartRef = useRef(Date.now());
             useEffect(() => {
-                if (!target.transition) { setVitals(target); return; }
                 lastBeatRef.current = 0;
-                transitionStartRef.current = Date.now();
+                if (!target.transition) { transitionStartRef.current = Date.now(); }
+                else { transitionStartRef.current = target.transition.startTime; }
                 let frame;
                 const animate = () => {
-                    const elapsed = Date.now() - target.transition.startTime;
-                    const p = Math.min(1, elapsed / target.transition.duration);
-                    const trueHr = Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p);
-                    const trueSpo2 = Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p);
+                    let trueHr, trueSpo2;
+                    if (target.transition) {
+                        const elapsed = Date.now() - target.transition.startTime;
+                        const p = Math.min(1, elapsed / target.transition.duration);
+                        trueHr = Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p);
+                        trueSpo2 = Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p);
+                    } else {
+                        trueHr = target.hr;
+                        trueSpo2 = target.spo2;
+                    }
                     const now = Date.now();
                     // El monitor real actualiza el número una vez por latido, no por frame
                     const beatInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
@@ -950,8 +956,7 @@
                         const jitter = trueHr > 0 ? Math.round(hrModulation) : 0;
                         setVitals({ ...target, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
                     }
-                    if (p < 1) { frame = requestAnimationFrame(animate); }
-                    else { setVitals(target); }
+                    frame = requestAnimationFrame(animate);
                 };
                 frame = requestAnimationFrame(animate);
                 return () => cancelAnimationFrame(frame);
