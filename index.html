@@ -1999,7 +1999,7 @@
             useEffect(() => {
                 if (!sessionId || !db) return;
                 const unsub = db.collection("sessions").doc(sessionId).onSnapshot(doc => {
-                    if (doc.exists) { setVitals(doc.data()); setVitalsLoaded(true); }
+                    if (doc.exists) { setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' })); setVitalsLoaded(true); }
                 });
                 return () => unsub();
             }, [sessionId]);
