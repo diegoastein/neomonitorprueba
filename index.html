@@ -891,9 +891,11 @@
         const useInterpolatedVitals = (target) => {
             const [vitals, setVitals] = useState(target);
             const lastBeatRef = useRef(0);
+            const hrVariabilityRef = useRef(0);
             useEffect(() => {
                 if (!target.transition) { setVitals(target); return; }
                 lastBeatRef.current = 0;
+                hrVariabilityRef.current = 0;
                 let frame;
                 const animate = () => {
                     const elapsed = Date.now() - target.transition.startTime;
@@ -901,12 +903,25 @@
                     const trueHr = Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p);
                     const trueSpo2 = Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p);
                     const now = Date.now();
-                    // El monitor real actualiza el número una vez por latido, no por frame
-                    const beatInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
+                    // Calcular variabilidad de HR más realista (HRV - Heart Rate Variability)
+                    // La variabilidad depende del tipo de paciente: neonatos > pediátricos > adultos
+                    let hrVariability = 0;
+                    if (trueHr > 0) {
+                        const patientType = target.patientType || 'neonatal';
+                        const variabilityRange = patientType === 'neonatal' ? 8 : (patientType === 'pediatrico' ? 5 : 3);
+                        // Generar variabilidad suave usando una aproximación de ruido natural
+                        hrVariabilityRef.current += (Math.random() - 0.5) * 4;
+                        hrVariabilityRef.current = Math.max(-variabilityRange, Math.min(variabilityRange, hrVariabilityRef.current));
+                        hrVariability = Math.round(hrVariabilityRef.current);
+                    } else {
+                        hrVariabilityRef.current = 0;
+                    }
+                    // El intervalo de latidos se varía ligeramente con la variabilidad de HR
+                    const baseInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
+                    const beatInterval = trueHr > 0 ? baseInterval * (1 + hrVariability / (trueHr * 2)) : 2000;
                     if (now - lastBeatRef.current >= beatInterval) {
                         lastBeatRef.current = now;
-                        const jitter = trueHr > 0 ? Math.floor(Math.random() * 5) - 2 : 0;
-                        setVitals({ ...target, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
+                        setVitals({ ...target, hr: Math.max(0, trueHr + hrVariability), spo2: trueSpo2 });
                     }
                     if (p < 1) { frame = requestAnimationFrame(animate); }
                     else { setVitals(target); }
