@@ -926,9 +926,11 @@
         const useInterpolatedVitals = (target) => {
             const [vitals, setVitals] = useState(target);
             const lastBeatRef = useRef(0);
+            const transitionStartRef = useRef(Date.now());
             useEffect(() => {
                 if (!target.transition) { setVitals(target); return; }
                 lastBeatRef.current = 0;
+                transitionStartRef.current = Date.now();
                 let frame;
                 const animate = () => {
                     const elapsed = Date.now() - target.transition.startTime;
@@ -940,7 +942,12 @@
                     const beatInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
                     if (now - lastBeatRef.current >= beatInterval) {
                         lastBeatRef.current = now;
-                        const jitter = trueHr > 0 ? Math.floor(Math.random() * 5) - 2 : 0;
+                        const elapsedSec = (now - transitionStartRef.current) / 1000;
+                        // HRV: oscilación respiratoria (0.3 Hz, ±4%) + jitter (±2)
+                        const respiratoryModulation = Math.sin(elapsedSec * 0.3 * 2 * Math.PI) * 0.04;
+                        const randomJitter = (Math.random() - 0.5) * 0.02;
+                        const hrModulation = trueHr * (respiratoryModulation + randomJitter);
+                        const jitter = trueHr > 0 ? Math.round(hrModulation) : 0;
                         setVitals({ ...target, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
                     }
                     if (p < 1) { frame = requestAnimationFrame(animate); }
