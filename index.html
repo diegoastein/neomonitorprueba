@@ -1181,11 +1181,10 @@
                 }
             };
 
-            const translateCase = async (caseData) => {
-                setTranslating(true);
+            const translateCaseInternal = async (caseData) => {
                 try {
-                    const titleEs = typeof caseData.title === 'string' ? caseData.title : caseData.title.es;
-                    const presentationEs = typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation.es;
+                    const titleEs = typeof caseData.title === 'string' ? caseData.title : caseData.title?.es || '';
+                    const presentationEs = typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.es || '';
 
                     const [titleEn, titlePt, presentationEn, presentationPt] = await Promise.all([
                         translateText(titleEs, 'en'),
@@ -1194,8 +1193,8 @@
                         translateText(presentationEs, 'pt')
                     ]);
 
-                    const translatedStages = await Promise.all(caseData.stages.map(async (stage) => {
-                        const stageName = typeof stage.name === 'string' ? stage.name : stage.name.es;
+                    const translatedStages = await Promise.all((caseData.stages || []).map(async (stage) => {
+                        const stageName = typeof stage.name === 'string' ? stage.name : stage.name?.es || '';
                         const [nameEn, namePt] = await Promise.all([
                             translateText(stageName, 'en'),
                             translateText(stageName, 'pt')
@@ -1215,6 +1214,13 @@
                 } catch (err) {
                     console.error('Translation failed:', err);
                     return caseData;
+                }
+            };
+
+            const translateCase = async (caseData) => {
+                setTranslating(true);
+                try {
+                    return await translateCaseInternal(caseData);
                 } finally {
                     setTranslating(false);
                 }
@@ -1257,16 +1263,17 @@
                 if (typeof caseData.title === 'object' && caseData.title !== null) return;
                 // Si es string, necesita traducción
                 if (typeof caseData.title === 'string') {
-                    // Traducir en background sin bloquear
+                    // Traducir en background sin bloquear (sin setState)
                     (async () => {
                         try {
-                            const translated = await translateCase(caseData);
-                            const { _firestore, ...clean } = translated;
-                            // Guardar versión traducida en Firestore
-                            await db.collection('library').doc(caseData.id).set(clean);
+                            console.log(`🔄 Traduciendo caso "${caseData.title}"...`);
+                            const translated = await translateCaseInternal(caseData);
+                            const { _firestore, id, ...clean } = translated;
+                            // Guardar versión traducida en Firestore (merge para no perder otros campos)
+                            await db.collection('library').doc(caseData.id).update(clean);
                             console.log(`✓ Caso "${caseData.title}" traducido automáticamente`);
                         } catch (err) {
-                            console.warn(`No se pudo traducir caso ${caseData.id}:`, err?.message);
+                            console.warn(`⚠️ No se pudo traducir caso ${caseData.id}:`, err?.message);
                         }
                     })();
                 }
