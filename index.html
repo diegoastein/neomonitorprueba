@@ -831,8 +831,8 @@
                         // HRV: RSA + ondas de Mayer + jitter por latido, parámetros según tipo de paciente
                         if (type === 'ecg' && !isAFib && !isVF) {
                             const respFreq = patientType === 'neonatal' ? 0.80 : patientType === 'pediatrico' ? 0.50 : 0.27;
-                            const respAmp  = patientType === 'neonatal' ? 0.10 : patientType === 'pediatrico' ? 0.07 : 0.05;
-                            const mayerAmp = patientType === 'neonatal' ? 0.05 : 0.03;
+                            const respAmp  = patientType === 'neonatal' ? 0.012 : patientType === 'pediatrico' ? 0.015 : 0.018;
+                            const mayerAmp = 0.006;
                             const t = vfTimeRef.current;
                             const hrModulation = 1.0
                                 + respAmp  * Math.sin(t * respFreq * 2 * Math.PI)
@@ -889,7 +889,7 @@
                             } else {
                                 if (prevPhase < Math.PI && p >= Math.PI) {
                                     onBeat && onBeat();
-                                    const jitterMax = patientType === 'neonatal' ? 0.06 : patientType === 'pediatrico' ? 0.04 : 0.025;
+                                    const jitterMax = 0.006;
                                     hrvBeatJitterRef.current = (Math.random() - 0.5) * 2 * jitterMax;
                                 }
                                 const inP = p > 0.881 && p < 1.633;
@@ -964,9 +964,9 @@
                         const elapsedSec = (now - transitionStartRef.current) / 1000;
                         const pt = currentTarget.patientType || 'neonatal';
                         const respFreq = pt === 'neonatal' ? 0.80 : pt === 'pediatrico' ? 0.50 : 0.27;
-                        const respAmp  = pt === 'neonatal' ? 0.10 : pt === 'pediatrico' ? 0.07 : 0.05;
-                        const mayerAmp = pt === 'neonatal' ? 0.05 : 0.03;
-                        const jitterAmp = pt === 'neonatal' ? 0.04 : pt === 'pediatrico' ? 0.03 : 0.02;
+                        const respAmp  = pt === 'neonatal' ? 0.012 : pt === 'pediatrico' ? 0.015 : 0.018;
+                        const mayerAmp = 0.006;
+                        const jitterAmp = 0.004;
                         const rsa   = Math.sin(elapsedSec * respFreq * 2 * Math.PI) * respAmp;
                         const mayer = Math.sin(elapsedSec * 0.10 * 2 * Math.PI) * mayerAmp;
                         const noise = (Math.random() - 0.5) * 2 * jitterAmp;
