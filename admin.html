@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeoMonitor Admin - Gestión de Casos Clínicos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; margin: 0; font-family: sans-serif; }
+        input[type="text"], input[type="number"], textarea, select {
+            background: #1e293b; color: white; border: 1px solid #475569;
+            border-radius: 4px; padding: 8px; font-family: sans-serif;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Firebase config (same as main app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
+            authDomain: "monitor-36c41.firebaseapp.com",
+            projectId: "monitor-36c41",
+            storageBucket: "monitor-36c41.firebasestorage.app",
+            messagingSenderId: "830562769122",
+            appId: "1:830562769122:web:1db7060de0c80556db66bb"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Default CLINICAL_CASES structure (from main app)
+        const DEFAULT_CLINICAL_CASES = [
+            // ── NEONATAL ──────────────────────────────────────────────────────
+            {
+                id: 'rcp_basica',
+                patientType: 'neonatal',
+                title: { es: 'RCP Neonatal Básica', en: 'Basic Neonatal CPR', pt: 'RCP Neonatal Básica' },
+                presentation: { es: 'RN de 38 sem EG. Parto vaginal prolongado. Nace sin llanto, apneico, hipotonía marcada. Líquido amniótico claro. Equipo de reanimación presente.', en: 'Newborn 38 weeks GA. Prolonged vaginal delivery. Born without cry, apneic, marked hypotonia. Clear amniotic fluid. Resuscitation team present.', pt: 'RN de 38 sem IG. Parto vaginal prolongado. Nasce sem choro, apneico, hipotonia acentuada. Líquido amniótico claro. Equipe de reanimação presente.' },
+                stages: [
+                    { name: { es: 'Presentación inicial', en: 'Initial presentation', pt: 'Apresentação inicial' }, hr: 142, spo2: 91, transition: 5 },
+                    { name: { es: 'Apnea / Bradicardia severa', en: 'Apnea / Severe bradycardia', pt: 'Apneia / Bradicardia grave' }, hr: 0, spo2: 65, transition: 8 },
+                    { name: { es: 'Inicio VPP', en: 'PPV initiated', pt: 'Início VPP' }, hr: 68, spo2: 78, transition: 15 },
+                    { name: { es: 'Respuesta a VPP', en: 'Response to PPV', pt: 'Resposta à VPP' }, hr: 118, spo2: 88, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 144, spo2: 94, transition: 10 },
+                ]
+            },
+            {
+                id: 'desat_progresiva',
+                patientType: 'neonatal',
+                title: { es: 'Desaturación Progresiva', en: 'Progressive Desaturation', pt: 'Dessaturação Progressiva' },
+                presentation: { es: 'RN de 35 sem EG, parto por cesárea. Dificultad respiratoria progresiva desde el nacimiento. FR 68 rpm, aleteo nasal, tiraje subcostal bilateral. SpO2 88% en aire ambiente.', en: 'Newborn 35 weeks GA, cesarean delivery. Progressive respiratory distress since birth. RR 68 rpm, nasal flaring, subcostal retractions. SpO2 88% on room air.', pt: 'RN de 35 sem IG, parto cesáreo. Dificuldade respiratória progressiva desde o nascimento. FR 68 rpm, batimento de asa de nariz, tiragem subcostal bilateral. SpO2 88% em ar ambiente.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 148, spo2: 93, transition: 5 },
+                    { name: { es: 'Desaturación leve', en: 'Mild desaturation', pt: 'Dessaturação leve' }, hr: 132, spo2: 85, transition: 20 },
+                    { name: { es: 'Desaturación severa + bradicardia', en: 'Severe desaturation + bradycardia', pt: 'Dessaturação grave + bradicardia' }, hr: 72, spo2: 74, transition: 10 },
+                    { name: { es: 'VPP + Masaje cardíaco', en: 'PPV + Cardiac massage', pt: 'VPP + Massagem cardíaca' }, hr: 56, spo2: 65, transition: 5 },
+                    { name: { es: 'Respuesta al tratamiento', en: 'Treatment response', pt: 'Resposta ao tratamento' }, hr: 112, spo2: 86, transition: 25 },
+                    { name: { es: 'Normalización', en: 'Normalization', pt: 'Normalização' }, hr: 146, spo2: 94, transition: 15 },
+                ]
+            },
+            {
+                id: 'dificultad_resp',
+                patientType: 'neonatal',
+                title: { es: 'Dificultad Respiratoria', en: 'Respiratory Distress', pt: 'Dificuldade Respiratória' },
+                presentation: { es: 'RN de 36 sem EG. Al minuto de vida presenta quejido espiratorio persistente, FR 74 rpm, tiraje intercostal, cianosis perioral. SpO2 88% en aire ambiente. Sin antecedentes maternos de riesgo.', en: 'Newborn 36 weeks GA. At one minute of life presents persistent expiratory grunt, RR 74 rpm, intercostal retractions, perioral cyanosis. SpO2 88% on room air. No maternal risk factors.', pt: 'RN de 36 sem IG. Ao minuto de vida apresenta gemido expiratório persistente, FR 74 rpm, tiragem intercostal, cianose perioral. SpO2 88% em ar ambiente. Sem antecedentes maternos de risco.' },
+                stages: [
+                    { name: { es: 'Ingreso a sala', en: 'Room admission', pt: 'Admissão na sala' }, hr: 158, spo2: 88, transition: 5 },
+                    { name: { es: 'Quejido + desaturación', en: 'Grunt + desaturation', pt: 'Gemido + dessaturação' }, hr: 145, spo2: 82, transition: 15 },
+                    { name: { es: 'Empeoramiento', en: 'Worsening', pt: 'Piora' }, hr: 110, spo2: 76, transition: 10 },
+                    { name: { es: 'Respuesta a CPAP/O2', en: 'CPAP/O2 response', pt: 'Resposta a CPAP/O2' }, hr: 138, spo2: 90, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 152, spo2: 94, transition: 10 },
+                ]
+            },
+            // ── PEDIÁTRICO ────────────────────────────────────────────────────
+            {
+                id: 'shock_septico_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Shock Séptico', en: 'Septic Shock', pt: 'Choque Séptico' },
+                presentation: { es: 'Niño de 4 años. Fiebre de 48 h, decaimiento progresivo. FC 148 lpm, FR 38 rpm, relleno capilar 4 s, piel moteada, PA 72/40 mmHg. SpO2 92% en aire ambiente. Acceso IV colocado.', en: '4-year-old child. 48 h fever, progressive deterioration. HR 148 bpm, RR 38 rpm, capillary refill 4 s, mottled skin, BP 72/40 mmHg. SpO2 92% on room air. IV access established.', pt: 'Criança de 4 anos. Febre de 48 h, deterioração progressiva. FC 148 bpm, FR 38 rpm, enchimento capilar 4 s, pele moteada, PA 72/40 mmHg. SpO2 92% em ar ambiente. Acesso IV estabelecido.' },
+                stages: [
+                    { name: { es: 'Presentación al ingreso', en: 'Admission presentation', pt: 'Apresentação na admissão' }, hr: 148, spo2: 92, transition: 5 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 162, spo2: 88, transition: 15 },
+                    { name: { es: 'Paro cardíaco inminente', en: 'Impending cardiac arrest', pt: 'Parada cardíaca iminente' }, hr: 48, spo2: 72, transition: 10 },
+                    { name: { es: 'Respuesta a volumen + drogas', en: 'Response to fluids + drugs', pt: 'Resposta a volume + drogas' }, hr: 118, spo2: 88, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 105, spo2: 96, transition: 15 },
+                ]
+            },
+            {
+                id: 'tsvp_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Taquicardia Supraventricular', en: 'Supraventricular Tachycardia', pt: 'Taquicardia Supraventricular' },
+                presentation: { es: 'Niña de 7 años. Palpitaciones bruscas hace 30 min, palidez y malestar. FC 218 lpm regular, PA 88/60 mmHg, SpO2 96%. Sin cardiopatía conocida. Monitor conectado.', en: '7-year-old girl. Sudden palpitations 30 min ago, pallor and malaise. HR 218 bpm regular, BP 88/60 mmHg, SpO2 96%. No known cardiac disease. Monitor connected.', pt: 'Menina de 7 anos. Palpitações súbitas há 30 min, palidez e mal-estar. FC 218 bpm regular, PA 88/60 mmHg, SpO2 96%. Sem cardiopatia conhecida. Monitor conectado.' },
+                stages: [
+                    { name: { es: 'TSV activa', en: 'Active SVT', pt: 'TSV ativa' }, hr: 218, spo2: 96, transition: 5 },
+                    { name: { es: 'Maniobra vagal / Adenosina', en: 'Vagal maneuver / Adenosine', pt: 'Manobra vagal / Adenosina' }, hr: 218, spo2: 94, transition: 8 },
+                    { name: { es: 'Conversión a ritmo sinusal', en: 'Conversion to sinus rhythm', pt: 'Conversão a ritmo sinusal' }, hr: 105, spo2: 98, transition: 5 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 98, spo2: 99, transition: 10 },
+                ]
+            },
+            {
+                id: 'paro_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Paro Cardiorrespiratorio Pediátrico', en: 'Pediatric Cardiac Arrest', pt: 'Parada Cardiorrespiratória Pediátrica' },
+                presentation: { es: 'Niño de 6 años. Encontrado inconsciente luego de accidente en pileta. Sin pulso, sin respiración. Equipo de emergencia presente. RCP iniciado.', en: '6-year-old boy. Found unconscious after pool accident. No pulse, no breathing. Emergency team present. CPR initiated.', pt: 'Menino de 6 anos. Encontrado inconsciente após acidente em piscina. Sem pulso, sem respiração. Equipe de emergência presente. RCP iniciada.' },
+                stages: [
+                    { name: { es: 'Paro / Asistolia', en: 'Arrest / Asystole', pt: 'Parada / Assistolia' }, hr: 0, spo2: 60, transition: 3 },
+                    { name: { es: 'RCP en curso', en: 'CPR in progress', pt: 'RCP em andamento' }, hr: 0, spo2: 65, transition: 10 },
+                    { name: { es: 'FV detectada – DEA', en: 'VF detected – AED', pt: 'FV detectada – DEA' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'Post-descarga – AESP', en: 'Post-shock – PEA', pt: 'Pós-choque – AESP' }, hr: 52, spo2: 68, transition: 8 },
+                    { name: { es: 'Retorno circulación espontánea', en: 'Return of spontaneous circulation', pt: 'Retorno da circulação espontânea' }, hr: 88, spo2: 88, transition: 15 },
+                    { name: { es: 'Estabilización post-RCE', en: 'Post-ROSC stabilization', pt: 'Estabilização pós-RCES' }, hr: 100, spo2: 94, transition: 15 },
+                ]
+            },
+            // ── ADULTO ────────────────────────────────────────────────────────
+            {
+                id: 'brady_adulto',
+                patientType: 'adulto',
+                title: { es: 'Bradicardia Sintomática', en: 'Symptomatic Bradycardia', pt: 'Bradicardia Sintomática' },
+                presentation: { es: 'Hombre de 68 años. Síncope transitorio, ahora con mareos y disnea. FC 36 lpm, PA 88/56 mmHg, SpO2 92%. ECG: bloqueo AV completo. Acceso IV colocado.', en: '68-year-old male. Transient syncope, now dizzy and dyspneic. HR 36 bpm, BP 88/56 mmHg, SpO2 92%. ECG: complete AV block. IV access established.', pt: 'Homem de 68 anos. Síncope transitória, agora com tontura e dispneia. FC 36 bpm, PA 88/56 mmHg, SpO2 92%. ECG: bloqueio AV total. Acesso IV estabelecido.' },
+                stages: [
+                    { name: { es: 'Bradicardia severa', en: 'Severe bradycardia', pt: 'Bradicardia grave' }, hr: 36, spo2: 92, transition: 5 },
+                    { name: { es: 'Atropina 0.5 mg IV', en: 'Atropine 0.5 mg IV', pt: 'Atropina 0,5 mg IV' }, hr: 36, spo2: 90, transition: 8 },
+                    { name: { es: 'Respuesta parcial', en: 'Partial response', pt: 'Resposta parcial' }, hr: 50, spo2: 93, transition: 10 },
+                    { name: { es: 'Marcapaso transcutáneo', en: 'Transcutaneous pacing', pt: 'Marca-passo transcutâneo' }, hr: 70, spo2: 95, transition: 8 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 72, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'tachy_adulto',
+                patientType: 'adulto',
+                title: { es: 'Taquicardia con Inestabilidad', en: 'Unstable Tachycardia', pt: 'Taquicardia com Instabilidade' },
+                presentation: { es: 'Mujer de 55 años. Palpitaciones + dolor precordial. FC 162 lpm irregular, PA 84/52 mmHg, SpO2 93%. ECG: fibrilación auricular rápida. Sin respuesta a maniobras vagales.', en: '55-year-old female. Palpitations + chest pain. HR 162 bpm irregular, BP 84/52 mmHg, SpO2 93%. ECG: rapid atrial fibrillation. No response to vagal maneuvers.', pt: 'Mulher de 55 anos. Palpitações + dor precordial. FC 162 bpm irregular, PA 84/52 mmHg, SpO2 93%. ECG: fibrilação atrial rápida. Sem resposta a manobras vagais.' },
+                stages: [
+                    { name: { es: 'FA rápida inestable', en: 'Unstable rapid AFib', pt: 'FA rápida instável' }, hr: 162, spo2: 93, transition: 5 },
+                    { name: { es: 'Cardioversión sincronizada', en: 'Synchronized cardioversion', pt: 'Cardioversão sincronizada' }, hr: 158, spo2: 92, transition: 5 },
+                    { name: { es: 'Conversión a sinusal', en: 'Conversion to sinus', pt: 'Conversão para sinusal' }, hr: 88, spo2: 96, transition: 8 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 80, spo2: 98, transition: 10 },
+                ]
+            },
+            {
+                id: 'paro_adulto',
+                patientType: 'adulto',
+                title: { es: 'Paro Cardiorrespiratorio Adulto', en: 'Adult Cardiac Arrest', pt: 'Parada Cardiorrespiratória Adulto' },
+                presentation: { es: 'Hombre de 60 años. Colapso súbito en sala de espera. Sin pulso, sin respiración. RCP iniciado por primer respondiente. DEA disponible. Equipo ACLS en camino.', en: '60-year-old male. Sudden collapse in waiting room. No pulse, no breathing. CPR initiated by first responder. AED available. ACLS team en route.', pt: 'Homem de 60 anos. Colapso súbito na sala de espera. Sem pulso, sem respiração. RCP iniciada pelo primeiro respondente. DEA disponível. Equipe ACLS a caminho.' },
+                stages: [
+                    { name: { es: 'Paro – FV/TV sin pulso', en: 'Arrest – VF/pulseless VT', pt: 'Parada – FV/TV sem pulso' }, hr: 0, spo2: 60, transition: 3 },
+                    { name: { es: 'RCP de alta calidad', en: 'High-quality CPR', pt: 'RCP de alta qualidade' }, hr: 0, spo2: 65, transition: 10 },
+                    { name: { es: 'Descarga DEA / 200 J', en: 'AED shock / 200 J', pt: 'Choque DEA / 200 J' }, hr: 0, spo2: 62, transition: 5 },
+                    { name: { es: 'RCE – Ritmo sinusal', en: 'ROSC – Sinus rhythm', pt: 'RCES – Ritmo sinusal' }, hr: 68, spo2: 84, transition: 10 },
+                    { name: { es: 'Cuidados post-RCE', en: 'Post-ROSC care', pt: 'Cuidados pós-RCES' }, hr: 76, spo2: 96, transition: 20 },
+                ]
+            },
+            // ── PEDIÁTRICO (adicionales) ──────────────────────────────────────
+            {
+                id: 'tsv_pediatrica',
+                patientType: 'pediatrico',
+                title: { es: 'Taquicardia Supraventricular (TSV)', en: 'Supraventricular Tachycardia (SVT)', pt: 'Taquicardia Supraventricular (TSV)' },
+                presentation: { es: 'Lactante de 4 meses. Irritable, pálido, rechazo del alimento. FC 215 lpm en ECG. Sin fiebre. Sin antecedentes previos.', en: '4-month-old infant. Irritable, pale, feeding refusal. HR 215 bpm on ECG. No fever. No prior history.', pt: 'Lactente de 4 meses. Irritável, pálido, recusa alimentar. FC 215 bpm no ECG. Sem febre. Sem antecedentes.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 100, spo2: 98, transition: 5 },
+                    { name: { es: 'Inicio TSV', en: 'SVT onset', pt: 'Início TSV' }, hr: 215, spo2: 94, transition: 10 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 215, spo2: 88, transition: 15 },
+                    { name: { es: 'Post-cardioversión', en: 'Post-cardioversion', pt: 'Pós-cardioversão' }, hr: 95, spo2: 97, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 100, spo2: 98, transition: 10 },
+                ]
+            },
+            {
+                id: 'shock_septico_ped2',
+                patientType: 'pediatrico',
+                title: { es: 'Shock Séptico Descompensado', en: 'Decompensated Septic Shock', pt: 'Choque Séptico Descompensado' },
+                presentation: { es: 'Niño de 6 años. Fiebre de 3 días. Llega con llenado capilar >5 seg, hipotensión, alteración del sensorio. Foco pulmonar probable.', en: '6-year-old child. 3 days of fever. Presents with capillary refill >5 sec, hypotension, altered consciousness. Probable pulmonary focus.', pt: 'Criança de 6 anos. Febre há 3 dias. Chega com TEC >5 seg, hipotensão, alteração do sensório. Foco pulmonar provável.' },
+                stages: [
+                    { name: { es: 'Shock compensado', en: 'Compensated shock', pt: 'Choque compensado' }, hr: 148, spo2: 93, transition: 5 },
+                    { name: { es: 'Shock descompensado', en: 'Decompensated shock', pt: 'Choque descompensado' }, hr: 155, spo2: 88, transition: 15 },
+                    { name: { es: 'Paro inminente', en: 'Impending arrest', pt: 'Parada iminente' }, hr: 58, spo2: 78, transition: 10 },
+                    { name: { es: 'RCP', en: 'CPR', pt: 'RCP' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'Respuesta a RCP', en: 'CPR response', pt: 'Resposta à RCP' }, hr: 80, spo2: 88, transition: 30 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 105, spo2: 95, transition: 20 },
+                ]
+            },
+            {
+                id: 'brady_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Bradicardia con Mala Perfusión', en: 'Bradycardia with Poor Perfusion', pt: 'Bradicardia com Má Perfusão' },
+                presentation: { es: 'Escolar de 8 años. Postcirugía cardíaca. Monitorizado en UCI pediátrica. Letárgico, pulso débil, mala perfusión periférica.', en: '8-year-old. Post-cardiac surgery. Monitored in PICU. Lethargic, weak pulse, poor peripheral perfusion.', pt: 'Escolar de 8 anos. Pós-cirurgia cardíaca. Monitorado em UTI pediátrica. Letárgico, pulso fraco, má perfusão periférica.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 80, spo2: 96, transition: 5 },
+                    { name: { es: 'Bradicardia leve', en: 'Mild bradycardia', pt: 'Bradicardia leve' }, hr: 62, spo2: 93, transition: 20 },
+                    { name: { es: 'Bradicardia severa', en: 'Severe bradycardia', pt: 'Bradicardia grave' }, hr: 48, spo2: 88, transition: 15 },
+                    { name: { es: 'RCP', en: 'CPR', pt: 'RCP' }, hr: 0, spo2: 65, transition: 5 },
+                    { name: { es: 'Respuesta', en: 'Response', pt: 'Resposta' }, hr: 72, spo2: 92, transition: 25 },
+                    { name: { es: 'Normalización', en: 'Normalization', pt: 'Normalização' }, hr: 85, spo2: 97, transition: 15 },
+                ]
+            },
+            // ── ADULTO (adicionales) ──────────────────────────────────────────
+            {
+                id: 'bradycardia_adulto',
+                patientType: 'adulto',
+                title: { es: 'Bradicardia Sintomática', en: 'Symptomatic Bradycardia', pt: 'Bradicardia Sintomática' },
+                presentation: { es: 'Hombre de 68 años. Mareos, síncope de esfuerzo. PA 88/60. FC 34 lpm. Bloqueo AV completo en ECG. Sin dolor precordial.', en: '68-year-old male. Dizziness, exertional syncope. BP 88/60. HR 34 bpm. Complete AV block on ECG. No chest pain.', pt: 'Homem de 68 anos. Tontura, síncope de esforço. PA 88/60. FC 34 bpm. Bloqueio AV completo no ECG. Sem dor precordial.' },
+                stages: [
+                    { name: { es: 'Sintomático', en: 'Symptomatic', pt: 'Sintomático' }, hr: 34, spo2: 94, transition: 5 },
+                    { name: { es: 'Post-atropina', en: 'Post-atropine', pt: 'Pós-atropina' }, hr: 52, spo2: 95, transition: 15 },
+                    { name: { es: 'Respuesta parcial', en: 'Partial response', pt: 'Resposta parcial' }, hr: 46, spo2: 94, transition: 20 },
+                    { name: { es: 'Marcapasos transitorio', en: 'Transient pacemaker', pt: 'Marca-passo transitório' }, hr: 70, spo2: 96, transition: 10 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 72, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'taquicardia_ventricular',
+                patientType: 'adulto',
+                title: { es: 'Taquicardia Ventricular con Pulso', en: 'Ventricular Tachycardia with Pulse', pt: 'Taquicardia Ventricular com Pulso' },
+                presentation: { es: 'Mujer de 55 años. Palpitaciones y disnea de inicio súbito. PA 90/60. FC 165 lpm, QRS ancho en ECG. Antecedente de IAM hace 2 años.', en: '55-year-old female. Sudden palpitations and dyspnea. BP 90/60. HR 165 bpm, wide QRS on ECG. History of MI 2 years ago.', pt: 'Mulher de 55 anos. Palpitações e dispneia de início súbito. PA 90/60. FC 165 bpm, QRS largo no ECG. Antecedente de IAM há 2 anos.' },
+                stages: [
+                    { name: { es: 'TV estable', en: 'Stable VT', pt: 'TV estável' }, hr: 165, spo2: 95, transition: 5 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 168, spo2: 90, transition: 15 },
+                    { name: { es: 'TV inestable', en: 'Unstable VT', pt: 'TV instável' }, hr: 172, spo2: 84, transition: 10 },
+                    { name: { es: 'Post-cardioversión', en: 'Post-cardioversion', pt: 'Pós-cardioversão' }, hr: 88, spo2: 96, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 78, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'pcr_adulto',
+                patientType: 'adulto',
+                title: { es: 'Paro Cardiorrespiratorio (PCR)', en: 'Cardiopulmonary Arrest (CPA)', pt: 'Parada Cardiorrespiratória (PCR)' },
+                presentation: { es: 'Hombre de 62 años. Colapso súbito en vía pública. Sin pulso, apneico. RCP iniciada por testigos. DEA disponible. Sin antecedentes conocidos.', en: '62-year-old male. Sudden collapse in public. Pulseless, apneic. Bystander CPR initiated. AED available. No known history.', pt: 'Homem de 62 anos. Colapso súbito em via pública. Sem pulso, apneico. RCP iniciada por testemunhas. DEA disponível. Sem antecedentes conhecidos.' },
+                stages: [
+                    { name: { es: 'Colapso / PCR', en: 'Collapse / CPA', pt: 'Colapso / PCR' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'RCP en curso', en: 'CPR in progress', pt: 'RCP em andamento' }, hr: 0, spo2: 65, transition: 30 },
+                    { name: { es: 'Post-desfibrilación', en: 'Post-defibrillation', pt: 'Pós-desfibrilação' }, hr: 42, spo2: 78, transition: 15 },
+                    { name: { es: 'Recuperación', en: 'Recovery', pt: 'Recuperação' }, hr: 88, spo2: 90, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 80, spo2: 96, transition: 15 },
+                ]
+            },
+        ];
+
+        function LoginPage({ onAuthenticate }) {
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = () => {
+                if (password === 'neomonitor2024') {
+                    localStorage.setItem('neomonitor_admin_auth', 'true');
+                    onAuthenticate();
+                } else {
+                    setError('Contraseña incorrecta');
+                    setPassword('');
+                }
+            };
+
+            return (
+                <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-slate-900">
+                    <div className="bg-slate-800 p-8 rounded-lg border border-slate-700 w-96">
+                        <h1 className="text-3xl font-bold mb-2 text-center">NeoMonitor</h1>
+                        <p className="text-center text-slate-400 mb-6">Panel de Administración</p>
+
+                        <div className="mb-4">
+                            <label className="block text-sm mb-2">Clave de Acceso</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                                placeholder="Ingresa la clave"
+                                className="w-full"
+                            />
+                        </div>
+
+                        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+
+                        <button
+                            onClick={handleLogin}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded active:scale-95 transition"
+                        >
+                            Acceder
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function AdminPanel({ onLogout }) {
+            const [cases, setCases] = useState([]);
+            const [selectedCase, setSelectedCase] = useState(null);
+            const [editingCase, setEditingCase] = useState(null);
+            const [creatingCase, setCreatingCase] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [syncStatus, setSyncStatus] = useState('');
+            const [newCaseForm, setNewCaseForm] = useState(null);
+
+            useEffect(() => {
+                loadCases();
+            }, []);
+
+            const normalizeCases = (cases) => {
+                return cases.map(c => {
+                    const normalizeField = (val) => val && typeof val === 'object' ? val : { es: val || '', en: val || '', pt: val || '' };
+                    return {
+                        ...c,
+                        title: normalizeField(c.title),
+                        presentation: normalizeField(c.presentation),
+                        stages: (c.stages || []).map(stage => ({
+                            ...stage,
+                            name: normalizeField(stage.name)
+                        }))
+                    };
+                });
+            };
+
+            const loadCases = async () => {
+                setLoading(true);
+                try {
+                    // Cargar casos predefinidos
+                    const docSnap = await db.collection('admin').doc('clinical_cases').get();
+                    const predefined = docSnap.exists ? docSnap.data().cases || DEFAULT_CLINICAL_CASES : DEFAULT_CLINICAL_CASES;
+
+                    // Cargar casos de comunidad desde library
+                    const libSnap = await db.collection('library').get();
+                    const community = libSnap.docs.map(d => ({
+                        ...d.data(),
+                        id: d.id,
+                        _source: 'library'
+                    }));
+
+                    // Combinar: predefinidos primero, luego comunidad
+                    const allCases = normalizeCases([...predefined, ...community]);
+                    setCases(allCases);
+                } catch (error) {
+                    console.error('Error loading cases:', error);
+                    setCases(DEFAULT_CLINICAL_CASES);
+                }
+                setLoading(false);
+            };
+
+            const saveCases = async (updatedCases) => {
+                setSyncStatus('Sincronizando...');
+                try {
+                    // Separar casos por origen
+                    const predefined = updatedCases.filter(c => !c._source);
+                    const community = updatedCases.filter(c => c._source === 'library');
+
+                    // Guardar predefinidos en admin/clinical_cases
+                    if (predefined.length > 0) {
+                        await db.collection('admin').doc('clinical_cases').set({ cases: predefined });
+                    }
+
+                    // Guardar casos de comunidad en library (uno por uno)
+                    for (const c of community) {
+                        const { _source, ...clean } = c;
+                        if (c.id) {
+                            await db.collection('library').doc(c.id).set(clean);
+                        }
+                    }
+
+                    setSyncStatus('✓ Sincronizado');
+                    setTimeout(() => setSyncStatus(''), 2000);
+                } catch (error) {
+                    setSyncStatus('✗ Error al sincronizar');
+                    console.error('Error saving cases:', error);
+                }
+            };
+
+            const deleteCase = (id) => {
+                if (confirm('¿Estás seguro de que quieres eliminar este caso?')) {
+                    const caseToDelete = cases.find(c => c.id === id);
+                    const updated = cases.filter(c => c.id !== id);
+                    setCases(updated);
+
+                    // Eliminar del lugar correcto
+                    if (caseToDelete._source === 'library') {
+                        db.collection('library').doc(id).delete();
+                    } else {
+                        saveCases(updated);
+                    }
+                    setSelectedCase(null);
+                }
+            };
+
+            const initializeNewCase = () => {
+                setNewCaseForm({
+                    id: '',
+                    patientType: 'neonatal',
+                    title: { es: '', en: '', pt: '' },
+                    presentation: { es: '', en: '', pt: '' },
+                    stages: [{ name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }]
+                });
+                setCreatingCase(true);
+                setSelectedCase(null);
+                setEditingCase(null);
+            };
+
+            const createCase = () => {
+                if (!newCaseForm.id.trim()) {
+                    alert('El ID es requerido');
+                    return;
+                }
+                if (cases.some(c => c.id === newCaseForm.id)) {
+                    alert('Ya existe un caso con este ID');
+                    return;
+                }
+                if (!newCaseForm.stages || newCaseForm.stages.length === 0) {
+                    alert('Debe haber al menos una etapa');
+                    return;
+                }
+                const updated = [...cases, newCaseForm];
+                setCases(updated);
+                saveCases(updated);
+                setCreatingCase(false);
+                setSelectedCase(newCaseForm);
+                setNewCaseForm(null);
+            };
+
+            const addStage = () => {
+                setNewCaseForm({
+                    ...newCaseForm,
+                    stages: [...newCaseForm.stages, { name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }]
+                });
+            };
+
+            const removeStage = (idx) => {
+                setNewCaseForm({
+                    ...newCaseForm,
+                    stages: newCaseForm.stages.filter((_, i) => i !== idx)
+                });
+            };
+
+            const updateStageInForm = (idx, field, value) => {
+                const updated = { ...newCaseForm };
+                if (field.startsWith('name.')) {
+                    const lang = field.split('.')[1];
+                    updated.stages[idx].name[lang] = value;
+                } else {
+                    updated.stages[idx][field] = field === 'transition' || field === 'hr' || field === 'spo2' ? parseInt(value) || 0 : value;
+                }
+                setNewCaseForm(updated);
+            };
+
+            const updateStage = (stageIndex, field, value) => {
+                const updated = { ...editingCase };
+                updated.stages[stageIndex][field] = value;
+                setEditingCase(updated);
+            };
+
+            const addStageToEdit = () => {
+                setEditingCase({ ...editingCase, stages: [...editingCase.stages, { name: { es: '', en: '', pt: '' }, hr: 100, spo2: 95, transition: 5 }] });
+            };
+
+            const removeStageFromEdit = (idx) => {
+                setEditingCase({ ...editingCase, stages: editingCase.stages.filter((_, i) => i !== idx) });
+            };
+
+            const saveEdit = () => {
+                const updated = cases.map(c => c.id === editingCase.id ? editingCase : c);
+                setCases(updated);
+                saveCases(updated);
+                setSelectedCase(editingCase);
+                setEditingCase(null);
+            };
+
+            const patientTypes = { neonatal: 'Neonatal', pediatrico: 'Pediátrico', adulto: 'Adulto' };
+
+            if (loading) {
+                return <div className="w-full h-screen flex items-center justify-center text-xl">Cargando casos...</div>;
+            }
+
+            return (
+                <div className="flex h-screen">
+                    {/* Sidebar */}
+                    <div className="w-80 bg-slate-900 border-r border-slate-700 overflow-y-auto">
+                        <div className="p-6 border-b border-slate-700">
+                            <h1 className="text-2xl font-bold mb-1">NeoMonitor</h1>
+                            <p className="text-slate-400 text-sm">Gestión de Casos</p>
+                        </div>
+
+                        <div className="p-4">
+                            <button
+                                onClick={initializeNewCase}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded mb-4 text-sm"
+                            >
+                                + Nuevo caso
+                            </button>
+                        </div>
+
+                        <div className="p-4 space-y-2">
+                            {cases.map(c => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => {
+                                        setSelectedCase(c);
+                                        setEditingCase(null);
+                                    }}
+                                    className={`w-full text-left p-3 rounded border transition ${
+                                        selectedCase?.id === c.id
+                                            ? 'bg-blue-600 border-blue-400'
+                                            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                                    }`}
+                                >
+                                    <div className="font-semibold">{typeof c.title === 'object' ? c.title.es : c.title}</div>
+                                    <div className="text-xs text-slate-400 flex items-center gap-2">
+                                        <span>{patientTypes[c.patientType]}</span>
+                                        {c._source === 'library' && <span className="bg-green-800 text-green-100 px-1.5 py-0.5 rounded text-[10px]">Comunidad</span>}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex-1 flex flex-col">
+                        {/* Header */}
+                        <div className="bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center">
+                            <div>
+                                {selectedCase ? (
+                                    <div>
+                                        <h2 className="text-2xl font-bold">{selectedCase.title.es}</h2>
+                                        <p className="text-slate-400 text-sm">{patientTypes[selectedCase.patientType]}</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-400">Selecciona un caso para editar</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-sm text-slate-400">{syncStatus}</span>
+                                <button
+                                    onClick={onLogout}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                                >
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editor */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {creatingCase && newCaseForm ? (
+                                <div className="max-w-4xl space-y-6">
+                                    <h2 className="text-2xl font-bold mb-6">Crear nuevo caso clínico</h2>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">ID (ej: rcp_basica)</label>
+                                            <input
+                                                type="text"
+                                                value={newCaseForm.id}
+                                                onChange={(e) => setNewCaseForm({ ...newCaseForm, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                                                placeholder="snake_case"
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Tipo de Paciente</label>
+                                            <select
+                                                value={newCaseForm.patientType}
+                                                onChange={(e) => setNewCaseForm({ ...newCaseForm, patientType: e.target.value })}
+                                                className="w-full"
+                                            >
+                                                <option value="neonatal">Neonatal</option>
+                                                <option value="pediatrico">Pediátrico</option>
+                                                <option value="adulto">Adulto</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3">Título</h3>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {['es', 'en', 'pt'].map(lang => (
+                                                <div key={lang}>
+                                                    <label className="block text-sm mb-1">{lang.toUpperCase()}</label>
+                                                    <input
+                                                        type="text"
+                                                        value={newCaseForm.title[lang]}
+                                                        onChange={(e) => setNewCaseForm({
+                                                            ...newCaseForm,
+                                                            title: { ...newCaseForm.title, [lang]: e.target.value }
+                                                        })}
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3">Presentación</h3>
+                                        <div className="space-y-2">
+                                            {['es', 'en', 'pt'].map(lang => (
+                                                <div key={lang}>
+                                                    <label className="block text-sm mb-1">{lang.toUpperCase()}</label>
+                                                    <textarea
+                                                        value={newCaseForm.presentation[lang]}
+                                                        onChange={(e) => setNewCaseForm({
+                                                            ...newCaseForm,
+                                                            presentation: { ...newCaseForm.presentation, [lang]: e.target.value }
+                                                        })}
+                                                        className="w-full h-20"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h3 className="text-lg font-semibold">Etapas</h3>
+                                            <button
+                                                onClick={addStage}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                                            >
+                                                + Agregar etapa
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {newCaseForm.stages.map((stage, idx) => (
+                                                <div key={idx} className="bg-slate-800 p-4 rounded border border-slate-700">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <h4 className="font-semibold">Etapa {idx + 1}</h4>
+                                                        {newCaseForm.stages.length > 1 && (
+                                                            <button
+                                                                onClick={() => removeStage(idx)}
+                                                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
+                                                            >
+                                                                Eliminar
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                                        {['es', 'en', 'pt'].map(lang => (
+                                                            <input
+                                                                key={lang}
+                                                                type="text"
+                                                                value={stage.name[lang]}
+                                                                onChange={(e) => updateStageInForm(idx, `name.${lang}`, e.target.value)}
+                                                                placeholder={`Nombre ${lang.toUpperCase()}`}
+                                                                className="text-sm"
+                                                            />
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={stage.hr}
+                                                            onChange={(e) => updateStageInForm(idx, 'hr', e.target.value)}
+                                                            placeholder="HR"
+                                                            className="text-sm"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={stage.spo2}
+                                                            onChange={(e) => updateStageInForm(idx, 'spo2', e.target.value)}
+                                                            placeholder="SpO2"
+                                                            className="text-sm"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={stage.transition}
+                                                            onChange={(e) => updateStageInForm(idx, 'transition', e.target.value)}
+                                                            placeholder="Transición (s)"
+                                                            className="text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={createCase}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Crear caso
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCreatingCase(false);
+                                                setNewCaseForm(null);
+                                            }}
+                                            className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : editingCase ? (
+                                <div className="max-w-4xl space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-2">ID (no editable)</label>
+                                        <input type="text" value={editingCase.id} disabled className="w-full opacity-50" />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título ES</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.es}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, es: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título EN</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.en}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, en: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Título PT</label>
+                                            <input
+                                                type="text"
+                                                value={editingCase.title.pt}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    title: { ...editingCase.title, pt: e.target.value }
+                                                })}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación ES</label>
+                                            <textarea
+                                                value={editingCase.presentation.es}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, es: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación EN</label>
+                                            <textarea
+                                                value={editingCase.presentation.en}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, en: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Presentación PT</label>
+                                            <textarea
+                                                value={editingCase.presentation.pt}
+                                                onChange={(e) => setEditingCase({
+                                                    ...editingCase,
+                                                    presentation: { ...editingCase.presentation, pt: e.target.value }
+                                                })}
+                                                className="w-full h-24"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-lg font-semibold">Etapas</h3>
+                                            <button
+                                                onClick={addStageToEdit}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                                            >
+                                                + Agregar etapa
+                                            </button>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {editingCase.stages.map((stage, idx) => (
+                                                <div key={idx} className="bg-slate-800 p-4 rounded border border-slate-700">
+                                                    <div className="grid grid-cols-3 gap-4 mb-3">
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.es}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, es: e.target.value })}
+                                                            placeholder="Nombre ES"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.en}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, en: e.target.value })}
+                                                            placeholder="Nombre EN"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={stage.name.pt}
+                                                            onChange={(e) => updateStage(idx, 'name', { ...stage.name, pt: e.target.value })}
+                                                            placeholder="Nombre PT"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">HR</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.hr}
+                                                                onChange={(e) => updateStage(idx, 'hr', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">SpO2</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.spo2}
+                                                                onChange={(e) => updateStage(idx, 'spo2', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-slate-400">Transición (s)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={stage.transition}
+                                                                onChange={(e) => updateStage(idx, 'transition', parseInt(e.target.value))}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-end gap-2 mt-3">
+                                                        <button
+                                                            onClick={() => removeStageFromEdit(idx)}
+                                                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                                                        >
+                                                            Eliminar etapa
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={saveEdit}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Guardar Cambios
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingCase(null)}
+                                            className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : selectedCase ? (
+                                <div className="max-w-4xl space-y-4">
+                                    {selectedCase._source === 'library' && (
+                                        <div className="bg-green-900/30 border border-green-700 p-3 rounded">
+                                            <p className="text-sm text-green-300">
+                                                <span className="font-semibold">Caso de comunidad</span> • Creado por: {selectedCase.authorName || selectedCase.userEmail || 'anónimo'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                                        <h3 className="text-lg font-semibold mb-2">Presentación</h3>
+                                        <p className="text-slate-300 whitespace-pre-wrap">{typeof selectedCase.presentation === 'object' ? selectedCase.presentation.es : selectedCase.presentation}</p>
+                                    </div>
+
+                                    <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                                        <h3 className="text-lg font-semibold mb-4">Etapas ({selectedCase.stages.length})</h3>
+                                        <div className="space-y-2">
+                                            {selectedCase.stages.map((stage, idx) => {
+                                                const stageName = typeof stage.name === 'object' ? (stage.name.es || `Etapa ${idx + 1}`) : stage.name || `Etapa ${idx + 1}`;
+                                                return (
+                                                    <div key={idx} className="bg-slate-700/50 p-3 rounded flex justify-between items-center">
+                                                        <div>
+                                                            <div className="font-semibold">{stageName}</div>
+                                                            <div className="text-sm text-slate-400">HR: {stage.hr} | SpO2: {stage.spo2}% | Transición: {stage.transition}s</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4">
+                                        <button
+                                            onClick={() => setEditingCase(selectedCase)}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold"
+                                        >
+                                            Editar
+                                        </button>
+                                        <button
+                                            onClick={() => deleteCase(selectedCase.id)}
+                                            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [authenticated, setAuthenticated] = useState(
+                localStorage.getItem('neomonitor_admin_auth') === 'true'
+            );
+
+            const handleLogout = () => {
+                localStorage.removeItem('neomonitor_admin_auth');
+                setAuthenticated(false);
+            };
+
+            return authenticated ? (
+                <AdminPanel onLogout={handleLogout} />
+            ) : (
+                <LoginPage onAuthenticate={() => setAuthenticated(true)} />
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

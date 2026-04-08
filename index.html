@@ -194,7 +194,34 @@
                     afib: "F.Auricular",
                     rcp: "⚡ RCP"
                 },
-                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" }
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" },
+                clinicalCases: "Casos Clínicos",
+                newCase: "Nuevo caso",
+                myCases: "Mis casos",
+                library: "Biblioteca",
+                predefinedCases: "Casos predefinidos",
+                editCase: "Editar caso",
+                newCaseTitle: "Nuevo caso",
+                cancel: "Cancelar",
+                publish: "Publicar en Biblioteca",
+                published: "✓ Publicado",
+                stages: "etapas",
+                noLibraryCases: "No hay casos en la biblioteca aún",
+                createAndPublish: "Creá un caso y publicalo para ser el primero",
+                loadingLibrary: "Cargando biblioteca...",
+                caseTitle: "Título del caso",
+                titlePlaceholder: "Ej: Bradicardia neonatal",
+                presentation: "Presentación del caso",
+                stageName: "Nombre de la etapa",
+                author: "Autor",
+                viewPresentation: "Ver presentación del caso",
+                casePresentation: "Presentación del caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Sig",
+                caseCompleted: "✓ Caso completado",
+                exit: "Salir",
+                use: "Usar"
             },
             en: {
                 loading: "Loading NeoMonitor...",
@@ -241,7 +268,34 @@
                     afib: "A-Fib",
                     rcp: "⚡ CPR"
                 },
-                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediatric", adulto: "Adult" }
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediatric", adulto: "Adult" },
+                clinicalCases: "Clinical Cases",
+                newCase: "New case",
+                myCases: "My cases",
+                library: "Library",
+                predefinedCases: "Predefined cases",
+                editCase: "Edit case",
+                newCaseTitle: "New case",
+                cancel: "Cancel",
+                publish: "Publish to Library",
+                published: "✓ Published",
+                stages: "stages",
+                noLibraryCases: "No cases in the library yet",
+                createAndPublish: "Create a case and publish it to be the first",
+                loadingLibrary: "Loading library...",
+                caseTitle: "Case title",
+                titlePlaceholder: "Ex: Neonatal bradycardia",
+                presentation: "Case presentation",
+                stageName: "Stage name",
+                author: "Author",
+                viewPresentation: "View case presentation",
+                casePresentation: "Case presentation",
+                understood: "Understood",
+                startCase: "Start Case",
+                nextStage: "Next",
+                caseCompleted: "✓ Case completed",
+                exit: "Exit",
+                use: "Use"
             },
             pt: {
                 loading: "Carregando NeoMonitor...",
@@ -288,7 +342,34 @@
                     afib: "F.Atrial",
                     rcp: "⚡ RCP"
                 },
-                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" }
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" },
+                clinicalCases: "Casos Clínicos",
+                newCase: "Novo caso",
+                myCases: "Meus casos",
+                library: "Biblioteca",
+                predefinedCases: "Casos predefinidos",
+                editCase: "Editar caso",
+                newCaseTitle: "Novo caso",
+                cancel: "Cancelar",
+                publish: "Publicar na Biblioteca",
+                published: "✓ Publicado",
+                stages: "etapas",
+                noLibraryCases: "Nenhum caso na biblioteca ainda",
+                createAndPublish: "Crie um caso e publique-o para ser o primeiro",
+                loadingLibrary: "Carregando biblioteca...",
+                caseTitle: "Título do caso",
+                titlePlaceholder: "Ex: Bradicardia neonatal",
+                presentation: "Apresentação do caso",
+                stageName: "Nome da etapa",
+                author: "Autor",
+                viewPresentation: "Ver apresentação do caso",
+                casePresentation: "Apresentação do caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Próx",
+                caseCompleted: "✓ Caso concluído",
+                exit: "Sair",
+                use: "Usar"
             }
         };
 
@@ -908,33 +989,41 @@
             );
         };
 
-        const CaseEditorModal = ({ caseData, onSave, onCancel }) => {
-            const [title, setTitle] = useState(caseData.title || '');
-            const [presentation, setPresentation] = useState(caseData.presentation || '');
-            const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
+        const CaseEditorModal = ({ caseData, onPublish, onCancel, translating = false, lang = 'es', t = TRANSLATIONS.es }) => {
+            const [title, setTitle] = useState(typeof caseData.title === 'string' ? caseData.title : caseData.title?.[lang] || caseData.title?.es || '');
+            const [presentation, setPresentation] = useState(typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.[lang] || caseData.presentation?.es || '');
+            const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s, name: typeof s.name === 'string' ? s.name : s.name?.[lang] || s.name?.es || '' })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
+            const [authorName, setAuthorName] = useState(caseData.authorName || '');
+            const [published, setPublished] = useState(false);
 
             const addStage = () => setStages(prev => [...prev, { name: '', hr: 120, spo2: 92, transition: 10 }]);
             const removeStage = (i) => setStages(prev => prev.filter((_, idx) => idx !== i));
             const updateStage = (i, field, value) => setStages(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
-            const handleSave = () => { if (!title.trim() || stages.length === 0) return; onSave({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages }); };
+            const buildCase = () => ({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages, authorName: authorName.trim() });
+            const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish || translating) return; onPublish(buildCase()); setPublished(true); };
 
             return (
                 <div className="fixed inset-0 bg-black/95 z-[60] p-4 flex flex-col">
                     <div className="bg-slate-800 rounded-xl flex flex-col overflow-hidden max-w-md mx-auto w-full max-h-full">
                         <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-none">
-                            <h3 className="font-bold text-white">{caseData._firestore ? 'Editar caso' : 'Nuevo caso'}</h3>
+                            <h3 className="font-bold text-white">{caseData._firestore ? t.editCase : t.newCaseTitle}</h3>
                             <button onClick={onCancel}><Icons.X className="w-6 h-6"/></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             <div>
-                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Título del caso</label>
-                                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ej: Bradicardia neonatal"
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">{t.caseTitle}</label>
+                                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder={t.titlePlaceholder}
                                     className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-blue-500"/>
                             </div>
                             <div>
-                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Presentación del paciente</label>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">{t.presentation}</label>
                                 <textarea value={presentation} onChange={e => setPresentation(e.target.value)} placeholder="Descripción clínica del paciente para los alumnos..."
                                     className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 resize-none" rows={3}/>
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Autor (opcional)</label>
+                                <input type="text" value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="Tu nombre o institución"
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-blue-500"/>
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-2">
@@ -948,7 +1037,7 @@
                                                 <span className="text-xs font-bold text-slate-400">ETAPA {i + 1}</span>
                                                 {stages.length > 1 && <button onClick={() => removeStage(i)} className="text-red-400 hover:text-red-300 text-xs px-2">✕</button>}
                                             </div>
-                                            <input type="text" value={stage.name} onChange={e => updateStage(i, 'name', e.target.value)} placeholder="Nombre de la etapa"
+                                            <input type="text" value={stage.name} onChange={e => updateStage(i, 'name', e.target.value)} placeholder={t.stageName}
                                                 className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"/>
                                             <div className="grid grid-cols-3 gap-2">
                                                 <div>
@@ -972,16 +1061,20 @@
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 border-t border-slate-700 flex gap-3 flex-none">
-                            <button onClick={onCancel} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors">Cancelar</button>
-                            <button onClick={handleSave} disabled={!title.trim()} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors">Guardar</button>
+                        <div className="p-4 border-t border-slate-700 flex flex-col gap-2 flex-none">
+                            <div className="flex gap-3">
+                                <button onClick={onCancel} disabled={translating} className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white py-3 rounded-xl font-bold transition-colors">{t.cancel}</button>
+                                <button onClick={handlePublish} disabled={!title.trim() || published || translating} className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {translating ? <span className="animate-spin">⟳</span> : published ? t.published : `📤 ${t.publish}`}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, patientType = 'neonatal', onPatientTypeChange, onLangChange }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -995,6 +1088,10 @@
             const [userCases, setUserCases] = useState([]);
             const [showCaseEditor, setShowCaseEditor] = useState(false);
             const [editingCase, setEditingCase] = useState(null);
+            const [selectorTab, setSelectorTab] = useState('mis');
+            const [libraryCases, setLibraryCases] = useState([]);
+            const [libTabPType, setLibTabPType] = useState(patientType);
+            const [libraryLoading, setLibraryLoading] = useState(false);
             const [debriefTab, setDebriefTab] = useState('objetivos');
             const [gasNotes, setGasNotes] = useState({ gather: '', analyze: '', summarize: '' });
             const [showPresentation, setShowPresentation] = useState(false);
@@ -1022,6 +1119,9 @@
                 return () => clearInterval(interval);
             }, [currentVitals.simRunning, simStartTime]);
 
+            const [communityCases, setCommunityCases] = useState([]);
+            const [translating, setTranslating] = useState(false);
+
             useEffect(() => {
                 if (!db || !userId || userId === 'guest') return;
                 const unsub = db.collection('userCases').where('userId', '==', userId).onSnapshot(snap => {
@@ -1030,22 +1130,128 @@
                 return () => unsub();
             }, [db, userId]);
 
-            const getCaseName = (c) => typeof c.title === 'string' ? c.title : (c.title[lang] || c.title.es);
-            const getStageName = (stage) => typeof stage.name === 'string' ? stage.name : (stage.name[lang] || stage.name.es);
-            const getPresentation = (c) => { if (!c.presentation) return null; return typeof c.presentation === 'string' ? c.presentation : (c.presentation[lang] || c.presentation.es); };
+            // Admin: cargar TODOS los casos de comunidad (sin filtro userId)
+            useEffect(() => {
+                if (!db || userId !== 'diegosteinberg@gmail.com') return;
+                const unsub = db.collection('userCases').onSnapshot(snap => {
+                    setCommunityCases(snap.docs.map(d => ({ ...d.data(), id: d.id, _firestore: true })));
+                });
+                return () => unsub();
+            }, [db, userId]);
+
+            const getCaseName = (c) => {
+                if (!c || !c.title) return 'Sin título';
+                if (typeof c.title === 'string') return c.title;
+                if (typeof c.title === 'object' && c.title !== null) {
+                    const name = c.title[lang] || c.title.es || c.title.en || c.title.pt || '';
+                    return name || 'Sin título';
+                }
+                return 'Sin título';
+            };
+            const getStageName = (stage) => {
+                if (!stage || !stage.name) return '';
+                if (typeof stage.name === 'string') return stage.name;
+                if (typeof stage.name === 'object' && stage.name !== null) return stage.name[lang] || stage.name.es || stage.name.en || stage.name.pt || '';
+                return '';
+            };
+            const getPresentation = (c) => {
+                if (!c || !c.presentation) return null;
+                if (typeof c.presentation === 'string') return c.presentation;
+                if (typeof c.presentation === 'object' && c.presentation !== null) return c.presentation[lang] || c.presentation.es || c.presentation.en || c.presentation.pt || null;
+                return null;
+            };
             const patientCfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
 
-            const saveCase = (caseData) => {
-                if (!db || !userId || userId === 'guest') return;
-                const { _firestore, ...clean } = caseData;
-                const payload = { ...clean, userId, updatedAt: Date.now() };
-                if (caseData.id && _firestore) {
-                    db.collection('userCases').doc(caseData.id).set(payload);
-                } else {
-                    db.collection('userCases').add(payload);
+            const translateText = async (text, targetLang) => {
+                if (!text) return '';
+                try {
+                    // MyMemory Translation API - free, no API key required
+                    // Supported language pairs: es|en, es|pt-BR, etc.
+                    const langMap = { en: 'en', pt: 'pt-BR' };
+                    const targetCode = langMap[targetLang] || targetLang;
+                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|${targetCode}`;
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                        return data.responseData.translatedText;
+                    }
+                    console.warn('MyMemory API response:', data);
+                    return text; // fallback al texto original
+                } catch (err) {
+                    console.warn('Translation error:', err?.message);
+                    return text; // fallback al texto original
                 }
-                setShowCaseEditor(false);
-                setEditingCase(null);
+            };
+
+            const translateCaseInternal = async (caseData) => {
+                try {
+                    const titleEs = typeof caseData.title === 'string' ? caseData.title : caseData.title?.es || '';
+                    const presentationEs = typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.es || '';
+
+                    const [titleEn, titlePt, presentationEn, presentationPt] = await Promise.all([
+                        translateText(titleEs, 'en'),
+                        translateText(titleEs, 'pt'),
+                        translateText(presentationEs, 'en'),
+                        translateText(presentationEs, 'pt')
+                    ]);
+
+                    const translatedStages = await Promise.all((caseData.stages || []).map(async (stage) => {
+                        const stageName = typeof stage.name === 'string' ? stage.name : stage.name?.es || '';
+                        const [nameEn, namePt] = await Promise.all([
+                            translateText(stageName, 'en'),
+                            translateText(stageName, 'pt')
+                        ]);
+                        return {
+                            ...stage,
+                            name: { es: stageName, en: nameEn, pt: namePt }
+                        };
+                    }));
+
+                    return {
+                        ...caseData,
+                        title: { es: titleEs, en: titleEn, pt: titlePt },
+                        presentation: { es: presentationEs, en: presentationEn, pt: presentationPt },
+                        stages: translatedStages
+                    };
+                } catch (err) {
+                    console.error('Translation failed:', err);
+                    return caseData;
+                }
+            };
+
+            const translateCase = async (caseData) => {
+                setTranslating(true);
+                try {
+                    return await translateCaseInternal(caseData);
+                } finally {
+                    setTranslating(false);
+                }
+            };
+
+            const saveToLibrary = async (caseData) => {
+                if (!db) return;
+                setTranslating(true);
+                try {
+                    const translatedCase = await translateCase(caseData);
+                    const { _firestore, id, ...clean } = translatedCase;
+                    // Asegurar que patientType se incluye al guardar
+                    const caseToSave = {
+                        ...clean,
+                        patientType: clean.patientType || patientType,
+                        userId: userId || 'anon',
+                        userEmail: userEmail || '',
+                        createdAt: Date.now()
+                    };
+                    await db.collection('library').add(caseToSave);
+                    setShowCaseEditor(false);
+                    setEditingCase(null);
+                } catch (err) {
+                    console.error('Error saving to library:', err);
+                } finally {
+                    setTranslating(false);
+                }
             };
 
             const deleteUserCase = (caseId) => {
@@ -1053,6 +1259,57 @@
                 db.collection('userCases').doc(caseId).delete();
                 if (activeCase && activeCase.id === caseId) { setActiveCase(null); setStageIndex(-1); }
             };
+
+
+            useEffect(() => {
+                if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
+                setLibraryLoading(true);
+                const abortCtrl = new AbortController();
+                const timeout = setTimeout(() => {
+                    if (!abortCtrl.signal.aborted) {
+                        abortCtrl.abort();
+                        setLibraryLoading(false);
+                        console.warn('Library load timeout after 8s');
+                    }
+                }, 8000);
+                try {
+                    db.collection('library').orderBy('createdAt', 'desc').limit(100).get()
+                        .then(snap => {
+                            clearTimeout(timeout);
+                            if (!abortCtrl.signal.aborted && snap && snap.docs) {
+                                const cases = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                                console.log(`📚 Biblioteca cargada: ${cases.length} casos`);
+                                cases.forEach((c, idx) => {
+                                    const titleType = typeof c.title;
+                                    const titleStr = titleType === 'object' ? JSON.stringify(c.title) : c.title;
+                                    console.log(`  [${idx}] Título: ${titleStr}`);
+                                    console.log(`       getCaseName() retorna: "${getCaseName(c)}"`);
+                                    console.log(`       Lang actual: ${lang}, patientType: ${c.patientType}`);
+                                });
+                                setLibraryCases(cases);
+                                setLibraryLoading(false);
+                            }
+                        })
+                        .catch(err => {
+                            clearTimeout(timeout);
+                            if (!abortCtrl.signal.aborted) {
+                                console.error('Error loading library:', err?.message);
+                                setLibraryLoading(false);
+                                setLibraryCases([]);
+                            }
+                        });
+                } catch (err) {
+                    clearTimeout(timeout);
+                    if (!abortCtrl.signal.aborted) {
+                        console.error('Library query error:', err?.message);
+                        setLibraryLoading(false);
+                    }
+                }
+                return () => {
+                    abortCtrl.abort();
+                    clearTimeout(timeout);
+                };
+            }, [showCaseSelector, selectorTab]);
 
             const logAction = (message, force = false) => {
                 if (!currentVitals.simRunning && !force) return;
@@ -1077,12 +1334,19 @@
             };
 
             const advanceStage = () => {
-                if (!activeCase) return;
+                if (!activeCase || !Array.isArray(activeCase.stages) || activeCase.stages.length === 0) {
+                    console.error('Invalid case structure:', activeCase);
+                    return;
+                }
                 const nextIndex = stageIndex + 1;
                 if (nextIndex >= activeCase.stages.length) return;
                 const stage = activeCase.stages[nextIndex];
+                if (!stage || typeof stage.hr !== 'number' || typeof stage.spo2 !== 'number' || typeof stage.transition !== 'number') {
+                    console.error('Invalid stage structure:', stage);
+                    return;
+                }
                 const now = Date.now();
-                const durationMs = stage.transition * 1000;
+                const durationMs = Math.max(0, stage.transition * 1000);
                 const stageName = getStageName(stage);
                 logAction(`Etapa ${nextIndex + 1}/${activeCase.stages.length}: ${stageName}`);
                 trackNeoEvent('case_stage', `Stage ${nextIndex + 1}`, { case: activeCase.id, stage: nextIndex + 1 });
@@ -1150,44 +1414,109 @@
                         </div>
                     </header>
 
-                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onSave={saveCase} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} />}
+                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} translating={translating} lang={lang} t={t} />}
 
                     {showCaseSelector && (
                         <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowCaseSelector(false)}>
                             <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
                                 <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-none">
-                                    <h3 className="font-bold flex items-center gap-2"><Icons.List className="w-4 h-4 text-blue-400"/> Casos Clínicos</h3>
+                                    <h3 className="font-bold flex items-center gap-2"><Icons.List className="w-4 h-4 text-blue-400"/> {t.clinicalCases}</h3>
                                     <button onClick={() => setShowCaseSelector(false)}><Icons.X className="w-6 h-6"/></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                    <button onClick={() => { setEditingCase({ title: '', stages: [{ name: '', hr: 120, spo2: 92, transition: 10 }], patientType }); setShowCaseEditor(true); setShowCaseSelector(false); }}
-                                        className="w-full text-left bg-green-900/30 hover:bg-green-900/50 border border-green-500/40 rounded-xl p-4 transition-colors active:scale-95 flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-green-700/50 rounded-full flex items-center justify-center text-green-300 font-bold text-xl flex-none">+</div>
-                                        <span className="font-bold text-green-300">Nuevo caso</span>
-                                    </button>
-                                    {userCases.filter(c => !c.patientType || c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Mis casos</p>}
-                                    {userCases.filter(c => !c.patientType || c.patientType === patientType).map(c => (
-                                        <div key={c.id} className="flex gap-2">
-                                            <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
-                                                className="flex-1 text-left bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 rounded-xl p-4 transition-colors active:scale-95">
-                                                <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
-                                                <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
-                                            </button>
-                                            <div className="flex flex-col gap-1">
-                                                <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
-                                                <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {CLINICAL_CASES.filter(c => c.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">Casos predefinidos</p>}
-                                    {CLINICAL_CASES.filter(c => c.patientType === patientType).map(c => (
-                                        <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
-                                            className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
-                                            <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
-                                            <div className="text-xs text-slate-400">{c.stages.length} etapas</div>
-                                        </button>
-                                    ))}
+                                <div className="flex border-b border-slate-700 flex-none">
+                                    <button onClick={() => setSelectorTab('mis')} className={`flex-1 py-2.5 text-sm font-bold transition-colors ${selectorTab === 'mis' ? 'bg-slate-700 text-white border-b-2 border-blue-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>{t.myCases}</button>
+                                    <button onClick={() => { setSelectorTab('biblioteca'); setLibTabPType(patientType); }} className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${selectorTab === 'biblioteca' ? 'bg-slate-700 text-white border-b-2 border-green-400' : 'text-slate-400 hover:bg-slate-700/50'}`}><Icons.Globe className="w-3.5 h-3.5"/> {t.library}</button>
                                 </div>
+                                {selectorTab === 'mis' ? (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                        <button onClick={() => { setEditingCase({ title: '', stages: [{ name: '', hr: 120, spo2: 92, transition: 10 }], patientType }); setShowCaseEditor(true); setShowCaseSelector(false); }}
+                                            className="w-full text-left bg-green-900/30 hover:bg-green-900/50 border border-green-500/40 rounded-xl p-4 transition-colors active:scale-95 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-green-700/50 rounded-full flex items-center justify-center text-green-300 font-bold text-xl flex-none">+</div>
+                                            <span className="font-bold text-green-300">{t.newCase}</span>
+                                        </button>
+                                        {Array.isArray(userCases) && userCases.filter(c => !c?.patientType || c?.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">{t.myCases}</p>}
+                                        {Array.isArray(userCases) && userCases.filter(c => !c?.patientType || c?.patientType === patientType).map(c => (
+                                            c?.id ? (
+                                                <div key={c.id} className="flex gap-2">
+                                                    <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                        className="flex-1 text-left bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                        <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                        <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                    </button>
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                        <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                    </div>
+                                                </div>
+                                            ) : null
+                                        ))}
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">{t.predefinedCases}</p>}
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id && c?.stages ? (
+                                                <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                    className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
+                                                    <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                    <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                </button>
+                                            ) : null
+                                        ))}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-orange-600 uppercase tracking-widest font-bold pt-3 border-t border-slate-700 mt-3">📋 Casos de comunidad para curar</p>}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id ? (
+                                                <div key={c.id} className="flex gap-2">
+                                                    <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                        className="flex-1 text-left bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                        <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                        <div className="text-xs text-slate-400">{c.authorName ? `${c.authorName} • ` : ''}{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                    </button>
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                        <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                    </div>
+                                                </div>
+                                            ) : null
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col overflow-hidden">
+                                        <div className="flex border-b border-slate-700/50 flex-none px-3 pt-2 gap-1">
+                                            {['neonatal', 'pediatrico', 'adulto'].map(pt => (
+                                                <button key={pt} onClick={() => setLibTabPType(pt)}
+                                                    className={`flex-1 py-2 text-xs font-bold rounded-t-lg transition-colors ${libTabPType === pt ? (pt === 'neonatal' ? 'bg-green-900/50 text-green-300 border-b-2 border-green-400' : pt === 'pediatrico' ? 'bg-yellow-900/50 text-yellow-300 border-b-2 border-yellow-400' : 'bg-blue-900/50 text-blue-300 border-b-2 border-blue-400') : 'text-slate-500 hover:text-slate-300'}`}>
+                                                    {t.patientTypes[pt]}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                            {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">{t.loadingLibrary}</div>}
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).length === 0 && (
+                                                <div className="text-center text-slate-500 py-10">
+                                                    <Icons.Globe className="w-10 h-10 mx-auto mb-3 opacity-30"/>
+                                                    <p className="text-sm">{t.noLibraryCases}</p>
+                                                    <p className="text-xs mt-2 opacity-60">{t.createAndPublish}</p>
+                                                </div>
+                                            )}
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).map(c => (
+                                                c?.id && c?.title ? (
+                                                    <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="font-bold text-white text-sm leading-tight flex-1">{getCaseName(c)}</div>
+                                                            <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
+                                                                {t.use}
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                            <span>{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</span>
+                                                            {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
+                                                        </div>
+                                                        {getPresentation(c) && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{getPresentation(c)}</p>}
+                                                    </div>
+                                                ) : null
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1324,7 +1653,7 @@
                             </button>
                             <button onClick={() => setShowCaseSelector(true)}
                                 className={`flex-1 py-2 text-sm font-bold transition-colors ${activeCase ? 'bg-blue-700 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
-                                Caso Clínico
+                                {t.clinicalCases}
                             </button>
                         </div>
 
@@ -1341,13 +1670,13 @@
                             <div className="bg-slate-800 rounded-xl overflow-hidden">
                                 <div className="p-3 bg-blue-900/40 border-b border-slate-700 flex justify-between items-center">
                                     <span className="font-bold text-blue-300 text-sm">{getCaseName(activeCase)}</span>
-                                    <button onClick={() => { setActiveCase(null); setStageIndex(-1); }} className="text-slate-400 hover:text-white text-xs border border-slate-600 px-2 py-0.5 rounded">Salir</button>
+                                    <button onClick={() => { setActiveCase(null); setStageIndex(-1); }} className="text-slate-400 hover:text-white text-xs border border-slate-600 px-2 py-0.5 rounded">{t.exit}</button>
                                 </div>
                                 {getPresentation(activeCase) && (
                                     <div className="p-3 border-b border-slate-700 bg-slate-900/40">
                                         <button onClick={() => setShowPresentation(true)}
                                             className="w-full flex items-center justify-between bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/40 rounded-lg px-3 py-2 transition-colors active:scale-95">
-                                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">Ver presentación del caso</span>
+                                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">{t.viewPresentation}</span>
                                             <span className="text-blue-400 text-lg">📋</span>
                                         </button>
                                     </div>
@@ -1357,7 +1686,7 @@
                                         <div className="bg-slate-800 rounded-2xl flex flex-col overflow-hidden max-w-lg mx-auto w-full max-h-full shadow-2xl" onClick={e => e.stopPropagation()}>
                                             <div className="p-5 border-b border-slate-700 flex justify-between items-center flex-none">
                                                 <div>
-                                                    <p className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-0.5">Presentación del caso</p>
+                                                    <p className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-0.5">{t.casePresentation}</p>
                                                     <h3 className="font-black text-white text-lg">{getCaseName(activeCase)}</h3>
                                                 </div>
                                                 <button onClick={() => setShowPresentation(false)} className="bg-slate-700 rounded-full p-2 ml-4 flex-none"><Icons.X className="w-5 h-5"/></button>
@@ -1368,7 +1697,7 @@
                                             <div className="p-4 border-t border-slate-700 flex-none">
                                                 <button onClick={() => setShowPresentation(false)}
                                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
-                                                    Entendido
+                                                    {t.understood}
                                                 </button>
                                             </div>
                                         </div>
@@ -1392,11 +1721,11 @@
                                         <button onClick={advanceStage}
                                             className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all">
                                             <Icons.ArrowRight className="w-5 h-5"/>
-                                            {stageIndex === -1 ? 'Iniciar Caso' : `Sig: ${getStageName(activeCase.stages[stageIndex + 1])}`}
+                                            {stageIndex === -1 ? t.startCase : `${t.nextStage}: ${getStageName(activeCase.stages[stageIndex + 1])}`}
                                         </button>
                                     ) : (
                                         <div className="w-full py-3 bg-green-900/40 border border-green-500/30 rounded-lg font-bold text-green-400 text-center text-sm">
-                                            ✓ Caso completado
+                                            {t.caseCompleted}
                                         </div>
                                     )}
                                 </div>
@@ -1536,6 +1865,9 @@
             const [showGuide, setShowGuide] = useState(false);
             const [vitalsLoaded, setVitalsLoaded] = useState(false);
             const [sid] = useState(Math.floor(1000 + Math.random() * 9000).toString());
+            const [clinicalCases, setClinicalCases] = useState(() => {
+                return Array.isArray(CLINICAL_CASES) ? CLINICAL_CASES : [];
+            });
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -1547,6 +1879,22 @@
                 auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
                 const p = new URLSearchParams(window.location.search);
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
+            }, []);
+
+            // Load clinical cases from Firebase if available (one-time load on mount)
+            useEffect(() => {
+                if (!db) return;
+                try {
+                    db.collection("admin").doc("clinical_cases").get().then(doc => {
+                        if (doc.exists && doc.data() && Array.isArray(doc.data().cases)) {
+                            setClinicalCases(doc.data().cases);
+                        }
+                    }).catch(err => {
+                        console.warn('Could not load clinical cases from Firebase:', err?.message);
+                    });
+                } catch (err) {
+                    console.warn('Firebase not ready for clinical cases:', err?.message);
+                }
             }, []);
 
             // Listener limpio: solo setVitals. lang y patientType se derivan automáticamente.
@@ -1623,7 +1971,7 @@
             return (
                 <div className="font-sans antialiased">
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
                 </div>
             );
         };
