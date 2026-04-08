@@ -927,40 +927,41 @@
             const [vitals, setVitals] = useState(target);
             const lastBeatRef = useRef(0);
             const transitionStartRef = useRef(Date.now());
+            const targetRef = useRef(target);
+            targetRef.current = target;
             useEffect(() => {
                 lastBeatRef.current = 0;
                 if (!target.transition) { transitionStartRef.current = Date.now(); }
                 else { transitionStartRef.current = target.transition.startTime; }
                 let frame;
                 const animate = () => {
+                    const currentTarget = targetRef.current;
                     let trueHr, trueSpo2;
-                    if (target.transition) {
-                        const elapsed = Date.now() - target.transition.startTime;
-                        const p = Math.min(1, elapsed / target.transition.duration);
-                        trueHr = Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p);
-                        trueSpo2 = Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p);
+                    if (currentTarget.transition) {
+                        const elapsed = Date.now() - currentTarget.transition.startTime;
+                        const p = Math.min(1, elapsed / currentTarget.transition.duration);
+                        trueHr = Math.round(currentTarget.transition.startHr + (currentTarget.transition.targetHr - currentTarget.transition.startHr) * p);
+                        trueSpo2 = Math.round(currentTarget.transition.startSpo2 + (currentTarget.transition.targetSpo2 - currentTarget.transition.startSpo2) * p);
                     } else {
-                        trueHr = target.hr;
-                        trueSpo2 = target.spo2;
+                        trueHr = currentTarget.hr;
+                        trueSpo2 = currentTarget.spo2;
                     }
                     const now = Date.now();
-                    // El monitor real actualiza el número una vez por latido, no por frame
                     const beatInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
                     if (now - lastBeatRef.current >= beatInterval) {
                         lastBeatRef.current = now;
                         const elapsedSec = (now - transitionStartRef.current) / 1000;
-                        // HRV: oscilación respiratoria (0.3 Hz, ±4%) + jitter (±2)
                         const respiratoryModulation = Math.sin(elapsedSec * 0.3 * 2 * Math.PI) * 0.04;
                         const randomJitter = (Math.random() - 0.5) * 0.02;
                         const hrModulation = trueHr * (respiratoryModulation + randomJitter);
                         const jitter = trueHr > 0 ? Math.round(hrModulation) : 0;
-                        setVitals({ ...target, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
+                        setVitals({ ...currentTarget, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
                     }
                     frame = requestAnimationFrame(animate);
                 };
                 frame = requestAnimationFrame(animate);
                 return () => cancelAnimationFrame(frame);
-            }, [target]);
+            }, [target.transition?.duration]);
             return vitals;
         };
 
