@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>NeoMonitor | Simulador Online de Monitor Multiparamétrico</title>
+    <meta name="description" content="Simulador neonatal profesional para entrenamiento en RCP. Convierte cualquier dispositivo en un monitor de signos vitales con control remoto. Desarrollado por el Dr. Diego Steinberg.">
+    <meta name="keywords" content="simulador neonatal, RCP neonatal, monitor signos vitales, reanimación neonatal, capacitación médica, Diego Steinberg, simulación clínica">
+    <meta name="author" content="Dr. Diego Steinberg">
+
+    <meta property="og:title" content="NeoMonitor - Simulador Neonatal Profesional">
+    <meta property="og:description" content="Entrenamiento de alta fidelidad sin equipos costosos. Usalo gratis en neomonitor.pro">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://neomonitor.pro">
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DK9H6YBTY9"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-DK9H6YBTY9');
+
+      function trackNeoEvent(eventName, label, details = {}) {
+        console.log(`[GA Event] Evento: ${eventName} | Label: ${label}`, details);
+        if (typeof gtag === 'function') {
+          gtag('event', eventName, {
+            'event_label': label,
+            'event_category': 'NeoMonitor_Engagement',
+            ...details
+          });
+        }
+      }
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        body { background-color: #000000; color: white; margin: 0; touch-action: manipulation; overflow: hidden; font-family: sans-serif; }
+        
+        .soft-key {
+            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            border: 1px solid #475569; color: #cbd5e1; font-family: monospace;
+            font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+            text-align: center; border-radius: 4px; cursor: pointer; user-select: none;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .soft-key:active { background: #0f172a; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+
+        input[type=range] { accent-color: #42B334; }
+        input[type=range].time-slider { accent-color: #f59e0b; }
+        
+        .sponsor-container {
+            background: transparent;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .sponsor-container:hover { background: rgba(255,255,255,0.05); border-color: #475569; }
+
+        .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
+        
+        @keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-zoom { animation: zoomIn 0.3s ease-out forwards; }
+
+        @keyframes deviceFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-anim { animation: deviceFloat 3s ease-in-out infinite; }
+        
+        @keyframes scanLine { 0% { top: 0; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        .scan-line { position: absolute; width: 100%; height: 2px; background: #3b82f6; animation: scanLine 2s linear infinite; }
+
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            15% { transform: scale(1.25); }
+            30% { transform: scale(1); }
+            45% { transform: scale(1.15); }
+            60% { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+
+        .heart-portrait { display: none; }
+
+        @media (max-width: 600px) and (orientation: portrait) {
+            .monitor-screen { border-width: 4px !important; }
+            .waveform-col { display: none !important; }
+            .monitor-screen .main-row { grid-template-columns: 1fr !important; }
+            .monitor-screen .number-container { align-items: center !important; padding-right: 0 !important; justify-content: center !important; }
+            .monitor-screen .number-label { font-size: 1.2rem !important; margin-bottom: 0px !important; }
+            .monitor-screen .number-display { font-size: 22vw !important; }
+            .monitor-screen .extra-info-row { grid-template-columns: 1fr 1fr !important; }
+            .monitor-screen .sponsor-col { display: none !important; }
+            .monitor-screen .qr-button span { display: inline !important; font-size: 0.7rem !important; }
+            .heart-portrait { display: block !important; }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            .monitor-screen { border-width: 4px !important; }
+            .monitor-screen .top-bar, .monitor-screen .bottom-bar { padding: 0.2rem 0.5rem !important; font-size: 0.7rem !important; height: 32px !important; }
+            .monitor-screen .main-row { grid-template-columns: 1fr 160px !important; }
+            .monitor-screen .number-display { font-size: 15vh !important; }
+        }
+
+        .qr-button { background: linear-gradient(180deg, #166534 0%, #14532d 100%); border-color: #22c55e; color: #bbf7d0; }
+        #reader { width: 100% !important; border: none !important; }
+        #reader video { border-radius: 12px !important; object-fit: cover !important; }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #42B334;">
+            <svg style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 20px;" viewBox="0 0 24 24">
+                <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h2 style="font-weight: bold;">Loading NeoMonitor...</h2>
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+        </div>
+    </div>
+
+    <script type="text/babel">
+       const firebaseConfig = {
+          apiKey: "AIzaSyA46SqiHL-U13mdaJnee-KhD372aWc5h2E",
+          authDomain: "monitor-36c41.firebaseapp.com",
+          projectId: "monitor-36c41",
+          storageBucket: "monitor-36c41.firebasestorage.app",
+          messagingSenderId: "830562769122",
+          appId: "1:830562769122:web:1db7060de0c80556db66bb"
+        };
+
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const { useState, useEffect, useRef } = React;
+
+        const TRANSLATIONS = {
+            es: {
+                loading: "Cargando NeoMonitor...",
+                connecting: "CONECTANDO...",
+                bed: "CAMA",
+                mute: "Silenciar",
+                menu: "Menú",
+                link: "VINCULAR",
+                simNotStarted: "Simulación sin iniciar",
+                id: "ID",
+                sessionId: "ID SESIÓN",
+                scanPrompt: "Escanea para conectar el control o espera comando...",
+                scanManual: "Ingrese el ID que figura junto al código QR",
+                placeholderId: "Ingrese ID",
+                scanCamera: "Escanear Monitor",
+                scanPhonePrompt: "Escanea con tu celular para usarlo como control remoto",
+                startMonitorBtn: "TOCAR PARA INICIAR MONITOR",
+                mainPrompt: "Abrir esta app en los dos dispositivos",
+                useAsMonitor: "Usar este dispositivo como Monitor",
+                useAsControl: "Usar este dispositivo como Control",
+                howToConnect: "¿Cómo conectar? (Ver guía)",
+                guideTitle: "Guía de Conexión",
+                step1: "Paso 1",
+                step2: "Paso 2",
+                guideStep1: "Elige MONITOR en tu Tablet o PC",
+                guideStep2: "Elige CONTROL en tu Celular y escanea el QR",
+                guideBtn: "Entendido, ¡empezar!",
+                control: "Control",
+                debriefing: "Debriefing",
+                endSim: "FINALIZAR SIMULACIÓN",
+                startSim: "COMENZAR SIMULACIÓN",
+                transition: "Transición",
+                hr: "FC",
+                act: "Act",
+                presets: {
+                    normal: "Normal",
+                    brady: "Bradicardia",
+                    desat: "Desaturación",
+                    grunt: "Quejido",
+                    vpp: "VPP",
+                    vpp_ct: "VPP + Masaje",
+                    tachy: "Taquicardia",
+                    shock: "Shock",
+                    afib: "F.Auricular",
+                    rcp: "⚡ RCP"
+                },
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" },
+                clinicalCases: "Casos Clínicos",
+                newCase: "Nuevo caso",
+                myCases: "Mis casos",
+                library: "Biblioteca",
+                predefinedCases: "Casos predefinidos",
+                editCase: "Editar caso",
+                newCaseTitle: "Nuevo caso",
+                cancel: "Cancelar",
+                publish: "Publicar en Biblioteca",
+                published: "✓ Publicado",
+                stages: "etapas",
+                noLibraryCases: "No hay casos en la biblioteca aún",
+                createAndPublish: "Creá un caso y publicalo para ser el primero",
+                loadingLibrary: "Cargando biblioteca...",
+                caseTitle: "Título del caso",
+                titlePlaceholder: "Ej: Bradicardia neonatal",
+                presentation: "Presentación del caso",
+                stageName: "Nombre de la etapa",
+                author: "Autor",
+                viewPresentation: "Ver presentación del caso",
+                casePresentation: "Presentación del caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Sig",
+                caseCompleted: "✓ Caso completado",
+                exit: "Salir",
+                use: "Usar"
+            },
+            en: {
+                loading: "Loading NeoMonitor...",
+                connecting: "CONNECTING...",
+                bed: "BED",
+                mute: "Mute",
+                menu: "Menu",
+                link: "LINK",
+                simNotStarted: "Simulation not started",
+                id: "ID",
+                sessionId: "SESSION ID",
+                scanPrompt: "Scan to connect control or wait for command...",
+                scanManual: "Enter the ID shown next to the QR code",
+                placeholderId: "Enter ID",
+                scanCamera: "Scan Monitor",
+                scanPhonePrompt: "Scan with your phone to use as a remote control",
+                startMonitorBtn: "TAP TO START MONITOR",
+                mainPrompt: "Open this app on both devices",
+                useAsMonitor: "Use this device as Monitor",
+                useAsControl: "Use this device as Control",
+                howToConnect: "How to connect? (View guide)",
+                guideTitle: "Connection Guide",
+                step1: "Step 1",
+                step2: "Step 2",
+                guideStep1: "Choose MONITOR on your Tablet or PC",
+                guideStep2: "Choose CONTROL on your Phone and scan the QR",
+                guideBtn: "Understood, start!",
+                control: "Control",
+                debriefing: "Debriefing",
+                endSim: "END SIMULATION",
+                startSim: "START SIMULATION",
+                transition: "Transition",
+                hr: "HR",
+                act: "Act",
+                presets: {
+                    normal: "Normal",
+                    brady: "Bradycardia",
+                    desat: "Desaturation",
+                    grunt: "Grunt",
+                    vpp: "PPV",
+                    vpp_ct: "PPV + Massage",
+                    tachy: "Tachycardia",
+                    shock: "Shock",
+                    afib: "A-Fib",
+                    rcp: "⚡ CPR"
+                },
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediatric", adulto: "Adult" },
+                clinicalCases: "Clinical Cases",
+                newCase: "New case",
+                myCases: "My cases",
+                library: "Library",
+                predefinedCases: "Predefined cases",
+                editCase: "Edit case",
+                newCaseTitle: "New case",
+                cancel: "Cancel",
+                publish: "Publish to Library",
+                published: "✓ Published",
+                stages: "stages",
+                noLibraryCases: "No cases in the library yet",
+                createAndPublish: "Create a case and publish it to be the first",
+                loadingLibrary: "Loading library...",
+                caseTitle: "Case title",
+                titlePlaceholder: "Ex: Neonatal bradycardia",
+                presentation: "Case presentation",
+                stageName: "Stage name",
+                author: "Author",
+                viewPresentation: "View case presentation",
+                casePresentation: "Case presentation",
+                understood: "Understood",
+                startCase: "Start Case",
+                nextStage: "Next",
+                caseCompleted: "✓ Case completed",
+                exit: "Exit",
+                use: "Use"
+            },
+            pt: {
+                loading: "Carregando NeoMonitor...",
+                connecting: "CONECTANDO...",
+                bed: "LEITO",
+                mute: "Silenciar",
+                menu: "Menu",
+                link: "VINCULAR",
+                simNotStarted: "Simulação não iniciada",
+                id: "ID",
+                sessionId: "ID DA SESSÃO",
+                scanPrompt: "Escaneie para conectar o controle o aguarde o comando...",
+                scanManual: "Insira o ID que aparece ao lado do código QR",
+                placeholderId: "Insira o ID",
+                scanCamera: "Escanear Monitor",
+                scanPhonePrompt: "Escaneie com seu celular para usá-lo como controle remoto",
+                startMonitorBtn: "TOCAR PARA INICIAR MONITOR",
+                mainPrompt: "Abra este aplicativo nos dois dispositivos",
+                useAsMonitor: "Usar este dispositivo como Monitor",
+                useAsControl: "Usar este dispositivo como Controle",
+                howToConnect: "Como conectar? (Ver guia)",
+                guideTitle: "Guia de Conexão",
+                step1: "Passo 1",
+                step2: "Passo 2",
+                guideStep1: "Escolha MONITOR no seu Tablet o PC",
+                guideStep2: "Escolha CONTROLE no seu celular e escaneie o QR",
+                guideBtn: "Entendido, vamos começar!",
+                control: "Controle",
+                debriefing: "Debriefing",
+                endSim: "FINALIZAR SIMULAÇÃO",
+                startSim: "INICIAR SIMULAÇÃO",
+                transition: "Transição",
+                hr: "FC",
+                act: "Atu",
+                presets: {
+                    normal: "Normal",
+                    brady: "Bradicardia",
+                    desat: "Dessaturação",
+                    grunt: "Gemido",
+                    vpp: "VPP",
+                    vpp_ct: "VPP + Massagem",
+                    tachy: "Taquicardia",
+                    shock: "Choque",
+                    afib: "F.Atrial",
+                    rcp: "⚡ RCP"
+                },
+                patientTypes: { neonatal: "Neonatal", pediatrico: "Pediátrico", adulto: "Adulto" },
+                clinicalCases: "Casos Clínicos",
+                newCase: "Novo caso",
+                myCases: "Meus casos",
+                library: "Biblioteca",
+                predefinedCases: "Casos predefinidos",
+                editCase: "Editar caso",
+                newCaseTitle: "Novo caso",
+                cancel: "Cancelar",
+                publish: "Publicar na Biblioteca",
+                published: "✓ Publicado",
+                stages: "etapas",
+                noLibraryCases: "Nenhum caso na biblioteca ainda",
+                createAndPublish: "Crie um caso e publique-o para ser o primeiro",
+                loadingLibrary: "Carregando biblioteca...",
+                caseTitle: "Título do caso",
+                titlePlaceholder: "Ex: Bradicardia neonatal",
+                presentation: "Apresentação do caso",
+                stageName: "Nome da etapa",
+                author: "Autor",
+                viewPresentation: "Ver apresentação do caso",
+                casePresentation: "Apresentação do caso",
+                understood: "Entendido",
+                startCase: "Iniciar Caso",
+                nextStage: "Próx",
+                caseCompleted: "✓ Caso concluído",
+                exit: "Sair",
+                use: "Usar"
+            }
+        };
+
+        const PATIENT_CONFIG = {
+            // NRP 2020: VPP si FC<100, masaje si FC<60
+            neonatal: {
+                hrCriticalLow: 60, hrWarningLow: 100, hrWarningHigh: 180,
+                spo2Critical: 80, spo2Warning: 89,
+                presets: [
+                    { key: 'normal',  hr: 142, spo2: 94,  style: 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' },
+                    { key: 'desat',   hr: 110, spo2: 84,  style: 'bg-blue-900/40 border-blue-500/50 text-blue-400' },
+                    { key: 'grunt',   hr: null, spo2: null, style: 'bg-orange-900/40 border-orange-500/50 text-orange-400', grunt: true },
+                    { key: 'vpp',     hr: 88,  spo2: 84,  style: 'bg-indigo-900/40 border-indigo-500/50 text-indigo-400' },
+                    { key: 'brady',   hr: 68,  spo2: 75,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
+                    { key: 'vpp_ct',  hr: 52,  spo2: 62,  style: 'bg-red-900/40 border-red-500/50 text-red-500' },
+                ]
+            },
+            // PALS: RCP si FC<60 con mala perfusión; tachy >160 (SVT >220)
+            pediatrico: {
+                hrCriticalLow: 60, hrWarningLow: 70, hrWarningHigh: 160,
+                spo2Critical: 88, spo2Warning: 94,
+                presets: [
+                    { key: 'normal',  hr: 100, spo2: 98,  style: 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' },
+                    { key: 'desat',   hr: 112, spo2: 88,  style: 'bg-blue-900/40 border-blue-500/50 text-blue-400' },
+                    { key: 'brady',   hr: 52,  spo2: 90,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
+                    { key: 'tachy',   hr: 210, spo2: 92,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
+                    { key: 'shock',   hr: 148, spo2: 91,  style: 'bg-purple-900/40 border-purple-500/50 text-purple-400' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf', style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                ]
+            },
+            // ACLS: bradicardia sintomática <50, crítico <40; tachy sintomática >150
+            adulto: {
+                hrCriticalLow: 40, hrWarningLow: 50, hrWarningHigh: 150,
+                spo2Critical: 88, spo2Warning: 94,
+                presets: [
+                    { key: 'normal',  hr: 75,  spo2: 98,  style: 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' },
+                    { key: 'desat',   hr: 95,  spo2: 85,  style: 'bg-blue-900/40 border-blue-500/50 text-blue-400' },
+                    { key: 'brady',   hr: 36,  spo2: 94,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
+                    { key: 'tachy',   hr: 158, spo2: 95,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
+                    { key: 'afib',    hr: 118, spo2: 94,  rhythm: 'afib', style: 'bg-pink-900/40 border-pink-500/50 text-pink-400' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf',   style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                ]
+            }
+        };
+
+        const RHYTHM_OPTIONS = {
+            neonatal:  [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+            ],
+            pediatrico: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ],
+            adulto: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'afib',  label: { es: 'FA',      en: 'AFib',  pt: 'FA' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ]
+        };
+
+        const RHYTHM_STYLES = {
+            sinus: 'bg-green-900 border-green-500 text-green-200',
+            afib:  'bg-pink-900 border-pink-500 text-pink-200',
+            vt:    'bg-orange-900 border-orange-500 text-orange-200',
+            vf:    'bg-red-900 border-red-500 text-red-200',
+        };
+
+        const PATIENT_DEFAULTS = {
+            neonatal:   { hr: 122, spo2: 91 },
+            pediatrico: { hr: 100, spo2: 98 },
+            adulto:     { hr: 75,  spo2: 98 },
+        };
+
+        const Icons = {
+            Activity: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+            Monitor: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>,
+            Smartphone: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>,
+            Wifi: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
+            VolumeX: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="17" y1="9" y2="15"/><line x1="17" x2="23" y1="9" y2="15"/></svg>,
+            Play: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
+            Battery: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>,
+            QrCode: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h7v7h-7z"/><path d="M7 17h.01"/><path d="M17 7h.01"/><path d="M17 17h.01"/></svg>,
+            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>,
+            Clock: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            List: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>,
+            Camera: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+            ArrowRight: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+            Help: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+            Heart: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Globe: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+            ChevronDown: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        };
+
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false, patientType: 'neonatal', rhythm: 'sinus' };
+
+        const CLINICAL_CASES = [
+            // ── NEONATAL ──────────────────────────────────────────────────────
+            {
+                id: 'rcp_basica',
+                patientType: 'neonatal',
+                title: { es: 'RCP Neonatal Básica', en: 'Basic Neonatal CPR', pt: 'RCP Neonatal Básica' },
+                presentation: { es: 'RN de 38 sem EG. Parto vaginal prolongado. Nace sin llanto, apneico, hipotonía marcada. Líquido amniótico claro. Equipo de reanimación presente.', en: 'Newborn 38 weeks GA. Prolonged vaginal delivery. Born without cry, apneic, marked hypotonia. Clear amniotic fluid. Resuscitation team present.', pt: 'RN de 38 sem IG. Parto vaginal prolongado. Nasce sem choro, apneico, hipotonia acentuada. Líquido amniótico claro. Equipe de reanimação presente.' },
+                stages: [
+                    { name: { es: 'Presentación inicial', en: 'Initial presentation', pt: 'Apresentação inicial' }, hr: 142, spo2: 91, transition: 5 },
+                    { name: { es: 'Apnea / Bradicardia severa', en: 'Apnea / Severe bradycardia', pt: 'Apneia / Bradicardia grave' }, hr: 0, spo2: 65, transition: 8 },
+                    { name: { es: 'Inicio VPP', en: 'PPV initiated', pt: 'Início VPP' }, hr: 68, spo2: 78, transition: 15 },
+                    { name: { es: 'Respuesta a VPP', en: 'Response to PPV', pt: 'Resposta à VPP' }, hr: 118, spo2: 88, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 144, spo2: 94, transition: 10 },
+                ]
+            },
+            {
+                id: 'desat_progresiva',
+                patientType: 'neonatal',
+                title: { es: 'Desaturación Progresiva', en: 'Progressive Desaturation', pt: 'Dessaturação Progressiva' },
+                presentation: { es: 'RN de 35 sem EG, parto por cesárea. Dificultad respiratoria progresiva desde el nacimiento. FR 68 rpm, aleteo nasal, tiraje subcostal bilateral. SpO2 88% en aire ambiente.', en: 'Newborn 35 weeks GA, cesarean delivery. Progressive respiratory distress since birth. RR 68 rpm, nasal flaring, subcostal retractions. SpO2 88% on room air.', pt: 'RN de 35 sem IG, parto cesáreo. Dificuldade respiratória progressiva desde o nascimento. FR 68 rpm, batimento de asa de nariz, tiragem subcostal bilateral. SpO2 88% em ar ambiente.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 148, spo2: 93, transition: 5 },
+                    { name: { es: 'Desaturación leve', en: 'Mild desaturation', pt: 'Dessaturação leve' }, hr: 132, spo2: 85, transition: 20 },
+                    { name: { es: 'Desaturación severa + bradicardia', en: 'Severe desaturation + bradycardia', pt: 'Dessaturação grave + bradicardia' }, hr: 72, spo2: 74, transition: 10 },
+                    { name: { es: 'VPP + Masaje cardíaco', en: 'PPV + Cardiac massage', pt: 'VPP + Massagem cardíaca' }, hr: 56, spo2: 65, transition: 5 },
+                    { name: { es: 'Respuesta al tratamiento', en: 'Treatment response', pt: 'Resposta ao tratamento' }, hr: 112, spo2: 86, transition: 25 },
+                    { name: { es: 'Normalización', en: 'Normalization', pt: 'Normalização' }, hr: 146, spo2: 94, transition: 15 },
+                ]
+            },
+            {
+                id: 'dificultad_resp',
+                patientType: 'neonatal',
+                title: { es: 'Dificultad Respiratoria', en: 'Respiratory Distress', pt: 'Dificuldade Respiratória' },
+                presentation: { es: 'RN de 36 sem EG. Al minuto de vida presenta quejido espiratorio persistente, FR 74 rpm, tiraje intercostal, cianosis perioral. SpO2 88% en aire ambiente. Sin antecedentes maternos de riesgo.', en: 'Newborn 36 weeks GA. At one minute of life presents persistent expiratory grunt, RR 74 rpm, intercostal retractions, perioral cyanosis. SpO2 88% on room air. No maternal risk factors.', pt: 'RN de 36 sem IG. Ao minuto de vida apresenta gemido expiratório persistente, FR 74 rpm, tiragem intercostal, cianose perioral. SpO2 88% em ar ambiente. Sem antecedentes maternos de risco.' },
+                stages: [
+                    { name: { es: 'Ingreso a sala', en: 'Room admission', pt: 'Admissão na sala' }, hr: 158, spo2: 88, transition: 5 },
+                    { name: { es: 'Quejido + desaturación', en: 'Grunt + desaturation', pt: 'Gemido + dessaturação' }, hr: 145, spo2: 82, transition: 15 },
+                    { name: { es: 'Empeoramiento', en: 'Worsening', pt: 'Piora' }, hr: 110, spo2: 76, transition: 10 },
+                    { name: { es: 'Respuesta a CPAP/O2', en: 'CPAP/O2 response', pt: 'Resposta a CPAP/O2' }, hr: 138, spo2: 90, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 152, spo2: 94, transition: 10 },
+                ]
+            },
+            // ── PEDIÁTRICO ────────────────────────────────────────────────────
+            {
+                id: 'shock_septico_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Shock Séptico', en: 'Septic Shock', pt: 'Choque Séptico' },
+                presentation: { es: 'Niño de 4 años. Fiebre de 48 h, decaimiento progresivo. FC 148 lpm, FR 38 rpm, relleno capilar 4 s, piel moteada, PA 72/40 mmHg. SpO2 92% en aire ambiente. Acceso IV colocado.', en: '4-year-old child. 48 h fever, progressive deterioration. HR 148 bpm, RR 38 rpm, capillary refill 4 s, mottled skin, BP 72/40 mmHg. SpO2 92% on room air. IV access established.', pt: 'Criança de 4 anos. Febre de 48 h, deterioração progressiva. FC 148 bpm, FR 38 rpm, enchimento capilar 4 s, pele moteada, PA 72/40 mmHg. SpO2 92% em ar ambiente. Acesso IV estabelecido.' },
+                stages: [
+                    { name: { es: 'Presentación al ingreso', en: 'Admission presentation', pt: 'Apresentação na admissão' }, hr: 148, spo2: 92, transition: 5 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 162, spo2: 88, transition: 15 },
+                    { name: { es: 'Paro cardíaco inminente', en: 'Impending cardiac arrest', pt: 'Parada cardíaca iminente' }, hr: 48, spo2: 72, transition: 10 },
+                    { name: { es: 'Respuesta a volumen + drogas', en: 'Response to fluids + drugs', pt: 'Resposta a volume + drogas' }, hr: 118, spo2: 88, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 105, spo2: 96, transition: 15 },
+                ]
+            },
+            {
+                id: 'tsvp_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Taquicardia Supraventricular', en: 'Supraventricular Tachycardia', pt: 'Taquicardia Supraventricular' },
+                presentation: { es: 'Niña de 7 años. Palpitaciones bruscas hace 30 min, palidez y malestar. FC 218 lpm regular, PA 88/60 mmHg, SpO2 96%. Sin cardiopatía conocida. Monitor conectado.', en: '7-year-old girl. Sudden palpitations 30 min ago, pallor and malaise. HR 218 bpm regular, BP 88/60 mmHg, SpO2 96%. No known cardiac disease. Monitor connected.', pt: 'Menina de 7 anos. Palpitações súbitas há 30 min, palidez e mal-estar. FC 218 bpm regular, PA 88/60 mmHg, SpO2 96%. Sem cardiopatia conhecida. Monitor conectado.' },
+                stages: [
+                    { name: { es: 'TSV activa', en: 'Active SVT', pt: 'TSV ativa' }, hr: 218, spo2: 96, transition: 5 },
+                    { name: { es: 'Maniobra vagal / Adenosina', en: 'Vagal maneuver / Adenosine', pt: 'Manobra vagal / Adenosina' }, hr: 218, spo2: 94, transition: 8 },
+                    { name: { es: 'Conversión a ritmo sinusal', en: 'Conversion to sinus rhythm', pt: 'Conversão a ritmo sinusal' }, hr: 105, spo2: 98, transition: 5 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 98, spo2: 99, transition: 10 },
+                ]
+            },
+            {
+                id: 'paro_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Paro Cardiorrespiratorio Pediátrico', en: 'Pediatric Cardiac Arrest', pt: 'Parada Cardiorrespiratória Pediátrica' },
+                presentation: { es: 'Niño de 6 años. Encontrado inconsciente luego de accidente en pileta. Sin pulso, sin respiración. Equipo de emergencia presente. RCP iniciado.', en: '6-year-old boy. Found unconscious after pool accident. No pulse, no breathing. Emergency team present. CPR initiated.', pt: 'Menino de 6 anos. Encontrado inconsciente após acidente em piscina. Sem pulso, sem respiração. Equipe de emergência presente. RCP iniciada.' },
+                stages: [
+                    { name: { es: 'Paro / Asistolia', en: 'Arrest / Asystole', pt: 'Parada / Assistolia' }, hr: 0, spo2: 60, transition: 3 },
+                    { name: { es: 'RCP en curso', en: 'CPR in progress', pt: 'RCP em andamento' }, hr: 0, spo2: 65, transition: 10 },
+                    { name: { es: 'FV detectada – DEA', en: 'VF detected – AED', pt: 'FV detectada – DEA' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'Post-descarga – AESP', en: 'Post-shock – PEA', pt: 'Pós-choque – AESP' }, hr: 52, spo2: 68, transition: 8 },
+                    { name: { es: 'Retorno circulación espontánea', en: 'Return of spontaneous circulation', pt: 'Retorno da circulação espontânea' }, hr: 88, spo2: 88, transition: 15 },
+                    { name: { es: 'Estabilización post-RCE', en: 'Post-ROSC stabilization', pt: 'Estabilização pós-RCES' }, hr: 100, spo2: 94, transition: 15 },
+                ]
+            },
+            // ── ADULTO ────────────────────────────────────────────────────────
+            {
+                id: 'brady_adulto',
+                patientType: 'adulto',
+                title: { es: 'Bradicardia Sintomática', en: 'Symptomatic Bradycardia', pt: 'Bradicardia Sintomática' },
+                presentation: { es: 'Hombre de 68 años. Síncope transitorio, ahora con mareos y disnea. FC 36 lpm, PA 88/56 mmHg, SpO2 92%. ECG: bloqueo AV completo. Acceso IV colocado.', en: '68-year-old male. Transient syncope, now dizzy and dyspneic. HR 36 bpm, BP 88/56 mmHg, SpO2 92%. ECG: complete AV block. IV access established.', pt: 'Homem de 68 anos. Síncope transitória, agora com tontura e dispneia. FC 36 bpm, PA 88/56 mmHg, SpO2 92%. ECG: bloqueio AV total. Acesso IV estabelecido.' },
+                stages: [
+                    { name: { es: 'Bradicardia severa', en: 'Severe bradycardia', pt: 'Bradicardia grave' }, hr: 36, spo2: 92, transition: 5 },
+                    { name: { es: 'Atropina 0.5 mg IV', en: 'Atropine 0.5 mg IV', pt: 'Atropina 0,5 mg IV' }, hr: 36, spo2: 90, transition: 8 },
+                    { name: { es: 'Respuesta parcial', en: 'Partial response', pt: 'Resposta parcial' }, hr: 50, spo2: 93, transition: 10 },
+                    { name: { es: 'Marcapaso transcutáneo', en: 'Transcutaneous pacing', pt: 'Marca-passo transcutâneo' }, hr: 70, spo2: 95, transition: 8 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 72, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'tachy_adulto',
+                patientType: 'adulto',
+                title: { es: 'Taquicardia con Inestabilidad', en: 'Unstable Tachycardia', pt: 'Taquicardia com Instabilidade' },
+                presentation: { es: 'Mujer de 55 años. Palpitaciones + dolor precordial. FC 162 lpm irregular, PA 84/52 mmHg, SpO2 93%. ECG: fibrilación auricular rápida. Sin respuesta a maniobras vagales.', en: '55-year-old female. Palpitations + chest pain. HR 162 bpm irregular, BP 84/52 mmHg, SpO2 93%. ECG: rapid atrial fibrillation. No response to vagal maneuvers.', pt: 'Mulher de 55 anos. Palpitações + dor precordial. FC 162 bpm irregular, PA 84/52 mmHg, SpO2 93%. ECG: fibrilação atrial rápida. Sem resposta a manobras vagais.' },
+                stages: [
+                    { name: { es: 'FA rápida inestable', en: 'Unstable rapid AFib', pt: 'FA rápida instável' }, hr: 162, spo2: 93, transition: 5 },
+                    { name: { es: 'Cardioversión sincronizada', en: 'Synchronized cardioversion', pt: 'Cardioversão sincronizada' }, hr: 158, spo2: 92, transition: 5 },
+                    { name: { es: 'Conversión a sinusal', en: 'Conversion to sinus', pt: 'Conversão para sinusal' }, hr: 88, spo2: 96, transition: 8 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 80, spo2: 98, transition: 10 },
+                ]
+            },
+            {
+                id: 'paro_adulto',
+                patientType: 'adulto',
+                title: { es: 'Paro Cardiorrespiratorio Adulto', en: 'Adult Cardiac Arrest', pt: 'Parada Cardiorrespiratória Adulto' },
+                presentation: { es: 'Hombre de 60 años. Colapso súbito en sala de espera. Sin pulso, sin respiración. RCP iniciado por primer respondiente. DEA disponible. Equipo ACLS en camino.', en: '60-year-old male. Sudden collapse in waiting room. No pulse, no breathing. CPR initiated by first responder. AED available. ACLS team en route.', pt: 'Homem de 60 anos. Colapso súbito na sala de espera. Sem pulso, sem respiração. RCP iniciada pelo primeiro respondente. DEA disponível. Equipe ACLS a caminho.' },
+                stages: [
+                    { name: { es: 'Paro – FV/TV sin pulso', en: 'Arrest – VF/pulseless VT', pt: 'Parada – FV/TV sem pulso' }, hr: 0, spo2: 60, transition: 3 },
+                    { name: { es: 'RCP de alta calidad', en: 'High-quality CPR', pt: 'RCP de alta qualidade' }, hr: 0, spo2: 65, transition: 10 },
+                    { name: { es: 'Descarga DEA / 200 J', en: 'AED shock / 200 J', pt: 'Choque DEA / 200 J' }, hr: 0, spo2: 62, transition: 5 },
+                    { name: { es: 'RCE – Ritmo sinusal', en: 'ROSC – Sinus rhythm', pt: 'RCES – Ritmo sinusal' }, hr: 68, spo2: 84, transition: 10 },
+                    { name: { es: 'Cuidados post-RCE', en: 'Post-ROSC care', pt: 'Cuidados pós-RCES' }, hr: 76, spo2: 96, transition: 20 },
+                ]
+            },
+            // ── PEDIÁTRICO (adicionales) ──────────────────────────────────────
+            {
+                id: 'tsv_pediatrica',
+                patientType: 'pediatrico',
+                title: { es: 'Taquicardia Supraventricular (TSV)', en: 'Supraventricular Tachycardia (SVT)', pt: 'Taquicardia Supraventricular (TSV)' },
+                presentation: { es: 'Lactante de 4 meses. Irritable, pálido, rechazo del alimento. FC 215 lpm en ECG. Sin fiebre. Sin antecedentes previos.', en: '4-month-old infant. Irritable, pale, feeding refusal. HR 215 bpm on ECG. No fever. No prior history.', pt: 'Lactente de 4 meses. Irritável, pálido, recusa alimentar. FC 215 bpm no ECG. Sem febre. Sem antecedentes.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 100, spo2: 98, transition: 5 },
+                    { name: { es: 'Inicio TSV', en: 'SVT onset', pt: 'Início TSV' }, hr: 215, spo2: 94, transition: 10 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 215, spo2: 88, transition: 15 },
+                    { name: { es: 'Post-cardioversión', en: 'Post-cardioversion', pt: 'Pós-cardioversão' }, hr: 95, spo2: 97, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 100, spo2: 98, transition: 10 },
+                ]
+            },
+            {
+                id: 'shock_septico_ped2',
+                patientType: 'pediatrico',
+                title: { es: 'Shock Séptico Descompensado', en: 'Decompensated Septic Shock', pt: 'Choque Séptico Descompensado' },
+                presentation: { es: 'Niño de 6 años. Fiebre de 3 días. Llega con llenado capilar >5 seg, hipotensión, alteración del sensorio. Foco pulmonar probable.', en: '6-year-old child. 3 days of fever. Presents with capillary refill >5 sec, hypotension, altered consciousness. Probable pulmonary focus.', pt: 'Criança de 6 anos. Febre há 3 dias. Chega com TEC >5 seg, hipotensão, alteração do sensório. Foco pulmonar provável.' },
+                stages: [
+                    { name: { es: 'Shock compensado', en: 'Compensated shock', pt: 'Choque compensado' }, hr: 148, spo2: 93, transition: 5 },
+                    { name: { es: 'Shock descompensado', en: 'Decompensated shock', pt: 'Choque descompensado' }, hr: 155, spo2: 88, transition: 15 },
+                    { name: { es: 'Paro inminente', en: 'Impending arrest', pt: 'Parada iminente' }, hr: 58, spo2: 78, transition: 10 },
+                    { name: { es: 'RCP', en: 'CPR', pt: 'RCP' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'Respuesta a RCP', en: 'CPR response', pt: 'Resposta à RCP' }, hr: 80, spo2: 88, transition: 30 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 105, spo2: 95, transition: 20 },
+                ]
+            },
+            {
+                id: 'brady_ped',
+                patientType: 'pediatrico',
+                title: { es: 'Bradicardia con Mala Perfusión', en: 'Bradycardia with Poor Perfusion', pt: 'Bradicardia com Má Perfusão' },
+                presentation: { es: 'Escolar de 8 años. Postcirugía cardíaca. Monitorizado en UCI pediátrica. Letárgico, pulso débil, mala perfusión periférica.', en: '8-year-old. Post-cardiac surgery. Monitored in PICU. Lethargic, weak pulse, poor peripheral perfusion.', pt: 'Escolar de 8 anos. Pós-cirurgia cardíaca. Monitorado em UTI pediátrica. Letárgico, pulso fraco, má perfusão periférica.' },
+                stages: [
+                    { name: { es: 'Estado basal', en: 'Baseline', pt: 'Estado basal' }, hr: 80, spo2: 96, transition: 5 },
+                    { name: { es: 'Bradicardia leve', en: 'Mild bradycardia', pt: 'Bradicardia leve' }, hr: 62, spo2: 93, transition: 20 },
+                    { name: { es: 'Bradicardia severa', en: 'Severe bradycardia', pt: 'Bradicardia grave' }, hr: 48, spo2: 88, transition: 15 },
+                    { name: { es: 'RCP', en: 'CPR', pt: 'RCP' }, hr: 0, spo2: 65, transition: 5 },
+                    { name: { es: 'Respuesta', en: 'Response', pt: 'Resposta' }, hr: 72, spo2: 92, transition: 25 },
+                    { name: { es: 'Normalización', en: 'Normalization', pt: 'Normalização' }, hr: 85, spo2: 97, transition: 15 },
+                ]
+            },
+            // ── ADULTO (adicionales) ──────────────────────────────────────────
+            {
+                id: 'bradycardia_adulto',
+                patientType: 'adulto',
+                title: { es: 'Bradicardia Sintomática', en: 'Symptomatic Bradycardia', pt: 'Bradicardia Sintomática' },
+                presentation: { es: 'Hombre de 68 años. Mareos, síncope de esfuerzo. PA 88/60. FC 34 lpm. Bloqueo AV completo en ECG. Sin dolor precordial.', en: '68-year-old male. Dizziness, exertional syncope. BP 88/60. HR 34 bpm. Complete AV block on ECG. No chest pain.', pt: 'Homem de 68 anos. Tontura, síncope de esforço. PA 88/60. FC 34 bpm. Bloqueio AV completo no ECG. Sem dor precordial.' },
+                stages: [
+                    { name: { es: 'Sintomático', en: 'Symptomatic', pt: 'Sintomático' }, hr: 34, spo2: 94, transition: 5 },
+                    { name: { es: 'Post-atropina', en: 'Post-atropine', pt: 'Pós-atropina' }, hr: 52, spo2: 95, transition: 15 },
+                    { name: { es: 'Respuesta parcial', en: 'Partial response', pt: 'Resposta parcial' }, hr: 46, spo2: 94, transition: 20 },
+                    { name: { es: 'Marcapasos transitorio', en: 'Transient pacemaker', pt: 'Marca-passo transitório' }, hr: 70, spo2: 96, transition: 10 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 72, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'taquicardia_ventricular',
+                patientType: 'adulto',
+                title: { es: 'Taquicardia Ventricular con Pulso', en: 'Ventricular Tachycardia with Pulse', pt: 'Taquicardia Ventricular com Pulso' },
+                presentation: { es: 'Mujer de 55 años. Palpitaciones y disnea de inicio súbito. PA 90/60. FC 165 lpm, QRS ancho en ECG. Antecedente de IAM hace 2 años.', en: '55-year-old female. Sudden palpitations and dyspnea. BP 90/60. HR 165 bpm, wide QRS on ECG. History of MI 2 years ago.', pt: 'Mulher de 55 anos. Palpitações e dispneia de início súbito. PA 90/60. FC 165 bpm, QRS largo no ECG. Antecedente de IAM há 2 anos.' },
+                stages: [
+                    { name: { es: 'TV estable', en: 'Stable VT', pt: 'TV estável' }, hr: 165, spo2: 95, transition: 5 },
+                    { name: { es: 'Deterioro hemodinámico', en: 'Hemodynamic deterioration', pt: 'Deterioro hemodinâmico' }, hr: 168, spo2: 90, transition: 15 },
+                    { name: { es: 'TV inestable', en: 'Unstable VT', pt: 'TV instável' }, hr: 172, spo2: 84, transition: 10 },
+                    { name: { es: 'Post-cardioversión', en: 'Post-cardioversion', pt: 'Pós-cardioversão' }, hr: 88, spo2: 96, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 78, spo2: 97, transition: 10 },
+                ]
+            },
+            {
+                id: 'pcr_adulto',
+                patientType: 'adulto',
+                title: { es: 'Paro Cardiorrespiratorio (PCR)', en: 'Cardiopulmonary Arrest (CPA)', pt: 'Parada Cardiorrespiratória (PCR)' },
+                presentation: { es: 'Hombre de 62 años. Colapso súbito en vía pública. Sin pulso, apneico. RCP iniciada por testigos. DEA disponible. Sin antecedentes conocidos.', en: '62-year-old male. Sudden collapse in public. Pulseless, apneic. Bystander CPR initiated. AED available. No known history.', pt: 'Homem de 62 anos. Colapso súbito em via pública. Sem pulso, apneico. RCP iniciada por testemunhas. DEA disponível. Sem antecedentes conhecidos.' },
+                stages: [
+                    { name: { es: 'Colapso / PCR', en: 'Collapse / CPA', pt: 'Colapso / PCR' }, hr: 0, spo2: 60, transition: 5 },
+                    { name: { es: 'RCP en curso', en: 'CPR in progress', pt: 'RCP em andamento' }, hr: 0, spo2: 65, transition: 30 },
+                    { name: { es: 'Post-desfibrilación', en: 'Post-defibrillation', pt: 'Pós-desfibrilação' }, hr: 42, spo2: 78, transition: 15 },
+                    { name: { es: 'Recuperación', en: 'Recovery', pt: 'Recuperação' }, hr: 88, spo2: 90, transition: 20 },
+                    { name: { es: 'Estabilización', en: 'Stabilization', pt: 'Estabilização' }, hr: 80, spo2: 96, transition: 15 },
+                ]
+            },
+        ];
+
+        const NON_TECHNICAL_SKILLS = [
+            'Conocer el ambiente',
+            'Anticiparse y planificar',
+            'Llamar para pedir ayuda',
+            'Distribución de roles',
+            'Movilizar los recursos disponibles',
+            'Comunicación efectiva',
+            'Usar la información disponible',
+            'Prevención y fijación de errores',
+            'Chequeo doble y cruzado',
+            'Uso de ayuda memorias',
+            'Reevaluaciones repetidas',
+            'Trabajo en equipo',
+            'Enfocar la atención con sabiduría',
+            'Priorizar dinámicamente',
+            'Distribución de tareas',
+        ];
+
+        const SponsorSpace = ({ className = "", compact = false, source = "Monitor", t }) => (
+            <div className={`sponsor-container ${className}`} onClick={() => {
+                trackNeoEvent('sponsor_click', source);
+                window.open('https://tu-sitio-o-del-sponsor.com', '_blank');
+            }}>
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] text-slate-500 font-bold mb-0.5">SPONSOR</span>
+                    <div className="bg-slate-700/50 w-full px-4 py-1 rounded flex items-center justify-center">
+                        <span className="text-[9px] text-slate-400 font-mono italic">LOGO HERE</span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        let audioCtx;
+        const initAudio = () => {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        };
+
+        const playBeep = (pitch = 800) => {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.value = pitch;
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0.1, now); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            oscillator.start(now);
+            oscillator.stop(now + 0.15);
+        };
+
+        const playAlarmSequence = (type) => {
+             if (!audioCtx || audioCtx.state !== 'running') return;
+             const now = audioCtx.currentTime;
+             const createTone = (freq, start, duration) => {
+                 const osc = audioCtx.createOscillator();
+                 const gain = audioCtx.createGain();
+                 osc.connect(gain);
+                 gain.connect(audioCtx.destination);
+                 osc.type = 'square';
+                 osc.frequency.value = freq;
+                 gain.gain.setValueAtTime(0.08, start);
+                 gain.gain.setValueAtTime(0, start + duration);
+                 osc.start(start);
+                 osc.stop(start + duration);
+             };
+             if (type === 'critical') {
+                 createTone(880, now, 0.1); createTone(880, now + 0.2, 0.1); createTone(880, now + 0.4, 0.1);
+             } else if (type === 'warning') {
+                 createTone(600, now, 0.2); createTone(600, now + 0.4, 0.2);
+             }
+        };
+
+        const playGrunt = () => {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(75, now + 0.35);
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.18, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.45);
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(280, now);
+            osc2.frequency.exponentialRampToValueAtTime(150, now + 0.3);
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.linearRampToValueAtTime(0.07, now + 0.04);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc2.start(now);
+            osc2.stop(now + 0.4);
+        };
+
+        const WaveformCanvas = ({ color, speed, type, flatline, onBeat, rhythm = 'sinus', patientType = 'neonatal', spo2 = 100 }) => {
+            const canvasRef = useRef(null);
+            const dataRef = useRef([]);
+            const phaseRef = useRef(0);
+            const lastTimeRef = useRef(performance.now());
+            const absolutePhaseRef = useRef(0);
+            const nextBeatAbsRef = useRef(Math.PI);
+            const lastRRRef = useRef(2 * Math.PI);
+            const vfTimeRef = useRef(0);
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(0);
+
+            useEffect(() => {
+                absolutePhaseRef.current = 0;
+                nextBeatAbsRef.current = Math.PI;
+                lastRRRef.current = 2 * Math.PI;
+                vfTimeRef.current = 0;
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = 5 + Math.random() * 10;
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                let frameId;
+                const draw = (time) => {
+                    const deltaTime = (time - lastTimeRef.current) / 1000;
+                    lastTimeRef.current = time;
+                    if (deltaTime > 0.1) { frameId = requestAnimationFrame(draw); return; }
+                    if (canvas.width !== canvas.offsetWidth) {
+                        canvas.width = canvas.offsetWidth;
+                        canvas.height = canvas.offsetHeight;
+                        dataRef.current = new Array(canvas.width).fill(canvas.height / 2);
+                    }
+                    let newValue = canvas.height / 2;
+                    const amplitude = canvas.height / 3;
+                    const mid = canvas.height / 2;
+                    const isVF = rhythm === 'vf';
+                    const isAFib = rhythm === 'afib';
+
+                    if (isVF) {
+                        vfTimeRef.current += deltaTime;
+                        const vt = vfTimeRef.current;
+                        const coarseDecay = Math.max(0.25, 1.0 - vt / 80);
+                        const vfAmpBase = amplitude * 0.75 * coarseDecay;
+                        const vfAmp1 = vfAmpBase * (0.7 + 0.3 * Math.abs(Math.sin(vt * 0.4)));
+                        const vfAmp2 = vfAmpBase * (0.4 + 0.2 * Math.abs(Math.sin(vt * 0.6 + 1.2)));
+                        const vfAmp3 = vfAmpBase * 0.15;
+                        newValue = mid - vfAmp1 * Math.sin(vt * 37.7 + 0.3) - vfAmp2 * Math.sin(vt * 25.1 + 1.8) - vfAmp3 * Math.sin(vt * 50.3 + 0.9) + (Math.random() * amplitude * 0.06 - 0.03) * coarseDecay;
+                    } else if (!flatline && speed > 0) {
+                        vfTimeRef.current += deltaTime;
+                        const beatsPerSecond = speed / 60;
+                        const prevPhase = phaseRef.current;
+                        let phaseIncrement = (beatsPerSecond * 2 * Math.PI) * deltaTime;
+                        // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
+                        if (type === 'ecg' && !isAFib && !isVF) {
+                            const t = vfTimeRef.current;
+                            if (t >= hrvNextChangeRef.current) {
+                                hrvTargetRef.current = (Math.random() - 0.5) * 0.028;
+                                hrvNextChangeRef.current = t + 5 + Math.random() * 10;
+                            }
+                            hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * deltaTime * 0.4;
+                            phaseIncrement *= (1.0 + hrvOffsetRef.current);
+                        }
+                        phaseRef.current += phaseIncrement;
+                        if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
+                        const p = phaseRef.current;
+
+                        if (type === 'ecg') {
+                            if (isAFib) {
+                                vfTimeRef.current += deltaTime;
+                                const afibTime = vfTimeRef.current;
+                                absolutePhaseRef.current += beatsPerSecond * 2 * Math.PI * deltaTime;
+                                const absP = absolutePhaseRef.current;
+                                const prevAbsP = absP - beatsPerSecond * 2 * Math.PI * deltaTime;
+                                // Ondas f visibles e irregulares (~6-7 Hz)
+                                const fWaveAmp = amplitude * 0.11 * (0.6 + 0.4 * Math.abs(Math.sin(afibTime * 0.65)));
+                                newValue = mid
+                                    + fWaveAmp * Math.sin(afibTime * 38.0)
+                                    + fWaveAmp * 0.55 * Math.sin(afibTime * 43.5 + 1.2)
+                                    + fWaveAmp * 0.28 * Math.sin(afibTime * 29.0 + 2.4)
+                                    + (Math.random() * amplitude * 0.018 - 0.009);
+                                const dist = absP - nextBeatAbsRef.current;
+                                // QRS supraventricular con morfología Q-R-S
+                                if (dist > -0.50 && dist < 0.50) {
+                                    const R = -amplitude * 1.9 * Math.exp(-dist * dist * 9);
+                                    const Q =  amplitude * 0.22 * Math.exp(-Math.pow(dist + 0.23, 2) * 42);
+                                    const S =  amplitude * 0.18 * Math.exp(-Math.pow(dist - 0.23, 2) * 42);
+                                    newValue = mid + R + Q + S;
+                                }
+                                // Onda T concordante
+                                if (dist > 0.55 && dist < 1.65) {
+                                    const tp = (dist - 0.55) / 1.10;
+                                    newValue = mid - amplitude * 0.28 * Math.sin(tp * Math.PI);
+                                }
+                                if (prevAbsP < nextBeatAbsRef.current && absP >= nextBeatAbsRef.current) {
+                                    onBeat && onBeat();
+                                    const rrVariation = 0.45 + Math.random() * 1.10;
+                                    lastRRRef.current = 2 * Math.PI * rrVariation;
+                                    nextBeatAbsRef.current = absP + lastRRRef.current;
+                                }
+                            } else if (rhythm === 'vt') {
+                                if (onBeat) {
+                                    if (prevPhase < Math.PI && p >= Math.PI) onBeat();
+                                }
+                                const vtQRS_start = Math.PI - 1.34;
+                                const vtQRS_end = Math.PI + 1.34;
+                                const vtT_start = 4.78;
+                                const vtT_end = 6.08;
+                                const inQRS = p > vtQRS_start && p < vtQRS_end;
+                                const inT = p > vtT_start && p < vtT_end;
+                                if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    const main = -amplitude * 1.6 * Math.exp(-qp * qp * 0.8);
+                                    const notch = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.8, 2) * 5);
+                                    newValue = mid + main + notch;
+                                } else if (inT) {
+                                    const tp = (p - vtT_start) / (vtT_end - vtT_start);
+                                    newValue = mid + amplitude * 0.45 * Math.sin(tp * Math.PI);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
+                            } else {
+                                if (prevPhase < Math.PI && p >= Math.PI) {
+                                    onBeat && onBeat();
+                                }
+                                const inP = p > 1.624 && p < 2.376;
+                                const inQRS = p > 2.639 && p < 3.644;
+                                const inT = p > 3.895 && p < 5.780;
+                                if (inP) {
+                                    const pp = p - 2.000;
+                                    newValue = mid - amplitude * 0.15 * Math.exp(-pp * pp * 7);
+                                } else if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    const R = -amplitude * 2.2 * Math.exp(-qp * qp * 4);
+                                    const Q = amplitude * 0.3 * Math.exp(-Math.pow(qp + 0.35, 2) * 30);
+                                    const S = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.35, 2) * 30);
+                                    newValue = mid + R + Q + S;
+                                } else if (inT) {
+                                    const tp = (p - 3.895) / (5.780 - 3.895);
+                                    newValue = mid - amplitude * 0.35 * Math.sin(tp * Math.PI);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
+                            }
+                        } else {
+                            newValue = mid - Math.sin(p) * amplitude * 0.75;
+                        }
+                    } else {
+                        newValue = mid + (Math.random() * 2 - 1);
+                    }
+                    dataRef.current.push(newValue);
+                    dataRef.current.shift();
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.lineWidth = 2.5; ctx.strokeStyle = color; ctx.beginPath();
+                    for (let i = 0; i < dataRef.current.length; i++) {
+                        if (i === 0) ctx.moveTo(i, dataRef.current[i]); else ctx.lineTo(i, dataRef.current[i]);
+                    }
+                    ctx.stroke();
+                    frameId = requestAnimationFrame(draw);
+                };
+                frameId = requestAnimationFrame(draw);
+                return () => cancelAnimationFrame(frameId);
+            }, [color, speed, type, flatline, onBeat, rhythm, patientType, spo2]);
+
+            return <canvas ref={canvasRef} className="w-full h-full block" />;
+        };
+
+        const useInterpolatedVitals = (target) => {
+            const [vitals, setVitals] = useState(target);
+            const lastBeatRef = useRef(0);
+            const targetRef = useRef(target);
+            targetRef.current = target;
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(Date.now() + 5000 + Math.random() * 10000);
+            useEffect(() => {
+                lastBeatRef.current = 0;
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = Date.now() + 5000 + Math.random() * 10000;
+                let frame;
+                const animate = () => {
+                    const currentTarget = targetRef.current;
+                    let trueHr, trueSpo2;
+                    if (currentTarget.transition) {
+                        const elapsed = Date.now() - currentTarget.transition.startTime;
+                        const p = Math.min(1, elapsed / currentTarget.transition.duration);
+                        trueHr = Math.round(currentTarget.transition.startHr + (currentTarget.transition.targetHr - currentTarget.transition.startHr) * p);
+                        trueSpo2 = Math.round(currentTarget.transition.startSpo2 + (currentTarget.transition.targetSpo2 - currentTarget.transition.startSpo2) * p);
+                    } else {
+                        trueHr = currentTarget.hr;
+                        trueSpo2 = currentTarget.spo2;
+                    }
+                    const now = Date.now();
+                    // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
+                    if (now >= hrvNextChangeRef.current) {
+                        hrvTargetRef.current = Math.round((Math.random() - 0.5) * 4);
+                        hrvNextChangeRef.current = now + 5000 + Math.random() * 10000;
+                    }
+                    hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * 0.0008;
+                    const beatInterval = trueHr > 0 ? Math.round(60000 / trueHr) : 2000;
+                    if (now - lastBeatRef.current >= beatInterval) {
+                        lastBeatRef.current = now;
+                        const jitter = trueHr > 0 ? Math.round(hrvOffsetRef.current) : 0;
+                        setVitals({ ...currentTarget, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
+                    }
+                    frame = requestAnimationFrame(animate);
+                };
+                frame = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(frame);
+            }, [target.transition?.duration]);
+            return vitals;
+        };
+
+        const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange }) => {
+            const vitals = useInterpolatedVitals(targetVitals);
+            const [audioEnabled, setAudioEnabled] = useState(false);
+            const [time, setTime] = useState(new Date());
+            const [alarmState, setAlarmState] = useState('none');
+            const [flash, setFlash] = useState(false);
+            const [qrExpanded, setQrExpanded] = useState(false);
+            const [isMobileLandscape, setIsMobileLandscape] = useState(
+                () => window.innerHeight < 500 && window.innerWidth > window.innerHeight
+            );
+
+            useEffect(() => {
+                const check = () => setIsMobileLandscape(window.innerHeight < 500 && window.innerWidth > window.innerHeight);
+                window.addEventListener('resize', check);
+                window.addEventListener('orientationchange', check);
+                return () => { window.removeEventListener('resize', check); window.removeEventListener('orientationchange', check); };
+            }, []);
+
+            useEffect(() => {
+                const t = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(t);
+            }, []);
+
+            useEffect(() => {
+                if (!vitals.simRunning) { setAlarmState('none'); return; }
+                const cfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
+                let level = 'none';
+                if (vitals.hr <= cfg.hrCriticalLow || vitals.hr === 0 || vitals.spo2 < cfg.spo2Critical) level = 'critical';
+                else if (vitals.hr < cfg.hrWarningLow || vitals.hr > cfg.hrWarningHigh || vitals.spo2 < cfg.spo2Warning) level = 'warning';
+                setAlarmState(level);
+                const interval = setInterval(() => setFlash(p => !p), level === 'critical' ? 300 : 800);
+                return () => clearInterval(interval);
+            }, [vitals.hr, vitals.spo2, vitals.simRunning]);
+
+            useEffect(() => {
+                let interval;
+                if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none' && vitals.simRunning) {
+                    playAlarmSequence(alarmState);
+                    interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
+                }
+                return () => clearInterval(interval);
+            }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.simRunning]);
+
+            useEffect(() => {
+                if (!audioEnabled || !targetVitals.soundTimestamp || targetVitals.soundType !== 'grunt') return;
+                playGrunt();
+            }, [targetVitals.soundTimestamp]);
+
+            const handleBeat = () => {
+                if (!audioEnabled || vitals.alarmMuted || !vitals.simRunning) return;
+                playBeep(vitals.spo2 < 89 ? 400 : 800);
+            };
+
+            const start = () => { 
+                if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => {}); }
+                initAudio(); setAudioEnabled(true); 
+                trackNeoEvent('monitor_active', 'Audio enabled on monitor', { session_id: sessionId });
+            };
+
+            const getControlUrl = () => {
+                const origin = window.location.origin;
+                const isPreview = origin.includes('googleusercontent') || origin.includes('webcontainer') || origin === 'null';
+                const base = isPreview ? 'https://neomonitor.pro/' : (origin + window.location.pathname);
+                return `${base}?mode=control&session=${sessionId}`;
+            };
+            const controlUrl = getControlUrl();
+
+            if (isMobileLandscape) {
+                const alarmBorder = alarmState !== 'none' && !vitals.alarmMuted && vitals.simRunning && flash
+                    ? (alarmState === 'critical' ? '#ef4444' : '#eab308') : 'transparent';
+                return (
+                    <div style={{width:'100vw', height:'100vh', backgroundImage:'url(massimo.jpg)', backgroundSize:'cover', backgroundPosition:'center', position:'relative', overflow:'hidden'}}>
+                        <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.72)', display:'flex', flexDirection:'column'}}>
+                            {/* Top bar */}
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 12px', background:'rgba(10,15,25,0.95)', fontSize:'10px', fontFamily:'monospace', color:'#64748b', borderBottom:'1px solid #1e293b', flexShrink:0}}>
+                                <span style={{fontWeight:'600', color:'#94a3b8'}}>NORMAL · {t.patientTypes ? t.patientTypes[patientType] : 'NEONATAL'}</span>
+                                <span>{time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                            </div>
+                            {/* Valores */}
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', padding:'6px 12px', flexShrink:0, borderBottom:'1px solid #1e293b', alignItems:'center'}}>
+                                <div style={{display:'flex', flexDirection:'column', alignItems:'center', borderRight:'1px solid #1e293b', paddingRight:'8px'}}>
+                                    <span style={{color:'#facc15', fontWeight:'900', fontSize:'clamp(22px,11vw,54px)', fontFamily:'monospace', lineHeight:1}}>
+                                        {vitals.simRunning ? (vitals.spo2 || '--') : '--'}
+                                    </span>
+                                    <span style={{color:'#854d0e', fontSize:'9px', fontWeight:'700', marginTop:'2px'}}>%SpO₂</span>
+                                </div>
+                                <div style={{display:'flex', flexDirection:'column', alignItems:'center', borderRight:'1px solid #1e293b', padding:'0 8px'}}>
+                                    <span style={{color:'#ffffff', fontWeight:'900', fontSize:'clamp(22px,11vw,54px)', fontFamily:'monospace', lineHeight:1}}>
+                                        {vitals.simRunning ? (vitals.hr || '--') : '--'}
+                                    </span>
+                                    <span style={{color:'#475569', fontSize:'9px', fontWeight:'700', marginTop:'2px'}}>PR bpm</span>
+                                </div>
+                                <div style={{display:'flex', flexDirection:'column', alignItems:'center', paddingLeft:'8px'}}>
+                                    <span style={{color:'#475569', fontWeight:'900', fontSize:'clamp(22px,11vw,54px)', fontFamily:'monospace', lineHeight:1}}>--</span>
+                                    <span style={{color:'#374151', fontSize:'9px', fontWeight:'700', marginTop:'2px'}}>PI</span>
+                                </div>
+                            </div>
+                            {/* Onda PPG */}
+                            <div style={{flex:1, position:'relative', minHeight:0}}>
+                                {vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} onBeat={handleBeat} spo2={vitals.spo2} patientType={patientType}/>}
+                            </div>
+                            {/* Bottom bar */}
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 12px', background:'rgba(10,15,25,0.95)', fontSize:'9px', fontFamily:'monospace', color:'#475569', borderTop:'1px solid #1e293b', flexShrink:0}}>
+                                <span>{t.id || 'ID'}: {sessionId}</span>
+                                <button onClick={() => setQrExpanded(true)} style={{color:'#22c55e', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'3px', fontSize:'9px', fontWeight:'700', padding:0}}>
+                                    <Icons.QrCode style={{width:'10px', height:'10px'}} />QR
+                                </button>
+                            </div>
+                        </div>
+                        {/* Alarma borde */}
+                        <div style={{position:'absolute', inset:0, pointerEvents:'none', border:`4px solid ${alarmBorder}`, transition:'border-color 0.1s', zIndex:5}} />
+                        {/* Start overlay */}
+                        {!audioEnabled && (
+                            <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.9)', zIndex:50, display:'flex', alignItems:'center', justifyContent:'center'}} onClick={start}>
+                                <button style={{background:'#16a34a', padding:'10px 24px', borderRadius:'10px', fontWeight:'bold', color:'white', fontSize:'15px'}}>{t.startMonitorBtn}</button>
+                            </div>
+                        )}
+                        {/* QR expandido */}
+                        {qrExpanded && (
+                            <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', zIndex:100, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px'}} onClick={() => setQrExpanded(false)}>
+                                <div style={{background:'white', padding:'16px', borderRadius:'12px', marginBottom:'16px'}}>
+                                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(controlUrl)}`} style={{width:'160px', height:'160px'}} alt="QR" />
+                                </div>
+                                <p style={{color:'white', fontSize:'14px', fontWeight:'bold', textAlign:'center'}}>{t.scanPhonePrompt}</p>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`w-full h-screen flex flex-col border-[12px] transition-colors duration-100 ${alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning ? 'border-slate-900' : (alarmState === 'critical' ? (flash ? 'border-red-600 bg-red-900/10' : 'border-red-900') : (flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900'))} hardware-accelerated monitor-screen`}
+                     style={{backgroundImage:'url(mindray.jpg)', backgroundSize:'cover', backgroundPosition:'center'}}>
+                    {!audioEnabled && (
+                        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
+                            <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">{t.startMonitorBtn}</button>
+                        </div>
+                    )}
+
+                    {audioEnabled && onPatientTypeChange && (
+                        <PatientTypeSelector current={patientType} onSelect={onPatientTypeChange} t={t} disabled={vitals.simRunning} />
+                    )}
+
+                    {audioEnabled && !vitals.simRunning && (
+                        <div className="absolute inset-0 bg-black z-40 flex flex-col items-center justify-center text-center p-6 border-4 border-slate-800 m-2 rounded-xl">
+                            {vitals.controlConnected ? (
+                                <>
+                                    <div className="w-20 h-20 rounded-full bg-green-900/40 border-2 border-green-500 flex items-center justify-center mb-6">
+                                        <svg className="w-10 h-10 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-black text-green-400 uppercase tracking-widest mb-2">Dispositivos sincronizados</h2>
+                                    <p className="text-slate-400 text-base mb-8">Simulación lista para comenzar</p>
+                                    <button onClick={() => setQrExpanded(true)} className="text-xs text-slate-600 hover:text-slate-400 border border-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                                        Mostrar QR
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Icons.Monitor className="w-12 h-12 text-slate-700 mb-4" />
+                                    <h2 className="text-xl font-bold text-slate-500 uppercase tracking-widest mb-4">{t.simNotStarted}</h2>
+                                    <div className="bg-white p-3 rounded-lg shadow-lg mb-4 cursor-pointer" onClick={() => setQrExpanded(true)}>
+                                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(controlUrl)}`} alt="Sync" className="w-[180px] h-[180px]" />
+                                    </div>
+                                    <p className="text-xs text-slate-400 font-mono mb-2">{t.sessionId}: {sessionId}</p>
+                                    <p className="text-slate-400 text-sm italic">{t.scanPrompt}</p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {qrExpanded && (
+                        <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
+                            <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setQrExpanded(false)} className="absolute -top-12 right-0 text-white"><Icons.X className="w-8 h-8" /></button>
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(controlUrl)}`} alt="QR" className="w-full h-full" />
+                            </div>
+                            <p className="mt-6 text-white font-bold text-center px-4">{t.scanPhonePrompt}</p>
+                        </div>
+                    )}
+
+                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 top-bar">
+                        <div className="flex gap-4"><span>{t.patientTypes ? t.patientTypes[patientType] : 'NEONATAL'}</span><span>{t.bed}: 01</span></div>
+                        <div className="flex gap-4 items-center">{vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}<span>{t.id}: {sessionId}</span></div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
+                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0 && vitals.rhythm !== 'vf'} onBeat={handleBeat} rhythm={vitals.rhythm || 'sinus'} patientType={patientType}/>}</div>
+                            <div className="flex flex-col items-center px-4 justify-center number-container">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[#42B334] font-bold text-lg number-label">{t.hr}</span>
+                                    {vitals.simRunning && vitals.hr > 0 && <Icons.Heart className="heart-portrait text-red-600 fill-red-600 w-6 h-6" style={{ animation: `heartbeat ${60/vitals.hr}s infinite cubic-bezier(0.4, 0, 0.2, 1)` }}/>}
+                                </div>
+                                <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-[#42B334]'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
+                            </div>
+                        </div>
+                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#22d3ee" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} spo2={vitals.spo2} patientType={patientType}/>}</div>
+                            <div className="flex flex-col items-center px-4 justify-center number-container">
+                                <span className="text-cyan-400 font-bold text-lg number-label">SpO2</span>
+                                <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-cyan-400'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
+                            </div>
+                        </div>
+                        <div className="flex-1 grid grid-cols-[1fr_1fr_280px] h-full divide-x divide-slate-800 extra-info-row">
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold">---</span></div>
+                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">NIBP</span><span className="text-2xl font-bold">--/--</span></div>
+                            <div className="p-2 flex items-center justify-center sponsor-col"><SponsorSpace className="w-full h-full" source="Monitor" t={t} /></div>
+                        </div>
+                    </div>
+
+                    <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500 bottom-bar">
+                        <div className="flex gap-2">
+                            <div className="soft-key px-4 py-2">{t.mute}</div>
+                            <div className="soft-key px-4 py-2">{t.menu}</div>
+                            <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}><Icons.QrCode className="w-4 h-4" /><span>{t.link}</span></div>
+                        </div>
+                        <div className="flex-1 flex justify-center opacity-30 font-mono text-[10px] tracking-widest border border-slate-800 mx-4 rounded py-1 bg-black/20">SPONSOR AREA</div>
+                        <div className="flex gap-4 items-center font-mono"><span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span><Icons.Wifi className="w-4 h-4 text-green-500" /><Icons.Battery className="w-4 h-4 text-green-500" /></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const CaseEditorModal = ({ caseData, onPublish, onCancel, translating = false, lang = 'es', t = TRANSLATIONS.es }) => {
+            const [title, setTitle] = useState(typeof caseData.title === 'string' ? caseData.title : caseData.title?.[lang] || caseData.title?.es || '');
+            const [presentation, setPresentation] = useState(typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.[lang] || caseData.presentation?.es || '');
+            const [stages, setStages] = useState(caseData.stages && caseData.stages.length ? caseData.stages.map(s => ({ ...s, name: typeof s.name === 'string' ? s.name : s.name?.[lang] || s.name?.es || '' })) : [{ name: '', hr: 120, spo2: 92, transition: 10 }]);
+            const [authorName, setAuthorName] = useState(caseData.authorName || '');
+            const [published, setPublished] = useState(false);
+
+            const addStage = () => setStages(prev => [...prev, { name: '', hr: 120, spo2: 92, transition: 10 }]);
+            const removeStage = (i) => setStages(prev => prev.filter((_, idx) => idx !== i));
+            const updateStage = (i, field, value) => setStages(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+            const buildCase = () => ({ ...caseData, title: title.trim(), presentation: presentation.trim(), stages, authorName: authorName.trim() });
+            const handlePublish = () => { if (!title.trim() || stages.length === 0 || !onPublish || translating) return; onPublish(buildCase()); setPublished(true); };
+
+            return (
+                <div className="fixed inset-0 bg-black/95 z-[60] p-4 flex flex-col">
+                    <div className="bg-slate-800 rounded-xl flex flex-col overflow-hidden max-w-md mx-auto w-full max-h-full">
+                        <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-none">
+                            <h3 className="font-bold text-white">{caseData._firestore ? t.editCase : t.newCaseTitle}</h3>
+                            <button onClick={onCancel}><Icons.X className="w-6 h-6"/></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">{t.caseTitle}</label>
+                                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder={t.titlePlaceholder}
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-blue-500"/>
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">{t.presentation}</label>
+                                <textarea value={presentation} onChange={e => setPresentation(e.target.value)} placeholder="Descripción clínica del paciente para los alumnos..."
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 resize-none" rows={3}/>
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1 block">Autor (opcional)</label>
+                                <input type="text" value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="Tu nombre o institución"
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-white outline-none focus:border-blue-500"/>
+                            </div>
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-xs text-slate-400 uppercase tracking-widest font-bold">Etapas ({stages.length})</label>
+                                    <button onClick={addStage} className="bg-green-700/50 hover:bg-green-700 text-green-300 text-xs px-3 py-1 rounded-full border border-green-500/40 transition-colors">+ Agregar</button>
+                                </div>
+                                <div className="space-y-3">
+                                    {stages.map((stage, i) => (
+                                        <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-xl p-3 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-slate-400">ETAPA {i + 1}</span>
+                                                {stages.length > 1 && <button onClick={() => removeStage(i)} className="text-red-400 hover:text-red-300 text-xs px-2">✕</button>}
+                                            </div>
+                                            <input type="text" value={stage.name} onChange={e => updateStage(i, 'name', e.target.value)} placeholder={t.stageName}
+                                                className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"/>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-green-400 font-bold block mb-1">FC</label>
+                                                    <input type="number" min="0" max="220" value={stage.hr} onChange={e => updateStage(i, 'hr', parseInt(e.target.value) || 0)}
+                                                        className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm text-center outline-none focus:border-green-500"/>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-yellow-400 font-bold block mb-1">SpO2%</label>
+                                                    <input type="number" min="0" max="100" value={stage.spo2} onChange={e => updateStage(i, 'spo2', parseInt(e.target.value) || 0)}
+                                                        className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm text-center outline-none focus:border-yellow-500"/>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-amber-400 font-bold block mb-1">Trans.s</label>
+                                                    <input type="number" min="0" max="120" value={stage.transition} onChange={e => updateStage(i, 'transition', parseInt(e.target.value) || 0)}
+                                                        className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-white text-sm text-center outline-none focus:border-amber-500"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-slate-700 flex flex-col gap-2 flex-none">
+                            <div className="flex gap-3">
+                                <button onClick={onCancel} disabled={translating} className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white py-3 rounded-xl font-bold transition-colors">{t.cancel}</button>
+                                <button onClick={handlePublish} disabled={!title.trim() || published || translating} className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                    {translating ? <span className="animate-spin">⟳</span> : published ? t.published : `📤 ${t.publish}`}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
+            const vitals = useInterpolatedVitals(currentVitals);
+            const [transitionDuration, setTransitionDuration] = useState(5);
+            const [showDebrief, setShowDebrief] = useState(false);
+            const [eventLog, setEventLog] = useState([]);
+            const [localTargets, setLocalTargets] = useState({ hr: currentVitals.hr, spo2: currentVitals.spo2 });
+            const [simStartTime, setSimStartTime] = useState(null);
+            const [displayTime, setDisplayTime] = useState("00:00");
+            const [activeCase, setActiveCase] = useState(null);
+            const [stageIndex, setStageIndex] = useState(-1);
+            const [showCaseSelector, setShowCaseSelector] = useState(false);
+            const [userCases, setUserCases] = useState([]);
+            const [showCaseEditor, setShowCaseEditor] = useState(false);
+            const [editingCase, setEditingCase] = useState(null);
+            const [selectorTab, setSelectorTab] = useState('mis');
+            const [libraryCases, setLibraryCases] = useState([]);
+            const [libTabPType, setLibTabPType] = useState(patientType);
+            const [libraryLoading, setLibraryLoading] = useState(false);
+            const [debriefTab, setDebriefTab] = useState('objetivos');
+            const [gasNotes, setGasNotes] = useState({ gather: '', analyze: '', summarize: '' });
+            const [showPresentation, setShowPresentation] = useState(false);
+            const [selectedNTSkills, setSelectedNTSkills] = useState([]);
+            const [technicalSkills, setTechnicalSkills] = useState(['', '', '']);
+            const [lastApplied, setLastApplied] = useState(null);
+
+            useEffect(() => { setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 }); }, [currentVitals.hr, currentVitals.spo2]);
+
+            // Al montarse, señaliza al monitor que el control está conectado
+            useEffect(() => { onUpdate({ controlConnected: true }); }, []);
+
+            useEffect(() => {
+                let interval;
+                if (currentVitals.simRunning) {
+                    if (!simStartTime) setSimStartTime(Date.now());
+                    interval = setInterval(() => {
+                        const start = simStartTime || Date.now();
+                        const elapsed = Math.floor((Date.now() - start) / 1000);
+                        const mins = Math.floor(elapsed / 60);
+                        const secs = elapsed % 60;
+                        setDisplayTime(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+                    }, 1000);
+                } else { setSimStartTime(null); setDisplayTime("00:00"); }
+                return () => clearInterval(interval);
+            }, [currentVitals.simRunning, simStartTime]);
+
+            const [communityCases, setCommunityCases] = useState([]);
+            const [translating, setTranslating] = useState(false);
+
+            useEffect(() => {
+                if (!db || !userId || userId === 'guest') return;
+                const unsub = db.collection('userCases').where('userId', '==', userId).onSnapshot(snap => {
+                    setUserCases(snap.docs.map(d => ({ ...d.data(), id: d.id, _firestore: true })));
+                });
+                return () => unsub();
+            }, [db, userId]);
+
+            // Admin: cargar TODOS los casos de comunidad (sin filtro userId)
+            useEffect(() => {
+                if (!db || userId !== 'diegosteinberg@gmail.com') return;
+                const unsub = db.collection('userCases').onSnapshot(snap => {
+                    setCommunityCases(snap.docs.map(d => ({ ...d.data(), id: d.id, _firestore: true })));
+                });
+                return () => unsub();
+            }, [db, userId]);
+
+            const getCaseName = (c) => {
+                if (!c || !c.title) return 'Sin título';
+                if (typeof c.title === 'string') return c.title;
+                if (typeof c.title === 'object' && c.title !== null) {
+                    const name = c.title[lang] || c.title.es || c.title.en || c.title.pt || '';
+                    return name || 'Sin título';
+                }
+                return 'Sin título';
+            };
+            const getStageName = (stage) => {
+                if (!stage || !stage.name) return '';
+                if (typeof stage.name === 'string') return stage.name;
+                if (typeof stage.name === 'object' && stage.name !== null) return stage.name[lang] || stage.name.es || stage.name.en || stage.name.pt || '';
+                return '';
+            };
+            const getPresentation = (c) => {
+                if (!c || !c.presentation) return null;
+                if (typeof c.presentation === 'string') return c.presentation;
+                if (typeof c.presentation === 'object' && c.presentation !== null) return c.presentation[lang] || c.presentation.es || c.presentation.en || c.presentation.pt || null;
+                return null;
+            };
+            const patientCfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
+
+            const translateText = async (text, targetLang) => {
+                if (!text) return '';
+                try {
+                    // MyMemory Translation API - free, no API key required
+                    // Supported language pairs: es|en, es|pt-BR, etc.
+                    const langMap = { en: 'en', pt: 'pt-BR' };
+                    const targetCode = langMap[targetLang] || targetLang;
+                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|${targetCode}`;
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+                        return data.responseData.translatedText;
+                    }
+                    console.warn('MyMemory API response:', data);
+                    return text; // fallback al texto original
+                } catch (err) {
+                    console.warn('Translation error:', err?.message);
+                    return text; // fallback al texto original
+                }
+            };
+
+            const translateCaseInternal = async (caseData) => {
+                try {
+                    const titleEs = typeof caseData.title === 'string' ? caseData.title : caseData.title?.es || '';
+                    const presentationEs = typeof caseData.presentation === 'string' ? caseData.presentation : caseData.presentation?.es || '';
+
+                    const [titleEn, titlePt, presentationEn, presentationPt] = await Promise.all([
+                        translateText(titleEs, 'en'),
+                        translateText(titleEs, 'pt'),
+                        translateText(presentationEs, 'en'),
+                        translateText(presentationEs, 'pt')
+                    ]);
+
+                    const translatedStages = await Promise.all((caseData.stages || []).map(async (stage) => {
+                        const stageName = typeof stage.name === 'string' ? stage.name : stage.name?.es || '';
+                        const [nameEn, namePt] = await Promise.all([
+                            translateText(stageName, 'en'),
+                            translateText(stageName, 'pt')
+                        ]);
+                        return {
+                            ...stage,
+                            name: { es: stageName, en: nameEn, pt: namePt }
+                        };
+                    }));
+
+                    return {
+                        ...caseData,
+                        title: { es: titleEs, en: titleEn, pt: titlePt },
+                        presentation: { es: presentationEs, en: presentationEn, pt: presentationPt },
+                        stages: translatedStages
+                    };
+                } catch (err) {
+                    console.error('Translation failed:', err);
+                    return caseData;
+                }
+            };
+
+            const translateCase = async (caseData) => {
+                setTranslating(true);
+                try {
+                    return await translateCaseInternal(caseData);
+                } finally {
+                    setTranslating(false);
+                }
+            };
+
+            const saveToLibrary = async (caseData) => {
+                if (!db) return;
+                setTranslating(true);
+                try {
+                    const translatedCase = await translateCase(caseData);
+                    const { _firestore, id, ...clean } = translatedCase;
+                    // Asegurar que patientType se incluye al guardar
+                    const caseToSave = {
+                        ...clean,
+                        patientType: clean.patientType || patientType,
+                        userId: userId || 'anon',
+                        userEmail: userEmail || '',
+                        createdAt: Date.now()
+                    };
+                    await db.collection('library').add(caseToSave);
+                    setShowCaseEditor(false);
+                    setEditingCase(null);
+                } catch (err) {
+                    console.error('Error saving to library:', err);
+                } finally {
+                    setTranslating(false);
+                }
+            };
+
+            const deleteUserCase = (caseId) => {
+                if (!db) return;
+                db.collection('userCases').doc(caseId).delete();
+                if (activeCase && activeCase.id === caseId) { setActiveCase(null); setStageIndex(-1); }
+            };
+
+
+            useEffect(() => {
+                if (!showCaseSelector || selectorTab !== 'biblioteca' || !db) return;
+                setLibraryLoading(true);
+                const abortCtrl = new AbortController();
+                const timeout = setTimeout(() => {
+                    if (!abortCtrl.signal.aborted) {
+                        abortCtrl.abort();
+                        setLibraryLoading(false);
+                        console.warn('Library load timeout after 8s');
+                    }
+                }, 8000);
+                try {
+                    db.collection('library').orderBy('createdAt', 'desc').limit(100).get()
+                        .then(snap => {
+                            clearTimeout(timeout);
+                            if (!abortCtrl.signal.aborted && snap && snap.docs) {
+                                const cases = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                                console.log(`📚 Biblioteca cargada: ${cases.length} casos`);
+                                cases.forEach((c, idx) => {
+                                    const titleType = typeof c.title;
+                                    const titleStr = titleType === 'object' ? JSON.stringify(c.title) : c.title;
+                                    console.log(`  [${idx}] Título: ${titleStr}`);
+                                    console.log(`       getCaseName() retorna: "${getCaseName(c)}"`);
+                                    console.log(`       Lang actual: ${lang}, patientType: ${c.patientType}`);
+                                });
+                                setLibraryCases(cases);
+                                setLibraryLoading(false);
+                            }
+                        })
+                        .catch(err => {
+                            clearTimeout(timeout);
+                            if (!abortCtrl.signal.aborted) {
+                                console.error('Error loading library:', err?.message);
+                                setLibraryLoading(false);
+                                setLibraryCases([]);
+                            }
+                        });
+                } catch (err) {
+                    clearTimeout(timeout);
+                    if (!abortCtrl.signal.aborted) {
+                        console.error('Library query error:', err?.message);
+                        setLibraryLoading(false);
+                    }
+                }
+                return () => {
+                    abortCtrl.abort();
+                    clearTimeout(timeout);
+                };
+            }, [showCaseSelector, selectorTab]);
+
+            const logAction = (message, force = false) => {
+                if (!currentVitals.simRunning && !force) return;
+                const baseTime = (force && !currentVitals.simRunning) ? Date.now() : simStartTime;
+                const elapsedTotalSeconds = baseTime ? Math.floor((Date.now() - baseTime) / 1000) : 0;
+                const timestamp = `${Math.floor(elapsedTotalSeconds / 60).toString().padStart(2, '0')}:${(elapsedTotalSeconds % 60).toString().padStart(2, '0')}`;
+                setEventLog(prev => [...prev, {time: timestamp, msg: message}]);
+            };
+
+            const toggleSimulation = () => {
+                const isNowRunning = !currentVitals.simRunning;
+                if (isNowRunning) { logAction("Simulation Started", true); onUpdate({ ...currentVitals, simRunning: true, transition: null }); trackNeoEvent('sim_start', 'Manual simulation start', { session_id: sessionId }); }
+                else { logAction("Simulation Stopped", true); onUpdate({ ...currentVitals, simRunning: false }); trackNeoEvent('sim_stop', 'Manual simulation stop', { session_id: sessionId }); }
+            };
+
+            const handleCommitChange = (field, value) => {
+                const now = Date.now();
+                const durationMs = transitionDuration * 1000;
+                logAction(`Changed ${field.toUpperCase()}: ${value}`);
+                trackNeoEvent('vital_change', `Manual ${field} update`, { field, value, transition: transitionDuration });
+                onUpdate({ ...currentVitals, [field]: value, transition: (durationMs > 0 && currentVitals.simRunning) ? { startTime: now, duration: durationMs, startHr: vitals.hr, targetHr: field === 'hr' ? value : currentVitals.hr, startSpo2: vitals.spo2, targetSpo2: field === 'spo2' ? value : currentVitals.spo2 } : null });
+            };
+
+            const advanceStage = () => {
+                if (!activeCase || !Array.isArray(activeCase.stages) || activeCase.stages.length === 0) {
+                    console.error('Invalid case structure:', activeCase);
+                    return;
+                }
+                const nextIndex = stageIndex + 1;
+                if (nextIndex >= activeCase.stages.length) return;
+                const stage = activeCase.stages[nextIndex];
+                if (!stage || typeof stage.hr !== 'number' || typeof stage.spo2 !== 'number' || typeof stage.transition !== 'number') {
+                    console.error('Invalid stage structure:', stage);
+                    return;
+                }
+                const now = Date.now();
+                const durationMs = Math.max(0, stage.transition * 1000);
+                const stageName = getStageName(stage);
+                logAction(`Etapa ${nextIndex + 1}/${activeCase.stages.length}: ${stageName}`);
+                trackNeoEvent('case_stage', `Stage ${nextIndex + 1}`, { case: activeCase.id, stage: nextIndex + 1 });
+                onUpdate({
+                    ...currentVitals,
+                    hr: stage.hr,
+                    spo2: stage.spo2,
+                    transition: durationMs > 0 && currentVitals.simRunning ? {
+                        startTime: now,
+                        duration: durationMs,
+                        startHr: vitals.hr,
+                        targetHr: stage.hr,
+                        startSpo2: vitals.spo2,
+                        targetSpo2: stage.spo2
+                    } : null
+                });
+                setStageIndex(nextIndex);
+                setLocalTargets({ hr: stage.hr, spo2: stage.spo2 });
+            };
+
+            const applyPreset = (preset) => {
+                setLastApplied(preset.key);
+                setTimeout(() => setLastApplied(null), 700);
+                if (preset.grunt) { onUpdate({ ...currentVitals, soundType: 'grunt', soundTimestamp: Date.now() }); logAction(`Preset: ${t.presets[preset.key] || preset.key}`); return; }
+                const now = Date.now();
+                const name = t.presets[preset.key] || preset.key;
+                onUpdate({ ...currentVitals, hr: preset.hr, spo2: preset.spo2, rhythm: preset.rhythm || 'sinus', transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: preset.hr, startSpo2: vitals.spo2, targetSpo2: preset.spo2 } : null });
+                logAction(`Preset: ${name}`);
+                trackNeoEvent('scenario_preset', `Preset: ${name}`, { preset_type: preset.key });
+            };
+
+            const handleRhythmChange = (rhythmKey) => {
+                onUpdate({ ...currentVitals, rhythm: rhythmKey });
+                logAction(`Ritmo: ${rhythmKey.toUpperCase()}`);
+            };
+
+            return (
+                <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
+                    <header className="flex-none flex items-center justify-between px-4 py-3 bg-slate-800 gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> {t.control}</h2>
+                            {currentVitals.simRunning && <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded border border-red-500 font-mono animate-pulse">{displayTime}</span>}
+                            <button onClick={() => setShowDebrief(true)} className="bg-slate-700 text-xs px-2 py-1 rounded flex items-center gap-1"><Icons.List className="w-3 h-3"/> {t.debriefing}</button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {onPatientTypeChange && (
+                                <div className={`flex rounded-lg overflow-hidden border ${currentVitals.simRunning ? 'border-slate-700/40 opacity-50' : 'border-slate-600'}`}
+                                    title={currentVitals.simRunning ? 'Detener la simulación para cambiar tipo de paciente' : ''}>
+                                    {['neonatal', 'pediatrico', 'adulto'].map(type => (
+                                        <button key={type}
+                                            onClick={() => { if (!currentVitals.simRunning) onPatientTypeChange(type); }}
+                                            disabled={currentVitals.simRunning}
+                                            className={`px-3 py-1 text-xs font-bold transition-colors ${currentVitals.simRunning ? 'cursor-not-allowed' : 'cursor-pointer'} ${patientType === type ? (type === 'neonatal' ? 'bg-green-700 text-white' : type === 'pediatrico' ? 'bg-yellow-700 text-white' : 'bg-blue-700 text-white') : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>
+                                            {type === 'neonatal' ? 'Neo' : type === 'pediatrico' ? 'Ped' : 'Adult'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {onLangChange && (
+                                <div className="flex rounded-lg overflow-hidden border border-slate-600">
+                                    {['es','en','pt'].map(l => (
+                                        <button key={l} onClick={() => onLangChange(l)}
+                                            className={`px-2 py-1 text-xs font-bold uppercase transition-colors ${lang === l ? 'bg-slate-500 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'}`}>
+                                            {l}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <span className="text-xs font-mono border border-slate-600 px-2 py-0.5 rounded text-slate-400">ID: {sessionId}</span>
+                        </div>
+                    </header>
+
+                    {showCaseEditor && editingCase && <CaseEditorModal caseData={editingCase} onPublish={saveToLibrary} onCancel={() => { setShowCaseEditor(false); setEditingCase(null); }} translating={translating} lang={lang} t={t} />}
+
+                    {showCaseSelector && (
+                        <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowCaseSelector(false)}>
+                            <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-none">
+                                    <h3 className="font-bold flex items-center gap-2"><Icons.List className="w-4 h-4 text-blue-400"/> {t.clinicalCases}</h3>
+                                    <button onClick={() => setShowCaseSelector(false)}><Icons.X className="w-6 h-6"/></button>
+                                </div>
+                                <div className="flex border-b border-slate-700 flex-none">
+                                    <button onClick={() => setSelectorTab('mis')} className={`flex-1 py-2.5 text-sm font-bold transition-colors ${selectorTab === 'mis' ? 'bg-slate-700 text-white border-b-2 border-blue-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>{t.myCases}</button>
+                                    <button onClick={() => { setSelectorTab('biblioteca'); setLibTabPType(patientType); }} className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${selectorTab === 'biblioteca' ? 'bg-slate-700 text-white border-b-2 border-green-400' : 'text-slate-400 hover:bg-slate-700/50'}`}><Icons.Globe className="w-3.5 h-3.5"/> {t.library}</button>
+                                </div>
+                                {selectorTab === 'mis' ? (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                        <button onClick={() => { setEditingCase({ title: '', stages: [{ name: '', hr: 120, spo2: 92, transition: 10 }], patientType }); setShowCaseEditor(true); setShowCaseSelector(false); }}
+                                            className="w-full text-left bg-green-900/30 hover:bg-green-900/50 border border-green-500/40 rounded-xl p-4 transition-colors active:scale-95 flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-green-700/50 rounded-full flex items-center justify-center text-green-300 font-bold text-xl flex-none">+</div>
+                                            <span className="font-bold text-green-300">{t.newCase}</span>
+                                        </button>
+                                        {Array.isArray(userCases) && userCases.filter(c => !c?.patientType || c?.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">{t.myCases}</p>}
+                                        {Array.isArray(userCases) && userCases.filter(c => !c?.patientType || c?.patientType === patientType).map(c => (
+                                            c?.id ? (
+                                                <div key={c.id} className="flex gap-2">
+                                                    <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                        className="flex-1 text-left bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                        <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                        <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                    </button>
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                        <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                    </div>
+                                                </div>
+                                            ) : null
+                                        ))}
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-slate-500 uppercase tracking-widest font-bold pt-1">{t.predefinedCases}</p>}
+                                        {Array.isArray(clinicalCases) && clinicalCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id && c?.stages ? (
+                                                <button key={c.id} onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                    className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl p-4 transition-colors active:scale-95">
+                                                    <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                    <div className="text-xs text-slate-400">{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                </button>
+                                            ) : null
+                                        ))}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).length > 0 && <p className="text-xs text-orange-600 uppercase tracking-widest font-bold pt-3 border-t border-slate-700 mt-3">📋 Casos de comunidad para curar</p>}
+                                        {userId === 'diegosteinberg@gmail.com' && Array.isArray(communityCases) && communityCases.filter(c => c?.patientType === patientType).map(c => (
+                                            c?.id ? (
+                                                <div key={c.id} className="flex gap-2">
+                                                    <button onClick={() => { setActiveCase(c); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                        className="flex-1 text-left bg-orange-900/30 hover:bg-orange-900/50 border border-orange-500/40 rounded-xl p-4 transition-colors active:scale-95">
+                                                        <div className="font-bold text-white mb-1">{getCaseName(c)}</div>
+                                                        <div className="text-xs text-slate-400">{c.authorName ? `${c.authorName} • ` : ''}{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</div>
+                                                    </button>
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => { setEditingCase(c); setShowCaseEditor(true); setShowCaseSelector(false); }} className="flex-1 bg-slate-700 hover:bg-slate-600 rounded-lg px-3 text-slate-300 text-xs transition-colors">✎</button>
+                                                        <button onClick={() => deleteUserCase(c.id)} className="flex-1 bg-red-900/40 hover:bg-red-900/70 rounded-lg px-3 text-red-400 text-xs transition-colors">✕</button>
+                                                    </div>
+                                                </div>
+                                            ) : null
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col overflow-hidden">
+                                        <div className="flex border-b border-slate-700/50 flex-none px-3 pt-2 gap-1">
+                                            {['neonatal', 'pediatrico', 'adulto'].map(pt => (
+                                                <button key={pt} onClick={() => setLibTabPType(pt)}
+                                                    className={`flex-1 py-2 text-xs font-bold rounded-t-lg transition-colors ${libTabPType === pt ? (pt === 'neonatal' ? 'bg-green-900/50 text-green-300 border-b-2 border-green-400' : pt === 'pediatrico' ? 'bg-yellow-900/50 text-yellow-300 border-b-2 border-yellow-400' : 'bg-blue-900/50 text-blue-300 border-b-2 border-blue-400') : 'text-slate-500 hover:text-slate-300'}`}>
+                                                    {t.patientTypes[pt]}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                            {libraryLoading && <div className="text-center text-slate-500 py-10 text-sm animate-pulse">{t.loadingLibrary}</div>}
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).length === 0 && (
+                                                <div className="text-center text-slate-500 py-10">
+                                                    <Icons.Globe className="w-10 h-10 mx-auto mb-3 opacity-30"/>
+                                                    <p className="text-sm">{t.noLibraryCases}</p>
+                                                    <p className="text-xs mt-2 opacity-60">{t.createAndPublish}</p>
+                                                </div>
+                                            )}
+                                            {!libraryLoading && Array.isArray(libraryCases) && libraryCases.filter(c => c?.patientType === libTabPType).map(c => (
+                                                c?.id && c?.title ? (
+                                                    <div key={c.id} className="bg-slate-700/40 border border-slate-600 rounded-xl p-4 space-y-2">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="font-bold text-white text-sm leading-tight flex-1">{getCaseName(c)}</div>
+                                                            <button onClick={() => { setActiveCase({ ...c, _firestore: false }); setStageIndex(-1); setShowCaseSelector(false); }}
+                                                                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex-none transition-colors active:scale-95">
+                                                                {t.use}
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                            <span>{Array.isArray(c.stages) ? c.stages.length : 0} {t.stages}</span>
+                                                            {c.authorName && <><span className="text-slate-600">·</span><span>{c.authorName}</span></>}
+                                                        </div>
+                                                        {getPresentation(c) && <p className="text-xs text-slate-500 leading-relaxed" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{getPresentation(c)}</p>}
+                                                    </div>
+                                                ) : null
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {showDebrief && (
+                        <div className="fixed inset-0 bg-black/90 z-50 p-4 flex flex-col" onClick={() => setShowDebrief(false)}>
+                            <div className="bg-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden max-w-md mx-auto w-full" onClick={e => e.stopPropagation()}>
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center flex-none">
+                                    <h3 className="font-bold">{t.debriefing}</h3>
+                                    <button onClick={() => setShowDebrief(false)}><Icons.X className="w-6 h-6"/></button>
+                                </div>
+                                <div className="flex border-b border-slate-700 flex-none">
+                                    <button onClick={() => setDebriefTab('objetivos')} className={`flex-1 py-2 text-sm font-bold transition-colors ${debriefTab === 'objetivos' ? 'bg-slate-700 text-white border-b-2 border-purple-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>Objetivos</button>
+                                    <button onClick={() => setDebriefTab('eventos')} className={`flex-1 py-2 text-sm font-bold transition-colors ${debriefTab === 'eventos' ? 'bg-slate-700 text-white border-b-2 border-blue-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>Eventos</button>
+                                    <button onClick={() => setDebriefTab('gas')} className={`flex-1 py-2 text-sm font-bold transition-colors ${debriefTab === 'gas' ? 'bg-slate-700 text-white border-b-2 border-amber-400' : 'text-slate-400 hover:bg-slate-700/50'}`}>GAS</button>
+                                </div>
+                                {debriefTab === 'objetivos' ? (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/20">
+                                        {(() => {
+                                            const totalSelected = selectedNTSkills.length + technicalSkills.filter(s => s.trim()).length;
+                                            const toggleNT = (skill) => {
+                                                if (selectedNTSkills.includes(skill)) {
+                                                    setSelectedNTSkills(prev => prev.filter(s => s !== skill));
+                                                } else {
+                                                    if (totalSelected >= 4) return;
+                                                    setSelectedNTSkills(prev => [...prev, skill]);
+                                                }
+                                            };
+                                            return (
+                                                <>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Habilidades no técnicas</p>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${totalSelected >= 4 ? 'bg-red-900/60 text-red-300' : 'bg-slate-700 text-slate-300'}`}>{totalSelected}/4 obj.</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-1.5">
+                                                        {NON_TECHNICAL_SKILLS.map(skill => {
+                                                            const active = selectedNTSkills.includes(skill);
+                                                            const disabled = !active && totalSelected >= 4;
+                                                            return (
+                                                                <button key={skill} onClick={() => toggleNT(skill)}
+                                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${active ? 'bg-purple-800/60 border border-purple-500/60 text-purple-200' : disabled ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed' : 'bg-slate-800/60 border border-slate-700/50 text-slate-300 hover:bg-slate-700/60'}`}>
+                                                                    <span className={`w-4 h-4 rounded border flex-none flex items-center justify-center ${active ? 'bg-purple-500 border-purple-400' : 'border-slate-600'}`}>
+                                                                        {active && <span className="text-white text-[10px] font-black">✓</span>}
+                                                                    </span>
+                                                                    {skill}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="mt-3">
+                                                        <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Habilidades técnicas</p>
+                                                        <div className="space-y-2">
+                                                            {technicalSkills.map((skill, i) => {
+                                                                const canAdd = skill.trim() || totalSelected < 4 || technicalSkills.filter(s => s.trim()).includes(skill);
+                                                                return (
+                                                                    <input key={i} type="text" value={skill}
+                                                                        onChange={e => {
+                                                                            const newVal = e.target.value;
+                                                                            const newList = [...technicalSkills];
+                                                                            newList[i] = newVal;
+                                                                            const newTotal = selectedNTSkills.length + newList.filter(s => s.trim()).length;
+                                                                            if (newVal.trim() && !skill.trim() && newTotal > 4) return;
+                                                                            setTechnicalSkills(newList);
+                                                                        }}
+                                                                        placeholder={`Habilidad técnica ${i + 1}…`}
+                                                                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-purple-500 placeholder-slate-500"
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                    {(selectedNTSkills.length > 0 || technicalSkills.some(s => s.trim())) && (
+                                                        <div className="mt-3 bg-purple-900/20 border border-purple-500/30 rounded-xl p-3">
+                                                            <p className="text-xs text-purple-300 font-bold uppercase tracking-widest mb-2">Objetivos seleccionados</p>
+                                                            {selectedNTSkills.map(s => <p key={s} className="text-xs text-white flex gap-2 mb-1"><span className="text-purple-400">▸</span>{s}</p>)}
+                                                            {technicalSkills.filter(s => s.trim()).map((s, i) => <p key={i} className="text-xs text-white flex gap-2 mb-1"><span className="text-purple-400">▸</span>{s}</p>)}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                ) : debriefTab === 'eventos' ? (
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-black/20">
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Registro de eventos (Min:Seg)</p>
+                                        {eventLog.length === 0 ? <p className="text-slate-500 italic text-center mt-10">No hay eventos registrados</p> : eventLog.map((l, i) => (
+                                            <div key={i} className="flex gap-3 text-sm border-b border-slate-700/30 pb-2"><span className="text-slate-400 font-mono w-14 flex-none">[{l.time}]</span><span>{l.msg}</span></div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col p-3 gap-3 bg-black/20 min-h-0">
+                                        {[
+                                            { key: 'gather', label: 'Gather — Recopilación', letter: 'G', color: 'blue', placeholder: '¿Qué observaron? ¿Qué ocurrió durante el caso?', border: 'focus:border-blue-500', ring: 'bg-blue-700', text: 'text-blue-300' },
+                                            { key: 'analyze', label: 'Analyze — Análisis/Reflexión', letter: 'A', color: 'amber', placeholder: '¿Por qué ocurrió? ¿Qué salió bien y qué mejorar?', border: 'focus:border-amber-500', ring: 'bg-amber-700', text: 'text-amber-300' },
+                                            { key: 'summarize', label: 'Summarize — Cierre/Resumen', letter: 'S', color: 'green', placeholder: 'Mensajes clave para llevar. ¿Qué aprendimos?', border: 'focus:border-green-500', ring: 'bg-green-700', text: 'text-green-300' },
+                                        ].map(({ key, label, letter, placeholder, border, ring, text }) => (
+                                            <div key={key} className="flex-1 flex flex-col bg-slate-700/30 rounded-xl border border-slate-600 overflow-hidden min-h-0">
+                                                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-600/50 flex-none">
+                                                    <span className={`w-6 h-6 ${ring} rounded-full flex items-center justify-center text-xs font-black text-white flex-none`}>{letter}</span>
+                                                    <span className={`font-bold ${text} text-xs`}>{label}</span>
+                                                </div>
+                                                <textarea value={gasNotes[key]} onChange={e => setGasNotes(p => ({ ...p, [key]: e.target.value }))}
+                                                    placeholder={placeholder}
+                                                    className={`flex-1 w-full bg-transparent p-3 text-white text-sm outline-none ${border} resize-none placeholder-slate-600`}/>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex-1 p-4 space-y-6">
+                        <button onClick={toggleSimulation} className={`w-full p-6 rounded-xl font-bold text-xl flex items-center justify-center gap-4 shadow-lg border-2 transition-all active:scale-95 ${currentVitals.simRunning ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400"}`}>
+                            {currentVitals.simRunning ? <Icons.X className="w-8 h-8"/> : <Icons.Play className="w-8 h-8 fill-white"/>}
+                            {currentVitals.simRunning ? t.endSim : t.startSim}
+                        </button>
+                        <div className="bg-slate-800 p-4 rounded-xl">
+                            <div className="flex justify-between mb-2 text-amber-400 font-bold"><label className="flex gap-2 text-sm"><Icons.Clock className="w-4 h-4"/> {t.transition}</label><span>{transitionDuration}s</span></div>
+                            <input type="range" min="0" max="60" step="5" value={transitionDuration} onChange={e => setTransitionDuration(parseInt(e.target.value))} className="w-full h-8 time-slider"/>
+                        </div>
+                        <div className="bg-slate-800 p-6 rounded-xl">
+                            <div className="flex justify-between mb-2 font-bold text-[#42B334]"><span>{t.hr}: {localTargets.hr}</span><span className="text-xs opacity-50">{t.act}: {vitals.hr}</span></div>
+                            <input type="range" min="0" max="220" value={localTargets.hr} onChange={e => setLocalTargets({ ...localTargets, hr: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('hr', localTargets.hr)} onMouseUp={() => handleCommitChange('hr', localTargets.hr)} className="w-full h-12"/>
+                        </div>
+                        <div className="bg-slate-800 p-6 rounded-xl">
+                            <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">{t.act}: {vitals.spo2}%</span></div>
+                            <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
+                        </div>
+                        {currentVitals.simRunning && patientType !== 'neonatal' && (
+                            <div className="bg-slate-800 p-4 rounded-xl">
+                                <label className="text-xs text-green-400 font-bold uppercase tracking-widest mb-3 block">Ritmo ECG</label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {(RHYTHM_OPTIONS[patientType] || RHYTHM_OPTIONS.adulto).map(r => (
+                                        <button key={r.key}
+                                            onClick={() => handleRhythmChange(r.key)}
+                                            className={`py-2 px-4 rounded-lg text-xs font-bold border transition-all active:scale-95 ${(currentVitals.rhythm || 'sinus') === r.key ? RHYTHM_STYLES[r.key] : 'bg-slate-700 border-slate-600 text-slate-300'}`}>
+                                            {r.label[lang] || r.label.es}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex rounded-lg overflow-hidden border border-slate-700">
+                            <button onClick={() => { setActiveCase(null); setStageIndex(-1); }}
+                                className={`flex-1 py-2 text-sm font-bold transition-colors ${!activeCase ? 'bg-slate-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
+                                Presets
+                            </button>
+                            <button onClick={() => setShowCaseSelector(true)}
+                                className={`flex-1 py-2 text-sm font-bold transition-colors ${activeCase ? 'bg-blue-700 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
+                                {t.clinicalCases}
+                            </button>
+                        </div>
+
+                        {!activeCase ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                {patientCfg.presets.map(preset => (
+                                    <button key={preset.key} onClick={() => applyPreset(preset)}
+                                        className={`p-4 border rounded-lg font-bold text-sm transition-all duration-75 active:scale-95 ${preset.style} ${lastApplied === preset.key ? 'scale-95 ring-2 ring-white/70 brightness-150' : ''}`}>
+                                        {lastApplied === preset.key ? '✓ ' : ''}{t.presets[preset.key] || preset.key}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-slate-800 rounded-xl overflow-hidden">
+                                <div className="p-3 bg-blue-900/40 border-b border-slate-700 flex justify-between items-center">
+                                    <span className="font-bold text-blue-300 text-sm">{getCaseName(activeCase)}</span>
+                                    <button onClick={() => { setActiveCase(null); setStageIndex(-1); }} className="text-slate-400 hover:text-white text-xs border border-slate-600 px-2 py-0.5 rounded">{t.exit}</button>
+                                </div>
+                                {getPresentation(activeCase) && (
+                                    <div className="p-3 border-b border-slate-700 bg-slate-900/40">
+                                        <button onClick={() => setShowPresentation(true)}
+                                            className="w-full flex items-center justify-between bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/40 rounded-lg px-3 py-2 transition-colors active:scale-95">
+                                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">{t.viewPresentation}</span>
+                                            <span className="text-blue-400 text-lg">📋</span>
+                                        </button>
+                                    </div>
+                                )}
+                                {showPresentation && getPresentation(activeCase) && (
+                                    <div className="fixed inset-0 bg-black/95 z-[70] flex flex-col p-6" onClick={() => setShowPresentation(false)}>
+                                        <div className="bg-slate-800 rounded-2xl flex flex-col overflow-hidden max-w-lg mx-auto w-full max-h-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                                            <div className="p-5 border-b border-slate-700 flex justify-between items-center flex-none">
+                                                <div>
+                                                    <p className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-0.5">{t.casePresentation}</p>
+                                                    <h3 className="font-black text-white text-lg">{getCaseName(activeCase)}</h3>
+                                                </div>
+                                                <button onClick={() => setShowPresentation(false)} className="bg-slate-700 rounded-full p-2 ml-4 flex-none"><Icons.X className="w-5 h-5"/></button>
+                                            </div>
+                                            <div className="flex-1 overflow-y-auto p-6">
+                                                <p className="text-white text-lg leading-relaxed">{getPresentation(activeCase)}</p>
+                                            </div>
+                                            <div className="p-4 border-t border-slate-700 flex-none">
+                                                <button onClick={() => setShowPresentation(false)}
+                                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">
+                                                    {t.understood}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="p-3 space-y-2 max-h-56 overflow-y-auto">
+                                    {activeCase.stages.map((stage, i) => (
+                                        <div key={i} className={`flex items-center gap-3 p-2 rounded-lg text-sm transition-all ${i === stageIndex ? 'bg-blue-900/50 border border-blue-500/50' : i < stageIndex ? 'opacity-40' : 'opacity-70'}`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-none text-xs font-bold ${i < stageIndex ? 'bg-green-700 text-green-200' : i === stageIndex ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                                                {i < stageIndex ? '✓' : i + 1}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-white truncate">{getStageName(stage)}</div>
+                                                <div className="text-xs text-slate-400">FC: {stage.hr || '--'} · SpO2: {stage.spo2}% · {stage.transition}s</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-3 border-t border-slate-700">
+                                    {stageIndex < activeCase.stages.length - 1 ? (
+                                        <button onClick={advanceStage}
+                                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                            <Icons.ArrowRight className="w-5 h-5"/>
+                                            {stageIndex === -1 ? t.startCase : `${t.nextStage}: ${getStageName(activeCase.stages[stageIndex + 1])}`}
+                                        </button>
+                                    ) : (
+                                        <div className="w-full py-3 bg-green-900/40 border border-green-500/30 rounded-lg font-bold text-green-400 text-center text-sm">
+                                            {t.caseCompleted}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-none bg-slate-900 p-2 flex flex-col items-center">
+                        <div className="w-full opacity-30 font-mono text-[10px] tracking-widest border border-slate-700 rounded py-1 bg-black/20 text-center mb-1">SPONSOR AREA</div>
+                        <SponsorSpace compact className="h-10 w-full" source="Control" t={t} />
+                    </div>
+                </div>
+            );
+        };
+
+        const QRScannerView = ({ onScan, onCancel, t }) => {
+            const [sid, setSid] = useState('');
+            useEffect(() => {
+                const html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+                    try {
+                        const url = new URL(decodedText);
+                        const session = url.searchParams.get('session');
+                        if (session) { html5QrCode.stop().then(() => onScan(session)); }
+                    } catch(e) { html5QrCode.stop().then(() => onScan(decodedText)); }
+                }).catch(() => {});
+                return () => { if (html5QrCode.isScanning) { html5QrCode.stop().catch(() => {}); } };
+            }, []);
+            return (
+                <div className="fixed inset-0 bg-slate-900 z-[60] flex flex-col p-6 animate-zoom">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="font-bold text-xl flex items-center gap-2"><Icons.Camera className="text-blue-400"/> {t.scanCamera}</h2>
+                        <button onClick={onCancel} className="bg-slate-800 p-2 rounded-full"><Icons.X/></button>
+                    </div>
+                    <div className="bg-black rounded-2xl overflow-hidden shadow-2xl mb-8 relative"><div id="reader"></div></div>
+                    <div className="mt-auto text-center space-y-4">
+                        <p className="text-slate-500 text-sm mb-4">{t.scanManual}</p>
+                        <div className="flex gap-2">
+                            <input type="number" placeholder={t.placeholderId} value={sid} onChange={e => setSid(e.target.value)} className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-xl text-center font-mono text-xl outline-none focus:border-blue-500"/>
+                            <button onClick={() => sid && onScan(sid)} className="bg-blue-600 p-4 rounded-xl px-6 font-bold"><Icons.ArrowRight/></button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AnimatedGuide = ({ onClose, t }) => (
+            <div className="fixed inset-0 bg-slate-950/95 z-[70] flex flex-col p-6 animate-zoom overflow-y-auto">
+                <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-black text-white">{t.guideTitle}</h2><button onClick={onClose} className="p-2 bg-slate-800 rounded-full"><Icons.X /></button></div>
+                <div className="flex-1 flex flex-col items-center justify-center space-y-12 max-w-lg mx-auto w-full">
+                    <div className="relative w-full flex flex-col items-center">
+                        <div className="w-48 h-32 bg-slate-800 border-4 border-slate-700 rounded-lg flex items-center justify-center relative float-anim shadow-2xl"><Icons.Monitor className="w-10 h-10 text-green-500/50" /><div className="absolute inset-4 bg-white/10 rounded flex items-center justify-center"><Icons.QrCode className="w-8 h-8 text-white opacity-80" /></div><div className="absolute -top-4 -right-4 bg-green-600 text-[10px] font-bold px-2 py-1 rounded-full text-white shadow-lg">DEVICE A</div></div>
+                        <p className="mt-4 text-center text-sm"><span className="text-green-400 font-bold uppercase block text-xs mb-1">{t.step1}</span>{t.guideStep1}</p>
+                    </div>
+                    <div className="flex flex-col items-center text-slate-700"><Icons.ArrowRight className="w-8 h-8 rotate-90" /></div>
+                    <div className="relative w-full flex flex-col items-center pb-8">
+                        <div className="w-20 h-40 bg-slate-800 border-4 border-slate-700 rounded-2xl flex items-center justify-center relative float-anim shadow-2xl" style={{animationDelay: '1.5s'}}><div className="absolute inset-2 bg-black rounded-lg overflow-hidden flex flex-col items-center justify-center"><div className="w-full h-1/2 bg-blue-500/10 flex items-center justify-center relative overflow-hidden"><div className="scan-line"></div><Icons.Camera className="w-6 h-6 text-blue-400 opacity-50" /></div><div className="p-1 space-y-1 w-full"><div className="w-full h-1 bg-slate-700 rounded"></div><div className="w-3/4 h-1 bg-slate-700 rounded"></div></div></div><div className="absolute -top-4 -right-4 bg-blue-600 text-[10px] font-bold px-2 py-1 rounded-full text-white shadow-lg">DEVICE B</div></div>
+                        <p className="mt-4 text-center text-sm"><span className="text-blue-400 font-bold uppercase block text-xs mb-1">{t.step2}</span>{t.guideStep2}</p>
+                    </div>
+                </div>
+                <button onClick={onClose} className="mt-8 bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest text-sm shadow-xl hover:bg-slate-200 transition-colors">{t.guideBtn}</button>
+            </div>
+        );
+
+        const PatientTypeSelector = ({ current, onSelect, t, disabled = false }) => {
+            const types = ['neonatal', 'pediatrico', 'adulto'];
+            const labels = { neonatal: 'Neo', pediatrico: 'Ped', adulto: 'Adult' };
+            return (
+                <div className={`absolute top-6 left-6 z-[80] flex rounded-xl overflow-hidden border shadow-lg ${disabled ? 'border-slate-700/40 opacity-50' : 'border-slate-700'}`}>
+                    {types.map(type => (
+                        <button key={type}
+                            onClick={() => { if (!disabled) onSelect(type); }}
+                            disabled={disabled}
+                            title={disabled ? 'Detener la simulación para cambiar tipo de paciente' : ''}
+                            className={`px-3 py-2 text-xs font-bold transition-colors ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${current === type ? 'bg-blue-700 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-800'}`}>
+                            {labels[type]}
+                        </button>
+                    ))}
+                </div>
+            );
+        };
+
+        const LanguageSelector = ({ currentLang, onSelect }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const menuRef = useRef(null);
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (menuRef.current && !menuRef.current.contains(event.target)) setIsOpen(false);
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            const langs = [
+                { id: 'es', label: 'Español' },
+                { id: 'en', label: 'English' },
+                { id: 'pt', label: 'Português' }
+            ];
+
+            return (
+                <div className="absolute top-6 right-6 z-[80]" ref={menuRef}>
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-800 transition-all shadow-lg min-w-[80px] justify-between"
+                    >
+                        <span className="text-xs font-bold text-white uppercase">{currentLang}</span>
+                        <Icons.ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {isOpen && (
+                        <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl animate-zoom origin-top-right min-w-[120px]">
+                            {langs.map(l => (
+                                <button
+                                    key={l.id}
+                                    onClick={() => { onSelect(l.id); setIsOpen(false); }}
+                                    className={`w-full text-left px-4 py-3 text-xs font-medium border-b border-slate-800 last:border-0 hover:bg-slate-800 transition-colors ${currentLang === l.id ? 'bg-slate-800 text-blue-400' : 'text-slate-400'}`}
+                                >
+                                    {l.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [mode, setMode] = useState('select');
+            const [user, setUser] = useState(null);
+            const [sessionId, setSessionId] = useState('');
+            const [vitals, setVitals] = useState({ ...DEFAULT_VITALS, ...PATIENT_DEFAULTS.neonatal });
+            // Estados pre-sesión: solo usados en pantalla select, antes de crear/unirse a sesión
+            const browserLang = navigator.language.startsWith('es') ? 'es' : (navigator.language.startsWith('pt') ? 'pt' : 'en');
+            const [preSessionLang, setPreSessionLang] = useState(browserLang);
+            const [preSessionPatientType, setPreSessionPatientType] = useState('neonatal');
+            const [showScanner, setShowScanner] = useState(false);
+            const [showGuide, setShowGuide] = useState(false);
+            const [vitalsLoaded, setVitalsLoaded] = useState(false);
+            const [sid] = useState(Math.floor(1000 + Math.random() * 9000).toString());
+            const [clinicalCases, setClinicalCases] = useState(() => {
+                return Array.isArray(CLINICAL_CASES) ? CLINICAL_CASES : [];
+            });
+
+            // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
+            // Sin stale-closures, sin estado duplicado, sin race conditions.
+            const lang = sessionId ? (vitals.lang || preSessionLang) : preSessionLang;
+            const patientType = sessionId ? (vitals.patientType || 'neonatal') : preSessionPatientType;
+            const t = TRANSLATIONS[lang];
+
+            useEffect(() => {
+                auth.signInAnonymously().then(cred => setUser(cred.user)).catch(() => setUser({ uid: 'guest' }));
+                const p = new URLSearchParams(window.location.search);
+                if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
+            }, []);
+
+            // Load clinical cases from Firebase if available (one-time load on mount)
+            useEffect(() => {
+                if (!db) return;
+                try {
+                    db.collection("admin").doc("clinical_cases").get().then(doc => {
+                        if (doc.exists && doc.data() && Array.isArray(doc.data().cases)) {
+                            setClinicalCases(doc.data().cases);
+                        }
+                    }).catch(err => {
+                        console.warn('Could not load clinical cases from Firebase:', err?.message);
+                    });
+                } catch (err) {
+                    console.warn('Firebase not ready for clinical cases:', err?.message);
+                }
+            }, []);
+
+            // Listener limpio: solo setVitals. lang y patientType se derivan automáticamente.
+            // vitalsLoaded garantiza que control no se renderiza hasta tener datos de Firestore.
+            useEffect(() => {
+                if (!sessionId || !db) return;
+                const unsub = db.collection("sessions").doc(sessionId).onSnapshot(doc => {
+                    if (doc.exists) { setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' })); setVitalsLoaded(true); }
+                });
+                return () => unsub();
+            }, [sessionId]);
+
+            useEffect(() => {
+                const defaults = PATIENT_DEFAULTS[patientType] || PATIENT_DEFAULTS.neonatal;
+                setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
+            }, [patientType]);
+
+            // Handlers: actualización optimista + escritura a Firestore.
+            // La otra pantalla recibe el cambio vía su listener onSnapshot → setVitals → re-render.
+            const handlePatientTypeChange = (type) => {
+                if (vitals.simRunning) return;
+                setVitals(prev => ({ ...prev, patientType: type, rhythm: type === 'neonatal' ? 'sinus' : prev.rhythm }));
+                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type, ...(type === 'neonatal' && { rhythm: 'sinus' }) }, { merge: true });
+            };
+
+            const handleLangChange = (newLang) => {
+                setVitals(prev => ({ ...prev, lang: newLang }));
+                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ lang: newLang }, { merge: true });
+            };
+
+            const handleUpdate = (v) => {
+                if (db && sessionId) db.collection("sessions").doc(sessionId).set(v, { merge: true });
+            };
+
+            if (!user) return <div className="h-screen bg-black flex flex-col items-center justify-center text-green-500"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div><span className="font-mono text-sm tracking-widest uppercase">{t.connecting}</span></div>;
+
+            if (mode === 'select') {
+                return (
+                    <div className="h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
+                        {showGuide && <AnimatedGuide onClose={() => setShowGuide(false)} t={t} />}
+                        {showScanner && <QRScannerView onScan={(s) => { setMode('control'); setSessionId(s); }} onCancel={() => setShowScanner(false)} t={t} />}
+
+                        <PatientTypeSelector current={preSessionPatientType} onSelect={setPreSessionPatientType} t={t} />
+                        <LanguageSelector currentLang={preSessionLang} onSelect={setPreSessionLang} />
+
+                        <header className="mb-10">
+                            <Icons.Activity className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse"/>
+                            <h1 className="text-4xl font-black mb-2 tracking-tight text-white">NeoMonitor</h1>
+                            <p className="text-slate-400 text-lg font-medium">{t.mainPrompt}</p>
+                            <button onClick={() => setShowGuide(true)} className="mt-4 text-blue-400 flex items-center gap-2 mx-auto text-sm font-bold border border-blue-400/30 px-4 py-2 rounded-full hover:bg-blue-400/10 transition-colors"><Icons.Help className="w-4 h-4"/>{t.howToConnect}</button>
+                        </header>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                            <button onClick={() => {
+                                const initDoc = { ...DEFAULT_VITALS, patientType: preSessionPatientType, lang: preSessionLang };
+                                setVitals(initDoc);
+                                setVitalsLoaded(true);
+                                setSessionId(sid);
+                                setMode('monitor');
+                                if (db) db.collection("sessions").doc(sid).set(initDoc);
+                            }} className="bg-slate-900 border border-slate-800 hover:border-green-500/50 p-8 rounded-3xl flex flex-col items-center gap-6 group transition-all active:scale-95 shadow-2xl"><div className="bg-green-500/10 p-5 rounded-2xl group-hover:bg-green-500/20 transition-colors"><Icons.Monitor className="w-12 h-12 text-green-400"/></div><span className="text-xl font-bold text-white leading-tight">{t.useAsMonitor}</span></button>
+                            <button onClick={() => setShowScanner(true)} className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 p-8 rounded-3xl flex flex-col items-center gap-6 group transition-all active:scale-95 shadow-2xl"><div className="bg-blue-500/10 p-5 rounded-2xl group-hover:bg-blue-500/20 transition-colors"><Icons.Smartphone className="w-12 h-12 text-blue-400"/></div><span className="text-xl font-bold text-white leading-tight">{t.useAsControl}</span></button>
+                        </div>
+
+                        <div className="mt-12 w-full max-w-md"><SponsorSpace className="h-20 rounded-2xl bg-slate-900/50" source="Menu_Initial" t={t} /><p className="text-[10px] text-slate-600 mt-6 uppercase tracking-widest font-bold">NeoMonitor Simulator</p></div>
+                    </div>
+                );
+            }
+
+            if (mode === 'control' && !vitalsLoaded) {
+                return <div className="h-screen bg-black flex flex-col items-center justify-center text-green-500"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div><span className="font-mono text-sm tracking-widest uppercase">{t.connecting}</span></div>;
+            }
+
+            return (
+                <div className="font-sans antialiased">
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
