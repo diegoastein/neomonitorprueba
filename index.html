@@ -779,7 +779,7 @@
             osc2.stop(now + 0.4);
         };
 
-        const WaveformCanvas = ({ color, speed, type, flatline, onBeat, rhythm = 'sinus', patientType = 'neonatal' }) => {
+        const WaveformCanvas = ({ color, speed, type, flatline, onBeat, rhythm = 'sinus', patientType = 'neonatal', spo2 = 100 }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
@@ -912,11 +912,30 @@
                                 }
                             }
                         } else {
-                            // Onda pletismográfica: subida sistólica rápida + muesca dicrótica + descenso lento
-                            const np = p / (2 * Math.PI); // fase normalizada 0-1
-                            const sys = Math.exp(-Math.pow((np - 0.38) / 0.07, 2));
-                            const dic = 0.28 * Math.exp(-Math.pow((np - 0.62) / 0.04, 2));
-                            newValue = mid - amplitude * 0.72 * (sys + dic);
+                            // Onda pletismográfica con morfología adaptada a SpO2, FC y tipo de paciente
+                            const np = p / (2 * Math.PI);
+
+                            // Amplitud: se reduce con desaturación (normal→leve→moderada→severa)
+                            const ampScale = spo2 >= 94 ? 1.0
+                                           : spo2 >= 89 ? 0.75
+                                           : spo2 >= 80 ? 0.50
+                                           : 0.30;
+
+                            // Muesca dicrótica: más marcada en adultos, se aplana con taquicardia y desaturación severa
+                            const hrTachyThreshold = patientType === 'neonatal' ? 180 : patientType === 'pediatrico' ? 160 : 120;
+                            const baseDic = patientType === 'adulto' ? 0.38 : patientType === 'pediatrico' ? 0.31 : 0.26;
+                            const dicAmp = spo2 < 80 ? 0
+                                         : speed >= hrTachyThreshold ? baseDic * 0.2
+                                         : speed >= hrTachyThreshold * 0.85 ? baseDic * 0.55
+                                         : baseDic;
+
+                            // En taquicardia la onda se redondea (sistólica más ancha, diástole comprimida)
+                            const sysWidth = speed >= hrTachyThreshold ? 0.10 : 0.07;
+                            const dicPos   = speed >= hrTachyThreshold ? 0.60 : 0.62;
+
+                            const sys = Math.exp(-Math.pow((np - 0.38) / sysWidth, 2));
+                            const dic = dicAmp * Math.exp(-Math.pow((np - dicPos) / 0.04, 2));
+                            newValue = mid - amplitude * 0.72 * ampScale * (sys + dic);
                         }
                     } else {
                         newValue = mid + (Math.random() * 2 - 1);
@@ -933,7 +952,7 @@
                 };
                 frameId = requestAnimationFrame(draw);
                 return () => cancelAnimationFrame(frameId);
-            }, [color, speed, type, flatline, onBeat, rhythm, patientType]);
+            }, [color, speed, type, flatline, onBeat, rhythm, patientType, spo2]);
 
             return <canvas ref={canvasRef} className="w-full h-full block" />;
         };
@@ -1108,7 +1127,7 @@
                             </div>
                         </div>
                         <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}</div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} spo2={vitals.spo2} patientType={patientType}/>}</div>
                             <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-yellow-400'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
