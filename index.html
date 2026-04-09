@@ -912,7 +912,11 @@
                                 }
                             }
                         } else {
-                            newValue = mid - Math.sin(p) * amplitude * 0.6;
+                            // Onda pletismográfica: subida sistólica rápida + muesca dicrótica + descenso lento
+                            const np = p / (2 * Math.PI); // fase normalizada 0-1
+                            const sys = Math.exp(-Math.pow((np - 0.38) / 0.07, 2));
+                            const dic = 0.28 * Math.exp(-Math.pow((np - 0.62) / 0.04, 2));
+                            newValue = mid - amplitude * 0.72 * (sys + dic);
                         }
                     } else {
                         newValue = mid + (Math.random() * 2 - 1);
