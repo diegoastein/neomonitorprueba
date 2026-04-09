@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <title>NeoMonitor | Simulador Neonatal de Signos Vitales Online</title>
+    <title>NeoMonitor | Simulador Online de Monitor Multiparamétrico</title>
     <meta name="description" content="Simulador neonatal profesional para entrenamiento en RCP. Convierte cualquier dispositivo en un monitor de signos vitales con control remoto. Desarrollado por el Dr. Diego Steinberg.">
     <meta name="keywords" content="simulador neonatal, RCP neonatal, monitor signos vitales, reanimación neonatal, capacitación médica, Diego Steinberg, simulación clínica">
     <meta name="author" content="Dr. Diego Steinberg">
@@ -397,7 +397,7 @@
                     { key: 'brady',   hr: 52,  spo2: 90,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
                     { key: 'tachy',   hr: 210, spo2: 92,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
                     { key: 'shock',   hr: 148, spo2: 91,  style: 'bg-purple-900/40 border-purple-500/50 text-purple-400' },
-                    { key: 'rcp',     hr: 0,   spo2: 60,  style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf', style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
                 ]
             },
             // ACLS: bradicardia sintomática <50, crítico <40; tachy sintomática >150
@@ -409,10 +409,34 @@
                     { key: 'desat',   hr: 95,  spo2: 85,  style: 'bg-blue-900/40 border-blue-500/50 text-blue-400' },
                     { key: 'brady',   hr: 36,  spo2: 94,  style: 'bg-yellow-900/40 border-yellow-500/50 text-yellow-400' },
                     { key: 'tachy',   hr: 158, spo2: 95,  style: 'bg-red-900/40 border-red-500/50 text-red-400' },
-                    { key: 'afib',    hr: 118, spo2: 94,  style: 'bg-pink-900/40 border-pink-500/50 text-pink-400' },
-                    { key: 'rcp',     hr: 0,   spo2: 60,  style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
+                    { key: 'afib',    hr: 118, spo2: 94,  rhythm: 'afib', style: 'bg-pink-900/40 border-pink-500/50 text-pink-400' },
+                    { key: 'rcp',     hr: 0,   spo2: 60,  rhythm: 'vf',   style: 'bg-red-950/60 border-red-600/70 text-red-300 font-black' },
                 ]
             }
+        };
+
+        const RHYTHM_OPTIONS = {
+            neonatal:  [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+            ],
+            pediatrico: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ],
+            adulto: [
+                { key: 'sinus', label: { es: 'Sinusal', en: 'Sinus', pt: 'Sinusal' } },
+                { key: 'afib',  label: { es: 'FA',      en: 'AFib',  pt: 'FA' } },
+                { key: 'vt',    label: { es: 'TV',      en: 'VT',    pt: 'TV' } },
+                { key: 'vf',    label: { es: 'FV',      en: 'VF',    pt: 'FV' } },
+            ]
+        };
+
+        const RHYTHM_STYLES = {
+            sinus: 'bg-green-900 border-green-500 text-green-200',
+            afib:  'bg-pink-900 border-pink-500 text-pink-200',
+            vt:    'bg-orange-900 border-orange-500 text-orange-200',
+            vf:    'bg-red-900 border-red-500 text-red-200',
         };
 
         const PATIENT_DEFAULTS = {
@@ -441,7 +465,7 @@
             ChevronDown: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         };
 
-        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false, patientType: 'neonatal' };
+        const DEFAULT_VITALS = { hr: 122, spo2: 91, resp: 45, alarmMuted: false, connected: true, transition: null, soundTimestamp: 0, soundType: null, simRunning: false, patientType: 'neonatal', rhythm: 'sinus' };
 
         const CLINICAL_CASES = [
             // ── NEONATAL ──────────────────────────────────────────────────────
@@ -755,13 +779,27 @@
             osc2.stop(now + 0.4);
         };
 
-        const WaveformCanvas = ({ color, speed, type, flatline, onBeat }) => {
+        const WaveformCanvas = ({ color, speed, type, flatline, onBeat, rhythm = 'sinus', patientType = 'neonatal', spo2 = 100 }) => {
             const canvasRef = useRef(null);
             const dataRef = useRef([]);
             const phaseRef = useRef(0);
             const lastTimeRef = useRef(performance.now());
+            const absolutePhaseRef = useRef(0);
+            const nextBeatAbsRef = useRef(Math.PI);
+            const lastRRRef = useRef(2 * Math.PI);
+            const vfTimeRef = useRef(0);
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(0);
 
             useEffect(() => {
+                absolutePhaseRef.current = 0;
+                nextBeatAbsRef.current = Math.PI;
+                lastRRRef.current = 2 * Math.PI;
+                vfTimeRef.current = 0;
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = 5 + Math.random() * 10;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 let frameId;
@@ -776,24 +814,144 @@
                     }
                     let newValue = canvas.height / 2;
                     const amplitude = canvas.height / 3;
-                    if (!flatline && speed > 0) {
+                    const mid = canvas.height / 2;
+                    const isVF = rhythm === 'vf';
+                    const isAFib = rhythm === 'afib';
+
+                    if (isVF) {
+                        vfTimeRef.current += deltaTime;
+                        const vt = vfTimeRef.current;
+                        const coarseDecay = Math.max(0.25, 1.0 - vt / 80);
+                        const vfAmpBase = amplitude * 0.75 * coarseDecay;
+                        const vfAmp1 = vfAmpBase * (0.7 + 0.3 * Math.abs(Math.sin(vt * 0.4)));
+                        const vfAmp2 = vfAmpBase * (0.4 + 0.2 * Math.abs(Math.sin(vt * 0.6 + 1.2)));
+                        const vfAmp3 = vfAmpBase * 0.15;
+                        newValue = mid - vfAmp1 * Math.sin(vt * 37.7 + 0.3) - vfAmp2 * Math.sin(vt * 25.1 + 1.8) - vfAmp3 * Math.sin(vt * 50.3 + 0.9) + (Math.random() * amplitude * 0.06 - 0.03) * coarseDecay;
+                    } else if (!flatline && speed > 0) {
+                        vfTimeRef.current += deltaTime;
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
-                        phaseRef.current += (beatsPerSecond * 2 * Math.PI) * deltaTime;
+                        let phaseIncrement = (beatsPerSecond * 2 * Math.PI) * deltaTime;
+                        // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
+                        if (type === 'ecg' && !isAFib && !isVF) {
+                            const t = vfTimeRef.current;
+                            if (t >= hrvNextChangeRef.current) {
+                                hrvTargetRef.current = (Math.random() - 0.5) * 0.028;
+                                hrvNextChangeRef.current = t + 5 + Math.random() * 10;
+                            }
+                            hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * deltaTime * 0.4;
+                            phaseIncrement *= (1.0 + hrvOffsetRef.current);
+                        }
+                        phaseRef.current += phaseIncrement;
                         if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
                         const p = phaseRef.current;
-                        if (type === 'ecg' && onBeat) {
-                             const threshold = Math.PI;
-                             if (prevPhase < threshold && p >= threshold) onBeat();
-                        }
+
                         if (type === 'ecg') {
-                            if (p > 3.0 && p < 3.28) newValue = (canvas.height / 2) - (amplitude * 2.5 * Math.exp(-Math.pow(p - Math.PI, 2) * 50));
-                            else if (p > 3.5 && p < 4.5) newValue = (canvas.height / 2) - (amplitude * 0.3 * Math.sin(p - 3.5));
-                            else newValue = (canvas.height / 2) + (Math.random() * 1.5 - 0.75);
+                            if (isAFib) {
+                                vfTimeRef.current += deltaTime;
+                                const afibTime = vfTimeRef.current;
+                                absolutePhaseRef.current += beatsPerSecond * 2 * Math.PI * deltaTime;
+                                const absP = absolutePhaseRef.current;
+                                const prevAbsP = absP - beatsPerSecond * 2 * Math.PI * deltaTime;
+                                // Ondas f visibles e irregulares (~6-7 Hz)
+                                const fWaveAmp = amplitude * 0.11 * (0.6 + 0.4 * Math.abs(Math.sin(afibTime * 0.65)));
+                                newValue = mid
+                                    + fWaveAmp * Math.sin(afibTime * 38.0)
+                                    + fWaveAmp * 0.55 * Math.sin(afibTime * 43.5 + 1.2)
+                                    + fWaveAmp * 0.28 * Math.sin(afibTime * 29.0 + 2.4)
+                                    + (Math.random() * amplitude * 0.018 - 0.009);
+                                const dist = absP - nextBeatAbsRef.current;
+                                // QRS supraventricular con morfología Q-R-S
+                                if (dist > -0.50 && dist < 0.50) {
+                                    const R = -amplitude * 1.9 * Math.exp(-dist * dist * 9);
+                                    const Q =  amplitude * 0.22 * Math.exp(-Math.pow(dist + 0.23, 2) * 42);
+                                    const S =  amplitude * 0.18 * Math.exp(-Math.pow(dist - 0.23, 2) * 42);
+                                    newValue = mid + R + Q + S;
+                                }
+                                // Onda T concordante
+                                if (dist > 0.55 && dist < 1.65) {
+                                    const tp = (dist - 0.55) / 1.10;
+                                    newValue = mid - amplitude * 0.28 * Math.sin(tp * Math.PI);
+                                }
+                                if (prevAbsP < nextBeatAbsRef.current && absP >= nextBeatAbsRef.current) {
+                                    onBeat && onBeat();
+                                    const rrVariation = 0.45 + Math.random() * 1.10;
+                                    lastRRRef.current = 2 * Math.PI * rrVariation;
+                                    nextBeatAbsRef.current = absP + lastRRRef.current;
+                                }
+                            } else if (rhythm === 'vt') {
+                                if (onBeat) {
+                                    if (prevPhase < Math.PI && p >= Math.PI) onBeat();
+                                }
+                                const vtQRS_start = Math.PI - 1.34;
+                                const vtQRS_end = Math.PI + 1.34;
+                                const vtT_start = 4.78;
+                                const vtT_end = 6.08;
+                                const inQRS = p > vtQRS_start && p < vtQRS_end;
+                                const inT = p > vtT_start && p < vtT_end;
+                                if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    const main = -amplitude * 1.6 * Math.exp(-qp * qp * 0.8);
+                                    const notch = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.8, 2) * 5);
+                                    newValue = mid + main + notch;
+                                } else if (inT) {
+                                    const tp = (p - vtT_start) / (vtT_end - vtT_start);
+                                    newValue = mid + amplitude * 0.45 * Math.sin(tp * Math.PI);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
+                            } else {
+                                if (prevPhase < Math.PI && p >= Math.PI) {
+                                    onBeat && onBeat();
+                                }
+                                const inP = p > 1.624 && p < 2.376;
+                                const inQRS = p > 2.639 && p < 3.644;
+                                const inT = p > 3.895 && p < 5.780;
+                                if (inP) {
+                                    const pp = p - 2.000;
+                                    newValue = mid - amplitude * 0.15 * Math.exp(-pp * pp * 7);
+                                } else if (inQRS) {
+                                    const qp = p - Math.PI;
+                                    const R = -amplitude * 2.2 * Math.exp(-qp * qp * 4);
+                                    const Q = amplitude * 0.3 * Math.exp(-Math.pow(qp + 0.35, 2) * 30);
+                                    const S = amplitude * 0.25 * Math.exp(-Math.pow(qp - 0.35, 2) * 30);
+                                    newValue = mid + R + Q + S;
+                                } else if (inT) {
+                                    const tp = (p - 3.895) / (5.780 - 3.895);
+                                    newValue = mid - amplitude * 0.35 * Math.sin(tp * Math.PI);
+                                } else {
+                                    newValue = mid + (Math.random() * 1.5 - 0.75);
+                                }
+                            }
                         } else {
-                            newValue = (canvas.height / 2) - (Math.sin(p) * amplitude * 0.6);
+                            // Onda pletismográfica con morfología adaptada a SpO2, FC y tipo de paciente
+                            const np = p / (2 * Math.PI);
+
+                            // Amplitud: se reduce con desaturación (normal→leve→moderada→severa)
+                            const ampScale = spo2 >= 94 ? 1.0
+                                           : spo2 >= 89 ? 0.75
+                                           : spo2 >= 80 ? 0.50
+                                           : 0.30;
+
+                            // Muesca dicrótica: más marcada en adultos, se aplana con taquicardia y desaturación severa
+                            const hrTachyThreshold = patientType === 'neonatal' ? 180 : patientType === 'pediatrico' ? 160 : 120;
+                            const baseDic = patientType === 'adulto' ? 0.38 : patientType === 'pediatrico' ? 0.31 : 0.26;
+                            const dicAmp = spo2 < 80 ? 0
+                                         : speed >= hrTachyThreshold ? baseDic * 0.2
+                                         : speed >= hrTachyThreshold * 0.85 ? baseDic * 0.55
+                                         : baseDic;
+
+                            // En taquicardia la onda se redondea (sistólica más ancha, diástole comprimida)
+                            const sysWidth = speed >= hrTachyThreshold ? 0.10 : 0.07;
+                            const dicPos   = speed >= hrTachyThreshold ? 0.60 : 0.62;
+
+                            const sys = Math.exp(-Math.pow((np - 0.38) / sysWidth, 2));
+                            const dic = dicAmp * Math.exp(-Math.pow((np - dicPos) / 0.04, 2));
+                            newValue = mid - amplitude * 0.72 * ampScale * (sys + dic);
                         }
-                    } else { newValue = (canvas.height / 2) + (Math.random() * 2 - 1); }
+                    } else {
+                        newValue = mid + (Math.random() * 2 - 1);
+                    }
                     dataRef.current.push(newValue);
                     dataRef.current.shift();
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -806,7 +964,7 @@
                 };
                 frameId = requestAnimationFrame(draw);
                 return () => cancelAnimationFrame(frameId);
-            }, [color, speed, type, flatline, onBeat]);
+            }, [color, speed, type, flatline, onBeat, rhythm, patientType, spo2]);
 
             return <canvas ref={canvasRef} className="w-full h-full block" />;
         };
@@ -814,29 +972,47 @@
         const useInterpolatedVitals = (target) => {
             const [vitals, setVitals] = useState(target);
             const lastBeatRef = useRef(0);
+            const targetRef = useRef(target);
+            targetRef.current = target;
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(Date.now() + 5000 + Math.random() * 10000);
             useEffect(() => {
-                if (!target.transition) { setVitals(target); return; }
                 lastBeatRef.current = 0;
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = Date.now() + 5000 + Math.random() * 10000;
                 let frame;
                 const animate = () => {
-                    const elapsed = Date.now() - target.transition.startTime;
-                    const p = Math.min(1, elapsed / target.transition.duration);
-                    const trueHr = Math.round(target.transition.startHr + (target.transition.targetHr - target.transition.startHr) * p);
-                    const trueSpo2 = Math.round(target.transition.startSpo2 + (target.transition.targetSpo2 - target.transition.startSpo2) * p);
+                    const currentTarget = targetRef.current;
+                    let trueHr, trueSpo2;
+                    if (currentTarget.transition) {
+                        const elapsed = Date.now() - currentTarget.transition.startTime;
+                        const p = Math.min(1, elapsed / currentTarget.transition.duration);
+                        trueHr = Math.round(currentTarget.transition.startHr + (currentTarget.transition.targetHr - currentTarget.transition.startHr) * p);
+                        trueSpo2 = Math.round(currentTarget.transition.startSpo2 + (currentTarget.transition.targetSpo2 - currentTarget.transition.startSpo2) * p);
+                    } else {
+                        trueHr = currentTarget.hr;
+                        trueSpo2 = currentTarget.spo2;
+                    }
                     const now = Date.now();
-                    // El monitor real actualiza el número una vez por latido, no por frame
-                    const beatInterval = trueHr > 0 ? Math.max(400, 60000 / trueHr) : 2000;
+                    // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
+                    if (now >= hrvNextChangeRef.current) {
+                        hrvTargetRef.current = Math.round((Math.random() - 0.5) * 4);
+                        hrvNextChangeRef.current = now + 5000 + Math.random() * 10000;
+                    }
+                    hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * 0.0008;
+                    const beatInterval = trueHr > 0 ? Math.round(60000 / trueHr) : 2000;
                     if (now - lastBeatRef.current >= beatInterval) {
                         lastBeatRef.current = now;
-                        const jitter = trueHr > 0 ? Math.floor(Math.random() * 5) - 2 : 0;
-                        setVitals({ ...target, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
+                        const jitter = trueHr > 0 ? Math.round(hrvOffsetRef.current) : 0;
+                        setVitals({ ...currentTarget, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
                     }
-                    if (p < 1) { frame = requestAnimationFrame(animate); }
-                    else { setVitals(target); }
+                    frame = requestAnimationFrame(animate);
                 };
                 frame = requestAnimationFrame(animate);
                 return () => cancelAnimationFrame(frame);
-            }, [target]);
+            }, [target.transition?.duration]);
             return vitals;
         };
 
@@ -953,7 +1129,7 @@
 
                     <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
                         <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0} onBeat={handleBeat}/>}</div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0 && vitals.rhythm !== 'vf'} onBeat={handleBeat} rhythm={vitals.rhythm || 'sinus'} patientType={patientType}/>}</div>
                             <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <div className="flex items-center gap-3">
                                     <span className="text-[#42B334] font-bold text-lg number-label">{t.hr}</span>
@@ -963,7 +1139,7 @@
                             </div>
                         </div>
                         <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0}/>}</div>
+                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} spo2={vitals.spo2} patientType={patientType}/>}</div>
                             <div className="flex flex-col items-center px-4 justify-center number-container">
                                 <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
                                 <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-yellow-400'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
@@ -1373,9 +1549,14 @@
                 if (preset.grunt) { onUpdate({ ...currentVitals, soundType: 'grunt', soundTimestamp: Date.now() }); logAction(`Preset: ${t.presets[preset.key] || preset.key}`); return; }
                 const now = Date.now();
                 const name = t.presets[preset.key] || preset.key;
-                onUpdate({ ...currentVitals, hr: preset.hr, spo2: preset.spo2, transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: preset.hr, startSpo2: vitals.spo2, targetSpo2: preset.spo2 } : null });
+                onUpdate({ ...currentVitals, hr: preset.hr, spo2: preset.spo2, rhythm: preset.rhythm || 'sinus', transition: currentVitals.simRunning ? { startTime: now, duration: transitionDuration * 1000, startHr: vitals.hr, targetHr: preset.hr, startSpo2: vitals.spo2, targetSpo2: preset.spo2 } : null });
                 logAction(`Preset: ${name}`);
                 trackNeoEvent('scenario_preset', `Preset: ${name}`, { preset_type: preset.key });
+            };
+
+            const handleRhythmChange = (rhythmKey) => {
+                onUpdate({ ...currentVitals, rhythm: rhythmKey });
+                logAction(`Ritmo: ${rhythmKey.toUpperCase()}`);
             };
 
             return (
@@ -1646,6 +1827,20 @@
                             <div className="flex justify-between mb-2 font-bold text-yellow-400"><span>SpO2: {localTargets.spo2}%</span><span className="text-xs opacity-50">{t.act}: {vitals.spo2}%</span></div>
                             <input type="range" min="0" max="100" value={localTargets.spo2} onChange={e => setLocalTargets({ ...localTargets, spo2: parseInt(e.target.value) })} onTouchEnd={() => handleCommitChange('spo2', localTargets.spo2)} onMouseUp={() => handleCommitChange('spo2', localTargets.spo2)} className="w-full h-12 accent-yellow-400"/>
                         </div>
+                        {currentVitals.simRunning && patientType !== 'neonatal' && (
+                            <div className="bg-slate-800 p-4 rounded-xl">
+                                <label className="text-xs text-green-400 font-bold uppercase tracking-widest mb-3 block">Ritmo ECG</label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {(RHYTHM_OPTIONS[patientType] || RHYTHM_OPTIONS.adulto).map(r => (
+                                        <button key={r.key}
+                                            onClick={() => handleRhythmChange(r.key)}
+                                            className={`py-2 px-4 rounded-lg text-xs font-bold border transition-all active:scale-95 ${(currentVitals.rhythm || 'sinus') === r.key ? RHYTHM_STYLES[r.key] : 'bg-slate-700 border-slate-600 text-slate-300'}`}>
+                                            {r.label[lang] || r.label.es}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="flex rounded-lg overflow-hidden border border-slate-700">
                             <button onClick={() => { setActiveCase(null); setStageIndex(-1); }}
                                 className={`flex-1 py-2 text-sm font-bold transition-colors ${!activeCase ? 'bg-slate-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'}`}>
@@ -1902,22 +2097,22 @@
             useEffect(() => {
                 if (!sessionId || !db) return;
                 const unsub = db.collection("sessions").doc(sessionId).onSnapshot(doc => {
-                    if (doc.exists) { setVitals(doc.data()); setVitalsLoaded(true); }
+                    if (doc.exists) { setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' })); setVitalsLoaded(true); }
                 });
                 return () => unsub();
             }, [sessionId]);
 
             useEffect(() => {
                 const defaults = PATIENT_DEFAULTS[patientType] || PATIENT_DEFAULTS.neonatal;
-                setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null }));
+                setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
             }, [patientType]);
 
             // Handlers: actualización optimista + escritura a Firestore.
             // La otra pantalla recibe el cambio vía su listener onSnapshot → setVitals → re-render.
             const handlePatientTypeChange = (type) => {
                 if (vitals.simRunning) return;
-                setVitals(prev => ({ ...prev, patientType: type }));
-                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type }, { merge: true });
+                setVitals(prev => ({ ...prev, patientType: type, rhythm: type === 'neonatal' ? 'sinus' : prev.rhythm }));
+                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type, ...(type === 'neonatal' && { rhythm: 'sinus' }) }, { merge: true });
             };
 
             const handleLangChange = (newLang) => {
