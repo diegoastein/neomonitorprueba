@@ -788,14 +788,18 @@
             const nextBeatAbsRef = useRef(Math.PI);
             const lastRRRef = useRef(2 * Math.PI);
             const vfTimeRef = useRef(0);
-            const hrvBeatJitterRef = useRef(0);
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(0);
 
             useEffect(() => {
                 absolutePhaseRef.current = 0;
                 nextBeatAbsRef.current = Math.PI;
                 lastRRRef.current = 2 * Math.PI;
                 vfTimeRef.current = 0;
-                hrvBeatJitterRef.current = 0;
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = 5 + Math.random() * 10;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 let frameId;
@@ -828,17 +832,15 @@
                         const beatsPerSecond = speed / 60;
                         const prevPhase = phaseRef.current;
                         let phaseIncrement = (beatsPerSecond * 2 * Math.PI) * deltaTime;
-                        // HRV: RSA + ondas de Mayer + jitter por latido, parámetros según tipo de paciente
+                        // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
                         if (type === 'ecg' && !isAFib && !isVF) {
-                            const respFreq = patientType === 'neonatal' ? 0.80 : patientType === 'pediatrico' ? 0.50 : 0.27;
-                            const respAmp  = patientType === 'neonatal' ? 0.012 : patientType === 'pediatrico' ? 0.015 : 0.018;
-                            const mayerAmp = 0.006;
                             const t = vfTimeRef.current;
-                            const hrModulation = 1.0
-                                + respAmp  * Math.sin(t * respFreq * 2 * Math.PI)
-                                + mayerAmp * Math.sin(t * 0.10  * 2 * Math.PI)
-                                + hrvBeatJitterRef.current;
-                            phaseIncrement *= hrModulation;
+                            if (t >= hrvNextChangeRef.current) {
+                                hrvTargetRef.current = (Math.random() - 0.5) * 0.028;
+                                hrvNextChangeRef.current = t + 5 + Math.random() * 10;
+                            }
+                            hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * deltaTime * 0.4;
+                            phaseIncrement *= (1.0 + hrvOffsetRef.current);
                         }
                         phaseRef.current += phaseIncrement;
                         if (phaseRef.current >= 2 * Math.PI) phaseRef.current -= 2 * Math.PI;
@@ -889,8 +891,6 @@
                             } else {
                                 if (prevPhase < Math.PI && p >= Math.PI) {
                                     onBeat && onBeat();
-                                    const jitterMax = 0.006;
-                                    hrvBeatJitterRef.current = (Math.random() - 0.5) * 2 * jitterMax;
                                 }
                                 const inP = p > 0.881 && p < 1.633;
                                 const inQRS = p > 2.639 && p < 3.644;
@@ -937,13 +937,16 @@
         const useInterpolatedVitals = (target) => {
             const [vitals, setVitals] = useState(target);
             const lastBeatRef = useRef(0);
-            const transitionStartRef = useRef(Date.now());
             const targetRef = useRef(target);
             targetRef.current = target;
+            const hrvOffsetRef = useRef(0);
+            const hrvTargetRef = useRef(0);
+            const hrvNextChangeRef = useRef(Date.now() + 5000 + Math.random() * 10000);
             useEffect(() => {
                 lastBeatRef.current = 0;
-                if (!target.transition) { transitionStartRef.current = Date.now(); }
-                else { transitionStartRef.current = target.transition.startTime; }
+                hrvOffsetRef.current = 0;
+                hrvTargetRef.current = 0;
+                hrvNextChangeRef.current = Date.now() + 5000 + Math.random() * 10000;
                 let frame;
                 const animate = () => {
                     const currentTarget = targetRef.current;
@@ -958,19 +961,16 @@
                         trueSpo2 = currentTarget.spo2;
                     }
                     const now = Date.now();
+                    // HRV esporádico: nuevo offset cada 5-15 s, interpolación suave
+                    if (now >= hrvNextChangeRef.current) {
+                        hrvTargetRef.current = Math.round((Math.random() - 0.5) * 4);
+                        hrvNextChangeRef.current = now + 5000 + Math.random() * 10000;
+                    }
+                    hrvOffsetRef.current += (hrvTargetRef.current - hrvOffsetRef.current) * 0.0008;
                     const beatInterval = trueHr > 0 ? Math.round(60000 / trueHr) : 2000;
                     if (now - lastBeatRef.current >= beatInterval) {
                         lastBeatRef.current = now;
-                        const elapsedSec = (now - transitionStartRef.current) / 1000;
-                        const pt = currentTarget.patientType || 'neonatal';
-                        const respFreq = pt === 'neonatal' ? 0.80 : pt === 'pediatrico' ? 0.50 : 0.27;
-                        const respAmp  = pt === 'neonatal' ? 0.012 : pt === 'pediatrico' ? 0.015 : 0.018;
-                        const mayerAmp = 0.006;
-                        const jitterAmp = 0.004;
-                        const rsa   = Math.sin(elapsedSec * respFreq * 2 * Math.PI) * respAmp;
-                        const mayer = Math.sin(elapsedSec * 0.10 * 2 * Math.PI) * mayerAmp;
-                        const noise = (Math.random() - 0.5) * 2 * jitterAmp;
-                        const jitter = trueHr > 0 ? Math.round(trueHr * (rsa + mayer + noise)) : 0;
+                        const jitter = trueHr > 0 ? Math.round(hrvOffsetRef.current) : 0;
                         setVitals({ ...currentTarget, hr: Math.max(0, trueHr + jitter), spo2: trueSpo2 });
                     }
                     frame = requestAnimationFrame(animate);
