@@ -853,17 +853,29 @@
                                 absolutePhaseRef.current += beatsPerSecond * 2 * Math.PI * deltaTime;
                                 const absP = absolutePhaseRef.current;
                                 const prevAbsP = absP - beatsPerSecond * 2 * Math.PI * deltaTime;
-                                const fWaveAmp = amplitude * 0.05 * (0.7 + 0.3 * Math.abs(Math.sin(afibTime * 0.8)));
-                                newValue = mid + fWaveAmp * Math.sin(afibTime * 37.7) + fWaveAmp * 0.5 * Math.sin(afibTime * 44.0 + 0.7) + (Math.random() * amplitude * 0.02 - 0.01);
+                                // Ondas f visibles e irregulares (~6-7 Hz)
+                                const fWaveAmp = amplitude * 0.11 * (0.6 + 0.4 * Math.abs(Math.sin(afibTime * 0.65)));
+                                newValue = mid
+                                    + fWaveAmp * Math.sin(afibTime * 38.0)
+                                    + fWaveAmp * 0.55 * Math.sin(afibTime * 43.5 + 1.2)
+                                    + fWaveAmp * 0.28 * Math.sin(afibTime * 29.0 + 2.4)
+                                    + (Math.random() * amplitude * 0.018 - 0.009);
                                 const dist = absP - nextBeatAbsRef.current;
-                                if (dist > -0.14 && dist < 0.14) {
-                                    newValue = mid - amplitude * 2.5 * Math.exp(-dist * dist * 50);
-                                } else if (dist > 0.2 && dist < 1.1) {
-                                    newValue = mid - amplitude * 0.28 * Math.sin((dist - 0.2) * Math.PI / 0.9);
+                                // QRS supraventricular con morfología Q-R-S
+                                if (dist > -0.50 && dist < 0.50) {
+                                    const R = -amplitude * 1.9 * Math.exp(-dist * dist * 9);
+                                    const Q =  amplitude * 0.22 * Math.exp(-Math.pow(dist + 0.23, 2) * 42);
+                                    const S =  amplitude * 0.18 * Math.exp(-Math.pow(dist - 0.23, 2) * 42);
+                                    newValue = mid + R + Q + S;
+                                }
+                                // Onda T concordante
+                                if (dist > 0.55 && dist < 1.65) {
+                                    const tp = (dist - 0.55) / 1.10;
+                                    newValue = mid - amplitude * 0.28 * Math.sin(tp * Math.PI);
                                 }
                                 if (prevAbsP < nextBeatAbsRef.current && absP >= nextBeatAbsRef.current) {
                                     onBeat && onBeat();
-                                    const rrVariation = 0.50 + Math.random() * 1.00;
+                                    const rrVariation = 0.45 + Math.random() * 1.10;
                                     lastRRRef.current = 2 * Math.PI * rrVariation;
                                     nextBeatAbsRef.current = absP + lastRRRef.current;
                                 }
@@ -892,11 +904,11 @@
                                 if (prevPhase < Math.PI && p >= Math.PI) {
                                     onBeat && onBeat();
                                 }
-                                const inP = p > 0.881 && p < 1.633;
+                                const inP = p > 1.624 && p < 2.376;
                                 const inQRS = p > 2.639 && p < 3.644;
                                 const inT = p > 3.895 && p < 5.780;
                                 if (inP) {
-                                    const pp = p - 1.257;
+                                    const pp = p - 2.000;
                                     newValue = mid - amplitude * 0.15 * Math.exp(-pp * pp * 7);
                                 } else if (inQRS) {
                                     const qp = p - Math.PI;
