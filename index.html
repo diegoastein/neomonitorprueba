@@ -788,6 +788,7 @@
             const nextBeatAbsRef = useRef(Math.PI);
             const lastRRRef = useRef(2 * Math.PI);
             const vfTimeRef = useRef(0);
+            const beatVarRef = useRef(1.0);
             const hrvOffsetRef = useRef(0);
             const hrvTargetRef = useRef(0);
             const hrvNextChangeRef = useRef(0);
@@ -924,30 +925,31 @@
                                 }
                             }
                         } else {
-                            // Onda pletismográfica con morfología adaptada a SpO2, FC y tipo de paciente
-                            const np = p / (2 * Math.PI);
+                            // Onda pletismográfica sinusoidal con variación latido a latido
+                            // Al detectar nuevo ciclo (wrap de fase), actualizar factor de variación
+                            if (p < prevPhase) {
+                                const varRange = spo2 >= 90 ? 0.05 : spo2 >= 80 ? 0.10 : 0.18;
+                                beatVarRef.current = 1.0 + (Math.random() * 2 - 1) * varRange;
+                            }
 
-                            // Amplitud: se reduce con desaturación (normal→leve→moderada→severa)
+                            // Amplitud según saturación (normal→leve→moderada→severa)
                             const ampScale = spo2 >= 94 ? 1.0
                                            : spo2 >= 89 ? 0.75
                                            : spo2 >= 80 ? 0.50
                                            : 0.30;
 
-                            // Muesca dicrótica: más marcada en adultos, se aplana con taquicardia y desaturación severa
-                            const hrTachyThreshold = patientType === 'neonatal' ? 180 : patientType === 'pediatrico' ? 160 : 120;
-                            const baseDic = patientType === 'adulto' ? 0.38 : patientType === 'pediatrico' ? 0.31 : 0.26;
-                            const dicAmp = spo2 < 80 ? 0
-                                         : speed >= hrTachyThreshold ? baseDic * 0.2
-                                         : speed >= hrTachyThreshold * 0.85 ? baseDic * 0.55
-                                         : baseDic;
+                            // Muesca dicrótica como armónico sinusoidal (desaparece con desaturación severa)
+                            const dicFactor = spo2 >= 89 ? 0.22
+                                            : spo2 >= 80 ? 0.08
+                                            : 0.0;
 
-                            // En taquicardia la onda se redondea (sistólica más ancha, diástole comprimida)
-                            const sysWidth = speed >= hrTachyThreshold ? 0.10 : 0.07;
-                            const dicPos   = speed >= hrTachyThreshold ? 0.60 : 0.62;
+                            // Ruido basal (aumenta con desaturación)
+                            const noiseAmp = spo2 >= 90 ? 0.4 : spo2 >= 80 ? 1.2 : 2.8;
+                            const noise = (Math.random() * 2 - 1) * noiseAmp;
 
-                            const sys = Math.exp(-Math.pow((np - 0.38) / sysWidth, 2));
-                            const dic = dicAmp * Math.exp(-Math.pow((np - dicPos) / 0.04, 2));
-                            newValue = mid - amplitude * 0.72 * ampScale * (sys + dic);
+                            // Onda sinusoidal: componente sistólico principal + armónico dicrótico
+                            const wave = Math.sin(p) + dicFactor * Math.sin(2 * p + 0.5);
+                            newValue = mid - amplitude * 0.72 * ampScale * beatVarRef.current * wave + noise;
                         }
                     } else {
                         newValue = mid + (Math.random() * 2 - 1);
