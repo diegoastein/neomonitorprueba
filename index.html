@@ -2068,6 +2068,8 @@
             // Manejo de errores de conexión Firestore
             const [connectionError, setConnectionError] = useState(null);
             const [isConnected, setIsConnected] = useState(true);
+            const [retryCount, setRetryCount] = useState(0);
+            const [isRetrying, setIsRetrying] = useState(false);
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -2080,6 +2082,29 @@
                 const p = new URLSearchParams(window.location.search);
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
+
+            // Retry automático: reintenta conectarse cada 5 segundos cuando hay error
+            useEffect(() => {
+                if (!isRetrying || !sessionId || !db) return;
+
+                const retryTimer = setInterval(() => {
+                    setRetryCount(c => c + 1);
+                    // Intenta hacer un ping a Firestore verificando el listener
+                    db.collection("sessions").doc(sessionId).get()
+                        .then(doc => {
+                            console.log(`[Firestore] Retry #${retryCount + 1}: Conexión recuperada ✓`);
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            setIsRetrying(false);
+                            setRetryCount(0);
+                        })
+                        .catch(err => {
+                            console.warn(`[Firestore] Retry #${retryCount + 1}: Aún sin conexión - ${err?.message || err}`);
+                        });
+                }, 5000);
+
+                return () => clearInterval(retryTimer);
+            }, [isRetrying, sessionId, db, retryCount]);
 
             // Load clinical cases from Firebase if available (one-time load on mount)
             useEffect(() => {
@@ -2117,6 +2142,8 @@
                         console.error(`[Firestore] Error en listener de sesión ${sessionId}:`, error?.message || error);
                         setIsConnected(false);
                         setConnectionError(error?.message || 'Error desconocido');
+                        setIsRetrying(true); // Inicia retry automático
+                        setRetryCount(0);
                         setVitalsLoaded(true); // Mostrar pantalla aunque no esté conectado
                     }
                 );
@@ -2146,6 +2173,8 @@
                         console.error(`[Firestore] Error escribiendo ${description} en sesión ${sessionId}:`, err?.message || err);
                         setIsConnected(false);
                         setConnectionError(err?.message || 'Error al guardar cambios');
+                        setIsRetrying(true); // Inicia retry automático
+                        setRetryCount(0);
                     });
             };
 
@@ -2197,6 +2226,8 @@
                                             console.error(`[Firestore] Error inicializando sesión ${sid}:`, err?.message || err);
                                             setConnectionError(err?.message || 'Error al crear sesión');
                                             setIsConnected(false);
+                                            setIsRetrying(true); // Inicia retry automático
+                                            setRetryCount(0);
                                         });
                                 }
                             }} className="bg-slate-900 border border-slate-800 hover:border-green-500/50 p-8 rounded-3xl flex flex-col items-center gap-6 group transition-all active:scale-95 shadow-2xl"><div className="bg-green-500/10 p-5 rounded-2xl group-hover:bg-green-500/20 transition-colors"><Icons.Monitor className="w-12 h-12 text-green-400"/></div><span className="text-xl font-bold text-white leading-tight">{t.useAsMonitor}</span></button>
@@ -2216,9 +2247,15 @@
                 <div className="font-sans antialiased">
                     {/* Banner de desconexión */}
                     {!isConnected && (
-                        <div className="fixed top-0 left-0 right-0 z-50 bg-red-900/90 border-b border-red-700 px-6 py-3 text-sm font-semibold text-red-100 flex items-center gap-3">
-                            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                            <span>🔴 Desconectado de Firestore: {connectionError}</span>
+                        <div className="fixed top-0 left-0 right-0 z-50 bg-red-900/90 border-b border-red-700 px-6 py-3 text-sm font-semibold text-red-100 flex items-center gap-3 justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                                <span>
+                                    🔴 Desconectado: {connectionError}
+                                    {isRetrying && ` (reintentando... intento #${retryCount})`}
+                                </span>
+                            </div>
+                            {isRetrying && <span className="text-xs opacity-75">⏳ Próximo intento en ~5s</span>}
                         </div>
                     )}
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
