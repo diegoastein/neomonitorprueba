@@ -1018,7 +1018,7 @@
             return vitals;
         };
 
-        const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange }) => {
+        const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange, isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(targetVitals);
             const [audioEnabled, setAudioEnabled] = useState(false);
             const [time, setTime] = useState(new Date());
@@ -1077,6 +1077,15 @@
 
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning ? 'border-slate-900' : (alarmState === 'critical' ? (flash ? 'border-red-600 bg-red-900/10' : 'border-red-900') : (flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900'))} hardware-accelerated monitor-screen`}>
+                    {!isConnected && (
+                        <div className="w-full bg-red-900/95 border-b border-red-700 px-4 py-2 text-xs font-semibold text-red-100 flex items-center gap-2 justify-between flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                                <span>🔴 Desconectado: {connectionError}{isRetrying && ` (intento #${retryCount})`}</span>
+                            </div>
+                            {isRetrying && <span className="text-[10px] opacity-75">⏳ Reintentando...</span>}
+                        </div>
+                    )}
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">{t.startMonitorBtn}</button>
@@ -1252,7 +1261,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -1563,6 +1572,15 @@
 
             return (
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
+                    {!isConnected && (
+                        <div className="flex-none w-full bg-red-900/95 border-b border-red-700 px-4 py-2 text-xs font-semibold text-red-100 flex items-center gap-2 justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                                <span>🔴 Desconectado: {connectionError}{isRetrying && ` (intento #${retryCount})`}</span>
+                            </div>
+                            {isRetrying && <span className="text-[10px] opacity-75">⏳ Reintentando...</span>}
+                        </div>
+                    )}
                     <header className="flex-none flex items-center justify-between px-4 py-3 bg-slate-800 gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                             <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> {t.control}</h2>
@@ -2140,12 +2158,12 @@
                         // Reset watchdog: recibimos datos, así que está conectado
                         clearTimeout(watchdogTimer);
                         watchdogTimer = setTimeout(() => {
-                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 10s en sesión ${sessionId}`);
+                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 5s en sesión ${sessionId}`);
                             setIsConnected(false);
                             setConnectionError('Sin datos de Firestore (timeout)');
                             setIsRetrying(true);
                             setRetryCount(0);
-                        }, 10000);
+                        }, 5000);
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
@@ -2276,21 +2294,8 @@
 
             return (
                 <div className="font-sans antialiased">
-                    {/* Banner de desconexión */}
-                    {!isConnected && (
-                        <div className="fixed top-0 left-0 right-0 z-50 bg-red-900/90 border-b border-red-700 px-6 py-3 text-sm font-semibold text-red-100 flex items-center gap-3 justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                                <span>
-                                    🔴 Desconectado: {connectionError}
-                                    {isRetrying && ` (reintentando... intento #${retryCount})`}
-                                </span>
-                            </div>
-                            {isRetrying && <span className="text-xs opacity-75">⏳ Próximo intento en ~5s</span>}
-                        </div>
-                    )}
-                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
                 </div>
             );
         };
