@@ -103,30 +103,39 @@ The main `onSnapshot()` listener has an error callback that:
 
 ## Known issues (to fix next session)
 
-**Bug: Control device shows false disconnect on slider interaction**
+**Bug: False "disconnect" banner on Control when user idle (no connection loss)**
 
 **Description:**
-- Monitor (tablet): Works correctly — banner appears on WiFi disconnect, persists until reconnect ✓
-- Control (smartphone): Bug — if user doesn't touch screen, assumes disconnect (correct). BUT when user moves a slider, `writeToFirestore()` succeeds and **clears the disconnect banner** even though listener is still down ✗
+- Monitor (tablet): Works correctly — shows banner only on real WiFi disconnect ✓
+- Control (smartphone): False positive — if user doesn't touch screen for ~15s, banner appears even though connection is stable. Banner disappears when user moves a slider.
 
-**Root cause:**
+**Root cause (watchdog logic is wrong):**
 ```javascript
-writeToFirestore() {
-  db.set(data).then(() => {
-    setIsConnected(true) ← WRONG! Write success ≠ listener recovered
-    setConnectionError(null) ← Clears banner prematurely
-  })
-}
+useEffect for watchdog:
+  clearTimeout(watchdogTimer)
+  watchdogTimer = setTimeout(() => {
+    // 15 seconds without data → assume disconnect
+    setIsConnected(false)
+  }, 15000)
 ```
 
+**The problem:**
+- onSnapshot listener ONLY emits when data CHANGES
+- If user is idle (no sliders moved), listener doesn't emit anything
+- Watchdog thinks "no data for 15s = disconnected" but it's just idle ✗
+- When user moves slider → data changes → listener emits → banner clears (false positive resolved)
+
 **Solution (v1.06):**
-1. Separate concerns:
-   - `isConnected` = "listener receiving updates" (only onSnapshot should modify)
-   - Write success should NOT touch `isConnected`
-2. Remove `setIsConnected(true)` from `writeToFirestore().then()`
-3. Only `setIsConnected(false)` on write errors
-4. Banner persists until listener actually recovers (via onSnapshot success callback)
+Don't use "no data for X seconds" as disconnect indicator. Instead:
+1. Use write operations as heartbeat
+   - Every successful write resets watchdog
+   - Shows connectivity is working
+2. OR: Add a periodic ping/read operation every 10s (heartbeat)
+3. Keep watchdog only for REAL errors (onSnapshot error callback)
+
+The real indicator of disconnect is the `error` callback in onSnapshot, not "no data received".
 
 **Testing:**
-- Monitor: Disable WiFi, banner persists ✓
-- Control: Disable WiFi, banner appears. Move slider, banner must NOT disappear ✓ (currently fails)
+- Monitor: Disable WiFi → real error → banner appears ✓
+- Control: Idle for 30s with stable WiFi → NO banner (should not trigger watchdog) ✓
+- Control: Move slider, data succeeds → watchdog resets, no false positive ✓
