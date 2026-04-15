@@ -99,4 +99,34 @@ The main `onSnapshot()` listener has an error callback that:
 
 ## Recent fixes (beta branch)
 
-- **v1.05+**: Firestore connection resilience with automatic retry every 5 seconds on error. Users see red error banner with retry count. No need for manual reconnection.
+- **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
+
+## Known issues (to fix next session)
+
+**Bug: Control device shows false disconnect on slider interaction**
+
+**Description:**
+- Monitor (tablet): Works correctly — banner appears on WiFi disconnect, persists until reconnect ✓
+- Control (smartphone): Bug — if user doesn't touch screen, assumes disconnect (correct). BUT when user moves a slider, `writeToFirestore()` succeeds and **clears the disconnect banner** even though listener is still down ✗
+
+**Root cause:**
+```javascript
+writeToFirestore() {
+  db.set(data).then(() => {
+    setIsConnected(true) ← WRONG! Write success ≠ listener recovered
+    setConnectionError(null) ← Clears banner prematurely
+  })
+}
+```
+
+**Solution (v1.06):**
+1. Separate concerns:
+   - `isConnected` = "listener receiving updates" (only onSnapshot should modify)
+   - Write success should NOT touch `isConnected`
+2. Remove `setIsConnected(true)` from `writeToFirestore().then()`
+3. Only `setIsConnected(false)` on write errors
+4. Banner persists until listener actually recovers (via onSnapshot success callback)
+
+**Testing:**
+- Monitor: Disable WiFi, banner persists ✓
+- Control: Disable WiFi, banner appears. Move slider, banner must NOT disappear ✓ (currently fails)
