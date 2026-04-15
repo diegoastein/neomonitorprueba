@@ -2090,6 +2090,7 @@
             const [isConnected, setIsConnected] = useState(true);
             const [retryCount, setRetryCount] = useState(0);
             const [isRetrying, setIsRetrying] = useState(false);
+            const watchdogTimerRef = useRef(null);
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -2102,6 +2103,18 @@
                 const p = new URLSearchParams(window.location.search);
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
+
+            // Helper: resetear el watchdog (evita falsos positivos en inactividad)
+            const resetWatchdog = () => {
+                clearTimeout(watchdogTimerRef.current);
+                watchdogTimerRef.current = setTimeout(() => {
+                    console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 15s en sesión ${sessionId}`);
+                    setIsConnected(false);
+                    setConnectionError('Sin respuesta del simulador');
+                    setIsRetrying(true);
+                    setRetryCount(0);
+                }, 15000);
+            };
 
             // Retry automático: reintenta cada 10s cuando hay error
             // Nota: El estado isConnected solo se resetea cuando el listener realmente recibe datos
@@ -2137,7 +2150,6 @@
             // vitalsLoaded garantiza que control no se renderiza hasta tener datos de Firestore.
             useEffect(() => {
                 if (!sessionId || !db) return;
-                let watchdogTimer = null;
                 const unsub = db.collection("sessions").doc(sessionId).onSnapshot(
                     doc => {
                         // Éxito: documento recibido
@@ -2149,14 +2161,7 @@
                         setIsConnected(true);
                         setConnectionError(null);
                         // Reset watchdog: recibimos datos, así que está conectado
-                        clearTimeout(watchdogTimer);
-                        watchdogTimer = setTimeout(() => {
-                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 15s en sesión ${sessionId}`);
-                            setIsConnected(false);
-                            setConnectionError('Sin respuesta del simulador');
-                            setIsRetrying(true);
-                            setRetryCount(0);
-                        }, 15000);
+                        resetWatchdog();
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
@@ -2185,7 +2190,7 @@
                 window.addEventListener('online', handleOnline);
                 window.addEventListener('offline', handleOffline);
                 return () => {
-                    clearTimeout(watchdogTimer);
+                    clearTimeout(watchdogTimerRef.current);
                     unsub();
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
@@ -2208,6 +2213,8 @@
                         // Escritura exitosa
                         setIsConnected(true);
                         setConnectionError(null);
+                        // Reset watchdog en escritura: prueba que la conexión funciona
+                        resetWatchdog();
                         console.debug(`[Firestore] ${description} exitoso para sesión ${sessionId}`);
                     })
                     .catch(err => {
