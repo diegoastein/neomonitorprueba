@@ -2126,6 +2126,7 @@
             // vitalsLoaded garantiza que control no se renderiza hasta tener datos de Firestore.
             useEffect(() => {
                 if (!sessionId || !db) return;
+                let watchdogTimer = null;
                 const unsub = db.collection("sessions").doc(sessionId).onSnapshot(
                     doc => {
                         // Éxito: documento recibido
@@ -2136,6 +2137,15 @@
                         // Conexión recuperada
                         setIsConnected(true);
                         setConnectionError(null);
+                        // Reset watchdog: recibimos datos, así que está conectado
+                        clearTimeout(watchdogTimer);
+                        watchdogTimer = setTimeout(() => {
+                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 10s en sesión ${sessionId}`);
+                            setIsConnected(false);
+                            setConnectionError('Sin datos de Firestore (timeout)');
+                            setIsRetrying(true);
+                            setRetryCount(0);
+                        }, 10000);
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
@@ -2147,7 +2157,28 @@
                         setVitalsLoaded(true); // Mostrar pantalla aunque no esté conectado
                     }
                 );
-                return () => unsub();
+                // Detector de conexión del navegador (navigator.onLine)
+                const handleOnline = () => {
+                    console.log(`[Firestore] Evento online detectado`);
+                    setIsConnected(true);
+                    setConnectionError(null);
+                    setIsRetrying(false);
+                };
+                const handleOffline = () => {
+                    console.warn(`[Firestore] Evento offline detectado`);
+                    setIsConnected(false);
+                    setConnectionError('Sin conexión a internet');
+                    setIsRetrying(true);
+                    setRetryCount(0);
+                };
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    clearTimeout(watchdogTimer);
+                    unsub();
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
             }, [sessionId]);
 
             useEffect(() => {
