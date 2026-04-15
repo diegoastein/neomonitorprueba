@@ -1078,12 +1078,13 @@
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning ? 'border-slate-900' : (alarmState === 'critical' ? (flash ? 'border-red-600 bg-red-900/10' : 'border-red-900') : (flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900'))} hardware-accelerated monitor-screen`}>
                     {!isConnected && (
-                        <div className="w-full bg-red-900/95 border-b border-red-700 px-4 py-2 text-xs font-semibold text-red-100 flex items-center gap-2 justify-between flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                                <span>🔴 Desconectado: {connectionError}{isRetrying && ` (intento #${retryCount})`}</span>
+                        <div className="w-full bg-red-700 border-b-4 border-red-900 px-6 py-4 text-lg font-black text-white flex items-center gap-4 justify-between flex-shrink-0 shadow-2xl animate-pulse">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="w-4 h-4 bg-yellow-300 rounded-full animate-bounce"></div>
+                                <span className="tracking-wide">⚠️ SIMULADOR DESCONECTADO</span>
+                                <span className="text-sm font-semibold opacity-90">{connectionError}</span>
                             </div>
-                            {isRetrying && <span className="text-[10px] opacity-75">⏳ Reintentando...</span>}
+                            {isRetrying && <span className="text-sm font-bold bg-red-900/80 px-3 py-1 rounded">Intento #{retryCount}</span>}
                         </div>
                     )}
                     {!audioEnabled && (
@@ -1573,12 +1574,13 @@
             return (
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
                     {!isConnected && (
-                        <div className="flex-none w-full bg-red-900/95 border-b border-red-700 px-4 py-2 text-xs font-semibold text-red-100 flex items-center gap-2 justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                                <span>🔴 Desconectado: {connectionError}{isRetrying && ` (intento #${retryCount})`}</span>
+                        <div className="flex-none w-full bg-red-700 border-b-4 border-red-900 px-6 py-4 font-black text-white flex items-center gap-4 justify-between shadow-2xl animate-pulse">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="w-4 h-4 bg-yellow-300 rounded-full animate-bounce"></div>
+                                <span className="tracking-wide">⚠️ SIMULADOR DESCONECTADO</span>
+                                <span className="text-sm font-semibold opacity-90">{connectionError}</span>
                             </div>
-                            {isRetrying && <span className="text-[10px] opacity-75">⏳ Reintentando...</span>}
+                            {isRetrying && <span className="text-sm font-bold bg-red-900/80 px-3 py-1 rounded">Intento #{retryCount}</span>}
                         </div>
                     )}
                     <header className="flex-none flex items-center justify-between px-4 py-3 bg-slate-800 gap-2 flex-wrap">
@@ -2101,25 +2103,16 @@
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
 
-            // Retry automático: reintenta conectarse cada 5 segundos cuando hay error
+            // Retry automático: reintenta cada 10s cuando hay error
+            // Nota: El estado isConnected solo se resetea cuando el listener realmente recibe datos
             useEffect(() => {
                 if (!isRetrying || !sessionId || !db) return;
 
                 const retryTimer = setInterval(() => {
                     setRetryCount(c => c + 1);
-                    // Intenta hacer un ping a Firestore verificando el listener
-                    db.collection("sessions").doc(sessionId).get()
-                        .then(doc => {
-                            console.log(`[Firestore] Retry #${retryCount + 1}: Conexión recuperada ✓`);
-                            setIsConnected(true);
-                            setConnectionError(null);
-                            setIsRetrying(false);
-                            setRetryCount(0);
-                        })
-                        .catch(err => {
-                            console.warn(`[Firestore] Retry #${retryCount + 1}: Aún sin conexión - ${err?.message || err}`);
-                        });
-                }, 5000);
+                    // Log de reintento (no marca como conectado hasta que listener se recupere)
+                    console.log(`[Firestore] Retry #${retryCount + 1}: Esperando recuperación del listener...`);
+                }, 10000);
 
                 return () => clearInterval(retryTimer);
             }, [isRetrying, sessionId, db, retryCount]);
@@ -2158,12 +2151,12 @@
                         // Reset watchdog: recibimos datos, así que está conectado
                         clearTimeout(watchdogTimer);
                         watchdogTimer = setTimeout(() => {
-                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 5s en sesión ${sessionId}`);
+                            console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 15s en sesión ${sessionId}`);
                             setIsConnected(false);
-                            setConnectionError('Sin datos de Firestore (timeout)');
+                            setConnectionError('Sin respuesta del simulador');
                             setIsRetrying(true);
                             setRetryCount(0);
-                        }, 5000);
+                        }, 15000);
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
