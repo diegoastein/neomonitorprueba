@@ -1262,7 +1262,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0, firestoreLogs = [] }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -1286,6 +1286,7 @@
             const [selectedNTSkills, setSelectedNTSkills] = useState([]);
             const [technicalSkills, setTechnicalSkills] = useState(['', '', '']);
             const [lastApplied, setLastApplied] = useState(null);
+            const [showLogs, setShowLogs] = useState(false);
 
             useEffect(() => { setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 }); }, [currentVitals.hr, currentVitals.spo2]);
 
@@ -1953,6 +1954,34 @@
                         <div className="w-full opacity-30 font-mono text-[10px] tracking-widest border border-slate-700 rounded py-1 bg-black/20 text-center mb-1">SPONSOR AREA</div>
                         <SponsorSpace compact className="h-10 w-full" source="Control" t={t} />
                     </div>
+
+                    {/* Widget de logs Firestore - esquina inferior derecha */}
+                    <button onClick={() => setShowLogs(!showLogs)} className="fixed bottom-4 right-4 z-40 bg-slate-800 border border-slate-600 hover:border-blue-500 rounded-lg p-2 text-xs font-mono text-slate-400 hover:text-blue-400 transition-colors" title={`${firestoreLogs.length} logs`}>
+                        📋 {firestoreLogs.length}
+                    </button>
+                    {showLogs && (
+                        <div className="fixed bottom-14 right-4 z-40 bg-slate-900 border border-slate-600 rounded-lg shadow-2xl max-w-xs max-h-64 overflow-y-auto flex flex-col">
+                            <div className="flex-none px-3 py-2 border-b border-slate-700 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-300">[Firestore] Logs</span>
+                                <button onClick={() => setShowLogs(false)} className="text-slate-500 hover:text-slate-300"><Icons.X className="w-4 h-4"/></button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                {firestoreLogs.length === 0 ? (
+                                    <div className="p-3 text-xs text-slate-500">Sin logs</div>
+                                ) : (
+                                    firestoreLogs.map((log, idx) => (
+                                        <div key={idx} className={`px-3 py-1.5 text-xs font-mono border-b border-slate-800 ${log.level === 'error' ? 'bg-red-950/30 text-red-400' : log.level === 'warn' ? 'bg-yellow-950/30 text-yellow-400' : log.level === 'debug' ? 'bg-slate-800/30 text-slate-400' : 'text-slate-300'}`}>
+                                            <div className="flex gap-2 items-start">
+                                                <span className="flex-none text-slate-500">{log.timestamp}</span>
+                                                <span className="flex-none uppercase text-[10px] font-bold opacity-60">{log.level.substring(0, 3)}</span>
+                                                <span className="flex-1 break-words">{log.msg}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -2091,6 +2120,7 @@
             const [retryCount, setRetryCount] = useState(0);
             const [isRetrying, setIsRetrying] = useState(false);
             const watchdogTimerRef = useRef(null);
+            const [firestoreLogs, setFirestoreLogs] = useState([]);
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -2108,12 +2138,28 @@
             const resetWatchdog = () => {
                 clearTimeout(watchdogTimerRef.current);
                 watchdogTimerRef.current = setTimeout(() => {
-                    console.warn(`[Firestore] Watchdog timeout: no hay datos desde hace 15s en sesión ${sessionId}`);
+                    logFirestore('Watchdog timeout: no hay datos desde hace 15s en sesión ' + sessionId, 'warn');
                     setIsConnected(false);
                     setConnectionError('Sin respuesta del simulador');
                     setIsRetrying(true);
                     setRetryCount(0);
                 }, 15000);
+            };
+
+            // Helper: registrar logs de Firestore (captura últimos 10)
+            const logFirestore = (msg, level = 'log') => {
+                const timestamp = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const fullMsg = `[Firestore] ${msg}`;
+                const logEntry = { timestamp, msg, level };
+
+                // Capturar en memoria (últimos 10)
+                setFirestoreLogs(prev => [...prev.slice(-9), logEntry]);
+
+                // También loguear en console
+                if (level === 'error') console.error(fullMsg);
+                else if (level === 'warn') console.warn(fullMsg);
+                else if (level === 'debug') console.debug(fullMsg);
+                else console.log(fullMsg);
             };
 
             // Retry automático: reintenta cada 10s cuando hay error
@@ -2124,7 +2170,7 @@
                 const retryTimer = setInterval(() => {
                     setRetryCount(c => c + 1);
                     // Log de reintento (no marca como conectado hasta que listener se recupere)
-                    console.log(`[Firestore] Retry #${retryCount + 1}: Esperando recuperación del listener...`);
+                    logFirestore(`Retry #${retryCount + 1}: Esperando recuperación del listener...`, 'log');
                 }, 10000);
 
                 return () => clearInterval(retryTimer);
@@ -2165,7 +2211,7 @@
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
-                        console.error(`[Firestore] Error en listener de sesión ${sessionId}:`, error?.message || error);
+                        logFirestore(`Error en listener de sesión ${sessionId}: ${error?.message || error}`, 'error');
                         setIsConnected(false);
                         setConnectionError(error?.message || 'Error desconocido');
                         setIsRetrying(true); // Inicia retry automático
@@ -2175,13 +2221,13 @@
                 );
                 // Detector de conexión del navegador (navigator.onLine)
                 const handleOnline = () => {
-                    console.log(`[Firestore] Evento online detectado`);
+                    logFirestore('Evento online detectado', 'log');
                     setIsConnected(true);
                     setConnectionError(null);
                     setIsRetrying(false);
                 };
                 const handleOffline = () => {
-                    console.warn(`[Firestore] Evento offline detectado`);
+                    logFirestore('Evento offline detectado', 'warn');
                     setIsConnected(false);
                     setConnectionError('Sin conexión a internet');
                     setIsRetrying(true);
@@ -2214,7 +2260,7 @@
                 const attemptKeepAlive = () => {
                     db.collection("sessions").doc(sessionId).set({ lastKeepAlive: new Date().toISOString() }, { merge: true })
                         .then(() => {
-                            console.debug(`[Firestore] Keep-alive write OK para sesión ${sessionId}`);
+                            logFirestore(`Keep-alive write OK para sesión ${sessionId}`, 'debug');
                             // Conexión recuperada
                             setIsConnected(true);
                             setConnectionError(null);
@@ -2227,7 +2273,7 @@
                             }
                         })
                         .catch(err => {
-                            console.error(`[Firestore] Keep-alive write falló para sesión ${sessionId}:`, err?.message || err);
+                            logFirestore(`Keep-alive write falló para sesión ${sessionId}: ${err?.message || err}`, 'error');
                             setIsConnected(false);
                             setConnectionError(err?.message || 'Error de conectividad');
                             setIsRetrying(true);
@@ -2253,7 +2299,7 @@
             // Función helper para escribir a Firestore con manejo de errores
             const writeToFirestore = (data, description = 'update') => {
                 if (!db || !sessionId) {
-                    console.warn(`[Firestore] No se puede escribir: db=${!!db}, sessionId=${!!sessionId}`);
+                    logFirestore(`No se puede escribir: db=${!!db}, sessionId=${!!sessionId}`, 'warn');
                     return;
                 }
                 db.collection("sessions").doc(sessionId).set(data, { merge: true })
@@ -2263,11 +2309,11 @@
                         setConnectionError(null);
                         // Reset watchdog en escritura: prueba que la conexión funciona
                         resetWatchdog();
-                        console.debug(`[Firestore] ${description} exitoso para sesión ${sessionId}`);
+                        logFirestore(`${description} exitoso para sesión ${sessionId}`, 'debug');
                     })
                     .catch(err => {
                         // Error en escritura: sin permiso, documento muy grande, cuota excedida, etc.
-                        console.error(`[Firestore] Error escribiendo ${description} en sesión ${sessionId}:`, err?.message || err);
+                        logFirestore(`Error escribiendo ${description} en sesión ${sessionId}: ${err?.message || err}`, 'error');
                         setIsConnected(false);
                         setConnectionError(err?.message || 'Error al guardar cambios');
                         setIsRetrying(true); // Inicia retry automático
@@ -2320,7 +2366,7 @@
                                 if (db) {
                                     db.collection("sessions").doc(sid).set(initDoc)
                                         .catch(err => {
-                                            console.error(`[Firestore] Error inicializando sesión ${sid}:`, err?.message || err);
+                                            logFirestore(`Error inicializando sesión ${sid}: ${err?.message || err}`, 'error');
                                             setConnectionError(err?.message || 'Error al crear sesión');
                                             setIsConnected(false);
                                             setIsRetrying(true); // Inicia retry automático
@@ -2343,7 +2389,7 @@
             return (
                 <div className="font-sans antialiased">
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} firestoreLogs={firestoreLogs} />}
                 </div>
             );
         };
