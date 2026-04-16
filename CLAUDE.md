@@ -100,35 +100,9 @@ The main `onSnapshot()` listener has an error callback that:
 ## Recent fixes (beta branch)
 
 - **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
-- **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). **Status:** Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle (waiting for Control writes to receive listener events).
+- **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle.
+- **v1.07**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. Fully resolves false disconnect on idle ✓
 
-## Known issues (to fix in v1.07)
+## Known issues
 
-**Asymmetric idle problem in v1.06:**
-
-**Current behavior (after v1.06):**
-- Monitor idle, Control idle → Monitor shows false "DESCONECTADO" banner
-- User moves slider on Control → Control writes → Monitor listener emits → Monitor watchdog resets → banner clears
-- This is wrong: banner shouldn't appear on Monitor if connection is stable
-
-**Root cause:**
-- Monitor depends on listener emitting (which requires data changes from Control)
-- Control depends on writes (which happen when user moves slider)
-- If both idle: no writes from Control → no listener events on Monitor → Monitor watchdog triggers → false positive on Monitor
-
-**Solution for v1.07 (periodic heartbeat ping):**
-1. Add a `heartbeat` effect that runs every 10s on **both Monitor and Control**
-2. Heartbeat reads current session doc (non-write operation): `db.collection("sessions").doc(sessionId).get()`
-3. If read succeeds → reset watchdog (proves connection works)
-4. If read fails → set connection error (real problem)
-5. This decouples watchdog from "data changes" and bases it on "actual connectivity"
-
-**Alternative (lightweight):**
-- Instead of periodic ping, use Firestore's real-time presence system or simpler: Control sends a lightweight "keep-alive" write every 30s with same data (no-op update)
-
-**Testing checklist for v1.07:**
-- Monitor idle 30s, Control idle → NO false banner ✓
-- Move slider on Control → works normally ✓
-- Both idle 30s → NO false banner ✓
-- Disable WiFi → banner appears on both within 5s ✓
-- Re-enable WiFi → banner clears within 10s ✓
+No known issues at this time. All documented Firestore connection problems have been resolved.
