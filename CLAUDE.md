@@ -101,8 +101,16 @@ The main `onSnapshot()` listener has an error callback that:
 
 - **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
 - **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle.
-- **v1.07**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. Fully resolves false disconnect on idle ✓
+- **v1.07 (WIP)**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. **Status:** Monitor false positives on idle resolved ✓ but **Control device shows frequent false positives** despite active WiFi connection.
 
-## Known issues
+## Known issues (to fix in v1.08)
 
-No known issues at this time. All documented Firestore connection problems have been resolved.
+**Control false positives on v1.07:**
+
+Keep-alive write fails intermittently even with active WiFi, causing banner to appear. Retries every 5s when failed, but recovery is delayed or unreliable. Possible causes:
+- Keep-alive write hits Firestore rate limits or quota issues
+- Network latency causing timeouts
+- Firestore connection state not properly synchronized
+- Keep-alive write conflicts with concurrent user writes
+
+**Next session:** Analyze logs to identify root cause and implement proper fix (options: increase retry backoff, change detection strategy, use different write pattern, implement exponential backoff).
