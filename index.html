@@ -2204,23 +2204,50 @@
 
             // Control: Keep-alive write cada 30s para evitar falsos positivos de desconexión en Monitor
             // Cuando Control envía un write, Monitor recibe el evento vía listener → resetea watchdog
+            // Cuando falla, intenta reconectar cada 5s hasta que se recupere
             useEffect(() => {
                 if (mode !== 'control' || !sessionId || !db) return;
 
-                const keepAliveInterval = setInterval(() => {
+                let keepAliveInterval;
+                let reconnectInterval;
+
+                const attemptKeepAlive = () => {
                     db.collection("sessions").doc(sessionId).set({ lastKeepAlive: new Date().toISOString() }, { merge: true })
                         .then(() => {
                             console.debug(`[Firestore] Keep-alive write OK para sesión ${sessionId}`);
-                            // El listener en Monitor recibe este cambio y resetea su watchdog
+                            // Conexión recuperada
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            setIsRetrying(false);
+                            // Limpiar reconnect interval si está activo
+                            if (reconnectInterval) clearInterval(reconnectInterval);
+                            // Volver a programar keep-alive cada 30s
+                            if (!keepAliveInterval) {
+                                keepAliveInterval = setInterval(attemptKeepAlive, 30000);
+                            }
                         })
                         .catch(err => {
                             console.error(`[Firestore] Keep-alive write falló para sesión ${sessionId}:`, err?.message || err);
-                            // El error handling existente en writeToFirestore se aplica automáticamente
-                            // via el listener error callback
+                            setIsConnected(false);
+                            setConnectionError(err?.message || 'Error de conectividad');
+                            setIsRetrying(true);
+                            setRetryCount(0);
+                            // Limpiar keep-alive interval y cambiar a reconnect cada 5s
+                            if (keepAliveInterval) clearInterval(keepAliveInterval);
+                            keepAliveInterval = null;
+                            if (!reconnectInterval) {
+                                reconnectInterval = setInterval(attemptKeepAlive, 5000);
+                            }
                         });
-                }, 30000);
+                };
 
-                return () => clearInterval(keepAliveInterval);
+                // Primer keep-alive después de 30s
+                keepAliveInterval = setInterval(attemptKeepAlive, 30000);
+
+                return () => {
+                    if (keepAliveInterval) clearInterval(keepAliveInterval);
+                    if (reconnectInterval) clearInterval(reconnectInterval);
+                };
             }, [mode, sessionId, db]);
 
             // Función helper para escribir a Firestore con manejo de errores
