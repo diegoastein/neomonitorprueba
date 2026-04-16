@@ -2197,6 +2197,33 @@
                 };
             }, [sessionId]);
 
+            // Heartbeat periódico (cada 10s): lectura no-write para verificar conectividad
+            // Evita falsos positivos cuando ambos dispositivos están inactivos (sin escrituras)
+            useEffect(() => {
+                if (!sessionId || !db) return;
+
+                const heartbeatInterval = setInterval(() => {
+                    db.collection("sessions").doc(sessionId).get()
+                        .then(() => {
+                            // Lectura exitosa: conexión funciona
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            resetWatchdog();
+                            console.debug(`[Firestore] Heartbeat OK para sesión ${sessionId}`);
+                        })
+                        .catch(err => {
+                            // Lectura falló: conexión real problema
+                            console.error(`[Firestore] Heartbeat falló para sesión ${sessionId}:`, err?.message || err);
+                            setIsConnected(false);
+                            setConnectionError(err?.message || 'Error de conectividad');
+                            setIsRetrying(true);
+                            setRetryCount(0);
+                        });
+                }, 10000);
+
+                return () => clearInterval(heartbeatInterval);
+            }, [sessionId, db]);
+
             useEffect(() => {
                 const defaults = PATIENT_DEFAULTS[patientType] || PATIENT_DEFAULTS.neonatal;
                 setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
