@@ -101,16 +101,10 @@ The main `onSnapshot()` listener has an error callback that:
 
 - **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
 - **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle.
-- **v1.07 (WIP)**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. **Status:** Monitor false positives on idle resolved ✓ but **Control device shows frequent false positives** despite active WiFi connection.
-
-## Known issues (to fix in v1.08)
-
-**Control false positives on v1.07:**
-
-Keep-alive write fails intermittently even with active WiFi, causing banner to appear. Retries every 5s when failed, but recovery is delayed or unreliable. Possible causes:
-- Keep-alive write hits Firestore rate limits or quota issues
-- Network latency causing timeouts
-- Firestore connection state not properly synchronized
-- Keep-alive write conflicts with concurrent user writes
-
-**Next session:** Analyze logs to identify root cause and implement proper fix (options: increase retry backoff, change detection strategy, use different write pattern, implement exponential backoff).
+- **v1.07**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. Monitor false positives resolved ✓ but Control device shows frequent false positives due to aggressive retry (5s fixed).
+- **v1.08**: On-screen logs widget + exponential backoff + increased keep-alive interval
+  - Added `[Firestore]` logs widget in bottom-right of Control device (collapsible, shows last 10 logs)
+  - Implemented exponential backoff for keep-alive retries (1s → 2s → 4s → 8s → 30s max)
+  - Increased keep-alive interval from 30s to 60s to reduce Firestore write frequency
+  - Increased watchdog timeout from 15s to 75s (60s keep-alive + 15s buffer)
+  - **Status:** Ready for testing — logs widget enables on-device diagnostics without USB debugging ✓

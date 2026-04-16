@@ -2143,7 +2143,7 @@
                     setConnectionError('Sin respuesta del simulador');
                     setIsRetrying(true);
                     setRetryCount(0);
-                }, 15000);
+                }, 75000);
             };
 
             // Helper: registrar logs de Firestore (captura últimos 10)
@@ -2248,16 +2248,17 @@
                 setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
             }, [patientType]);
 
-            // Control: Keep-alive write cada 30s para evitar falsos positivos de desconexión en Monitor
+            // Control: Keep-alive write cada 60s para evitar falsos positivos de desconexión en Monitor
             // Cuando Control envía un write, Monitor recibe el evento vía listener → resetea watchdog
-            // Cuando falla, intenta reconectar cada 5s hasta que se recupere
+            // Cuando falla, usa exponential backoff (1s → 2s → 4s → 8s → 30s) para ser amable con Firestore
             useEffect(() => {
                 if (mode !== 'control' || !sessionId || !db) return;
 
                 let keepAliveInterval;
-                let reconnectInterval;
+                let reconnectTimer;
+                let retryBackoffMs = 1000; // Empezar con 1s, exponential backoff max 30s
 
-                const attemptKeepAlive = () => {
+                const attemptKeepAlive = (isRetry = false) => {
                     db.collection("sessions").doc(sessionId).set({ lastKeepAlive: new Date().toISOString() }, { merge: true })
                         .then(() => {
                             logFirestore(`Keep-alive write OK para sesión ${sessionId}`, 'debug');
@@ -2265,11 +2266,13 @@
                             setIsConnected(true);
                             setConnectionError(null);
                             setIsRetrying(false);
-                            // Limpiar reconnect interval si está activo
-                            if (reconnectInterval) clearInterval(reconnectInterval);
+                            retryBackoffMs = 1000; // Resetear backoff en éxito
+                            // Limpiar reconnect timer si está activo
+                            if (reconnectTimer) clearTimeout(reconnectTimer);
+                            reconnectTimer = null;
                             // Volver a programar keep-alive cada 30s
                             if (!keepAliveInterval) {
-                                keepAliveInterval = setInterval(attemptKeepAlive, 30000);
+                                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 30000);
                             }
                         })
                         .catch(err => {
@@ -2277,22 +2280,28 @@
                             setIsConnected(false);
                             setConnectionError(err?.message || 'Error de conectividad');
                             setIsRetrying(true);
-                            setRetryCount(0);
-                            // Limpiar keep-alive interval y cambiar a reconnect cada 5s
+                            setRetryCount(c => c + 1);
+                            // Limpiar keep-alive interval y cambiar a reconnect con backoff exponencial
                             if (keepAliveInterval) clearInterval(keepAliveInterval);
                             keepAliveInterval = null;
-                            if (!reconnectInterval) {
-                                reconnectInterval = setInterval(attemptKeepAlive, 5000);
+                            if (!reconnectTimer) {
+                                logFirestore(`Programando retry en ${retryBackoffMs}ms`, 'warn');
+                                reconnectTimer = setTimeout(() => {
+                                    reconnectTimer = null;
+                                    attemptKeepAlive(true);
+                                    // Incrementar backoff: 1s → 2s → 4s → 8s → 30s (max)
+                                    retryBackoffMs = Math.min(retryBackoffMs * 2, 30000);
+                                }, retryBackoffMs);
                             }
                         });
                 };
 
-                // Primer keep-alive después de 30s
-                keepAliveInterval = setInterval(attemptKeepAlive, 30000);
+                // Primer keep-alive después de 60s (reducir frequency para evitar rate limiting)
+                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 60000);
 
                 return () => {
                     if (keepAliveInterval) clearInterval(keepAliveInterval);
-                    if (reconnectInterval) clearInterval(reconnectInterval);
+                    if (reconnectTimer) clearTimeout(reconnectTimer);
                 };
             }, [mode, sessionId, db]);
 
