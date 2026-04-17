@@ -2203,11 +2203,13 @@
                             setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' }));
                             setVitalsLoaded(true);
                         }
-                        // Conexión recuperada
-                        setIsConnected(true);
-                        setConnectionError(null);
-                        // Reset watchdog: recibimos datos, así que está conectado
-                        resetWatchdog();
+                        // Solo marcar conectado si los datos vienen de la red, no del caché local
+                        // doc.metadata.fromCache=true cuando Firestore retorna datos del caché (sin conexión real)
+                        if (!doc.metadata.fromCache) {
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            resetWatchdog();
+                        }
                     },
                     error => {
                         // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
