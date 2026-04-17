@@ -2138,7 +2138,7 @@
             const resetWatchdog = () => {
                 clearTimeout(watchdogTimerRef.current);
                 watchdogTimerRef.current = setTimeout(() => {
-                    logFirestore('Watchdog timeout: no hay datos desde hace 15s en sesión ' + sessionId, 'warn');
+                    logFirestore('Watchdog timeout: no hay datos desde hace 75s en sesión ' + sessionId, 'warn');
                     setIsConnected(false);
                     setConnectionError('Sin respuesta del simulador');
                     setIsRetrying(true);
@@ -2222,9 +2222,7 @@
                 // Detector de conexión del navegador (navigator.onLine)
                 const handleOnline = () => {
                     logFirestore('Evento online detectado', 'log');
-                    setIsConnected(true);
-                    setConnectionError(null);
-                    setIsRetrying(false);
+                    // No marcar conectado aquí — el listener de Firestore es la fuente de verdad
                 };
                 const handleOffline = () => {
                     logFirestore('Evento offline detectado', 'warn');
@@ -2270,9 +2268,9 @@
                             // Limpiar reconnect timer si está activo
                             if (reconnectTimer) clearTimeout(reconnectTimer);
                             reconnectTimer = null;
-                            // Volver a programar keep-alive cada 30s
+                            // Volver a programar keep-alive cada 60s (mantener intervalo consistente)
                             if (!keepAliveInterval) {
-                                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 30000);
+                                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 60000);
                             }
                         })
                         .catch(err => {
@@ -2299,9 +2297,14 @@
                 // Primer keep-alive después de 60s (reducir frequency para evitar rate limiting)
                 keepAliveInterval = setInterval(() => attemptKeepAlive(false), 60000);
 
+                // Triggear keep-alive inmediato cuando el navegador detecta reconexión
+                const handleOnlineImmediate = () => attemptKeepAlive(false);
+                window.addEventListener('online', handleOnlineImmediate);
+
                 return () => {
                     if (keepAliveInterval) clearInterval(keepAliveInterval);
                     if (reconnectTimer) clearTimeout(reconnectTimer);
+                    window.removeEventListener('online', handleOnlineImmediate);
                 };
             }, [mode, sessionId, db]);
 
