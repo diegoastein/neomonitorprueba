@@ -1018,7 +1018,7 @@
             return vitals;
         };
 
-        const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange }) => {
+        const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange, isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(targetVitals);
             const [audioEnabled, setAudioEnabled] = useState(false);
             const [time, setTime] = useState(new Date());
@@ -1077,6 +1077,16 @@
 
             return (
                 <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning ? 'border-slate-900' : (alarmState === 'critical' ? (flash ? 'border-red-600 bg-red-900/10' : 'border-red-900') : (flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900'))} hardware-accelerated monitor-screen`}>
+                    {!isConnected && (
+                        <div className="w-full bg-red-700 border-b-4 border-red-900 px-6 py-4 text-lg font-black text-white flex items-center gap-4 justify-between flex-shrink-0 shadow-2xl animate-pulse">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="w-4 h-4 bg-yellow-300 rounded-full animate-bounce"></div>
+                                <span className="tracking-wide">⚠️ SIMULADOR DESCONECTADO</span>
+                                <span className="text-sm font-semibold opacity-90">{connectionError}</span>
+                            </div>
+                            {isRetrying && <span className="text-sm font-bold bg-red-900/80 px-3 py-1 rounded">Intento #{retryCount}</span>}
+                        </div>
+                    )}
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">{t.startMonitorBtn}</button>
@@ -1252,7 +1262,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [] }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -1276,6 +1286,7 @@
             const [selectedNTSkills, setSelectedNTSkills] = useState([]);
             const [technicalSkills, setTechnicalSkills] = useState(['', '', '']);
             const [lastApplied, setLastApplied] = useState(null);
+            const [showLogs, setShowLogs] = useState(false);
 
             useEffect(() => { setLocalTargets({ hr: currentVitals.hr, spo2: currentVitals.spo2 }); }, [currentVitals.hr, currentVitals.spo2]);
 
@@ -1563,6 +1574,16 @@
 
             return (
                 <div className="h-screen overflow-y-auto bg-slate-900 text-white flex flex-col">
+                    {!isConnected && (
+                        <div className="flex-none w-full bg-red-700 border-b-4 border-red-900 px-6 py-4 font-black text-white flex items-center gap-4 justify-between shadow-2xl animate-pulse">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="w-4 h-4 bg-yellow-300 rounded-full animate-bounce"></div>
+                                <span className="tracking-wide">⚠️ SIMULADOR DESCONECTADO</span>
+                                <span className="text-sm font-semibold opacity-90">{connectionError}</span>
+                            </div>
+                            {isRetrying && <span className="text-sm font-bold bg-red-900/80 px-3 py-1 rounded">Intento #{retryCount}</span>}
+                        </div>
+                    )}
                     <header className="flex-none flex items-center justify-between px-4 py-3 bg-slate-800 gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                             <h2 className="font-bold text-blue-400 flex items-center gap-2"><Icons.Smartphone className="w-4 h-4"/> {t.control}</h2>
@@ -1933,6 +1954,7 @@
                         <div className="w-full opacity-30 font-mono text-[10px] tracking-widest border border-slate-700 rounded py-1 bg-black/20 text-center mb-1">SPONSOR AREA</div>
                         <SponsorSpace compact className="h-10 w-full" source="Control" t={t} />
                     </div>
+
                 </div>
             );
         };
@@ -2065,6 +2087,13 @@
             const [clinicalCases, setClinicalCases] = useState(() => {
                 return Array.isArray(CLINICAL_CASES) ? CLINICAL_CASES : [];
             });
+            // Manejo de errores de conexión Firestore
+            const [connectionError, setConnectionError] = useState(null);
+            const [isConnected, setIsConnected] = useState(true);
+            const [retryCount, setRetryCount] = useState(0);
+            const [isRetrying, setIsRetrying] = useState(false);
+            const watchdogTimerRef = useRef(null);
+            const [firestoreLogs, setFirestoreLogs] = useState([]);
 
             // FUENTE ÚNICA DE VERDAD: cuando hay sesión, lang y patientType vienen de Firestore.
             // Sin stale-closures, sin estado duplicado, sin race conditions.
@@ -2077,6 +2106,48 @@
                 const p = new URLSearchParams(window.location.search);
                 if (p.get('mode') && p.get('session')) { setMode(p.get('mode')); setSessionId(p.get('session')); }
             }, []);
+
+            // Helper: resetear el watchdog (evita falsos positivos en inactividad)
+            const resetWatchdog = () => {
+                clearTimeout(watchdogTimerRef.current);
+                watchdogTimerRef.current = setTimeout(() => {
+                    logFirestore('Watchdog timeout: no hay datos desde hace 75s en sesión ' + sessionId, 'warn');
+                    setIsConnected(false);
+                    setConnectionError('Sin respuesta del simulador');
+                    setIsRetrying(true);
+                    setRetryCount(0);
+                }, 75000);
+            };
+
+            // Helper: registrar logs de Firestore (captura últimos 10)
+            const logFirestore = (msg, level = 'log') => {
+                const timestamp = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const fullMsg = `[Firestore] ${msg}`;
+                const logEntry = { timestamp, msg, level };
+
+                // Capturar en memoria (últimos 10)
+                setFirestoreLogs(prev => [...prev.slice(-9), logEntry]);
+
+                // También loguear en console
+                if (level === 'error') console.error(fullMsg);
+                else if (level === 'warn') console.warn(fullMsg);
+                else if (level === 'debug') console.debug(fullMsg);
+                else console.log(fullMsg);
+            };
+
+            // Retry automático: reintenta cada 10s cuando hay error
+            // Nota: El estado isConnected solo se resetea cuando el listener realmente recibe datos
+            useEffect(() => {
+                if (!isRetrying || !sessionId || !db) return;
+
+                const retryTimer = setInterval(() => {
+                    setRetryCount(c => c + 1);
+                    // Log de reintento (no marca como conectado hasta que listener se recupere)
+                    logFirestore(`Retry #${retryCount + 1}: Esperando recuperación del listener...`, 'log');
+                }, 10000);
+
+                return () => clearInterval(retryTimer);
+            }, [isRetrying, sessionId, db, retryCount]);
 
             // Load clinical cases from Firebase if available (one-time load on mount)
             useEffect(() => {
@@ -2098,10 +2169,51 @@
             // vitalsLoaded garantiza que control no se renderiza hasta tener datos de Firestore.
             useEffect(() => {
                 if (!sessionId || !db) return;
-                const unsub = db.collection("sessions").doc(sessionId).onSnapshot(doc => {
-                    if (doc.exists) { setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' })); setVitalsLoaded(true); }
-                });
-                return () => unsub();
+                const unsub = db.collection("sessions").doc(sessionId).onSnapshot(
+                    doc => {
+                        // Éxito: documento recibido
+                        if (doc.exists) {
+                            setVitals(v => ({ ...v, ...doc.data(), rhythm: doc.data().rhythm || v.rhythm || 'sinus' }));
+                            setVitalsLoaded(true);
+                        }
+                        // Solo marcar conectado si los datos vienen de la red, no del caché local
+                        // doc.metadata.fromCache=true cuando Firestore retorna datos del caché (sin conexión real)
+                        if (!doc.metadata.fromCache) {
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            resetWatchdog();
+                        }
+                    },
+                    error => {
+                        // Error en listener: Firestore rechazó, conexión perdida, o permiso denegado
+                        logFirestore(`Error en listener de sesión ${sessionId}: ${error?.message || error}`, 'error');
+                        setIsConnected(false);
+                        setConnectionError(error?.message || 'Error desconocido');
+                        setIsRetrying(true); // Inicia retry automático
+                        setRetryCount(0);
+                        setVitalsLoaded(true); // Mostrar pantalla aunque no esté conectado
+                    }
+                );
+                // Detector de conexión del navegador (navigator.onLine)
+                const handleOnline = () => {
+                    logFirestore('Evento online detectado', 'log');
+                    // No marcar conectado aquí — el listener de Firestore es la fuente de verdad
+                };
+                const handleOffline = () => {
+                    logFirestore('Evento offline detectado', 'warn');
+                    setIsConnected(false);
+                    setConnectionError('Sin conexión a internet');
+                    setIsRetrying(true);
+                    setRetryCount(0);
+                };
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    clearTimeout(watchdogTimerRef.current);
+                    unsub();
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
             }, [sessionId]);
 
             useEffect(() => {
@@ -2109,21 +2221,108 @@
                 setVitals(prev => ({ ...prev, hr: defaults.hr, spo2: defaults.spo2, simRunning: false, transition: null, rhythm: patientType === 'neonatal' ? 'sinus' : prev.rhythm }));
             }, [patientType]);
 
+            // Control: Keep-alive write cada 60s para evitar falsos positivos de desconexión en Monitor
+            // Cuando Control envía un write, Monitor recibe el evento vía listener → resetea watchdog
+            // Cuando falla, usa exponential backoff (1s → 2s → 4s → 8s → 30s) para ser amable con Firestore
+            useEffect(() => {
+                if (mode !== 'control' || !sessionId || !db) return;
+
+                let keepAliveInterval;
+                let reconnectTimer;
+                let retryBackoffMs = 1000; // Empezar con 1s, exponential backoff max 30s
+
+                const attemptKeepAlive = (isRetry = false) => {
+                    db.collection("sessions").doc(sessionId).set({ lastKeepAlive: new Date().toISOString() }, { merge: true })
+                        .then(() => {
+                            logFirestore(`Keep-alive write OK para sesión ${sessionId}`, 'debug');
+                            // Conexión recuperada
+                            setIsConnected(true);
+                            setConnectionError(null);
+                            setIsRetrying(false);
+                            retryBackoffMs = 1000; // Resetear backoff en éxito
+                            // Limpiar reconnect timer si está activo
+                            if (reconnectTimer) clearTimeout(reconnectTimer);
+                            reconnectTimer = null;
+                            // Volver a programar keep-alive cada 60s (mantener intervalo consistente)
+                            if (!keepAliveInterval) {
+                                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 60000);
+                            }
+                        })
+                        .catch(err => {
+                            logFirestore(`Keep-alive write falló para sesión ${sessionId}: ${err?.message || err}`, 'error');
+                            setIsConnected(false);
+                            setConnectionError(err?.message || 'Error de conectividad');
+                            setIsRetrying(true);
+                            setRetryCount(c => c + 1);
+                            // Limpiar keep-alive interval y cambiar a reconnect con backoff exponencial
+                            if (keepAliveInterval) clearInterval(keepAliveInterval);
+                            keepAliveInterval = null;
+                            if (!reconnectTimer) {
+                                logFirestore(`Programando retry en ${retryBackoffMs}ms`, 'warn');
+                                reconnectTimer = setTimeout(() => {
+                                    reconnectTimer = null;
+                                    attemptKeepAlive(true);
+                                    // Incrementar backoff: 1s → 2s → 4s → 8s → 30s (max)
+                                    retryBackoffMs = Math.min(retryBackoffMs * 2, 30000);
+                                }, retryBackoffMs);
+                            }
+                        });
+                };
+
+                // Primer keep-alive después de 60s (reducir frequency para evitar rate limiting)
+                keepAliveInterval = setInterval(() => attemptKeepAlive(false), 60000);
+
+                // Triggear keep-alive inmediato cuando el navegador detecta reconexión
+                const handleOnlineImmediate = () => attemptKeepAlive(false);
+                window.addEventListener('online', handleOnlineImmediate);
+
+                return () => {
+                    if (keepAliveInterval) clearInterval(keepAliveInterval);
+                    if (reconnectTimer) clearTimeout(reconnectTimer);
+                    window.removeEventListener('online', handleOnlineImmediate);
+                };
+            }, [mode, sessionId, db]);
+
+            // Función helper para escribir a Firestore con manejo de errores
+            const writeToFirestore = (data, description = 'update') => {
+                if (!db || !sessionId) {
+                    logFirestore(`No se puede escribir: db=${!!db}, sessionId=${!!sessionId}`, 'warn');
+                    return;
+                }
+                db.collection("sessions").doc(sessionId).set(data, { merge: true })
+                    .then(() => {
+                        // Escritura exitosa
+                        setIsConnected(true);
+                        setConnectionError(null);
+                        // Reset watchdog en escritura: prueba que la conexión funciona
+                        resetWatchdog();
+                        logFirestore(`${description} exitoso para sesión ${sessionId}`, 'debug');
+                    })
+                    .catch(err => {
+                        // Error en escritura: sin permiso, documento muy grande, cuota excedida, etc.
+                        logFirestore(`Error escribiendo ${description} en sesión ${sessionId}: ${err?.message || err}`, 'error');
+                        setIsConnected(false);
+                        setConnectionError(err?.message || 'Error al guardar cambios');
+                        setIsRetrying(true); // Inicia retry automático
+                        setRetryCount(0);
+                    });
+            };
+
             // Handlers: actualización optimista + escritura a Firestore.
             // La otra pantalla recibe el cambio vía su listener onSnapshot → setVitals → re-render.
             const handlePatientTypeChange = (type) => {
                 if (vitals.simRunning) return;
                 setVitals(prev => ({ ...prev, patientType: type, rhythm: type === 'neonatal' ? 'sinus' : prev.rhythm }));
-                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ patientType: type, ...(type === 'neonatal' && { rhythm: 'sinus' }) }, { merge: true });
+                writeToFirestore({ patientType: type, ...(type === 'neonatal' && { rhythm: 'sinus' }) }, 'cambio de tipo paciente');
             };
 
             const handleLangChange = (newLang) => {
                 setVitals(prev => ({ ...prev, lang: newLang }));
-                if (db && sessionId) db.collection("sessions").doc(sessionId).set({ lang: newLang }, { merge: true });
+                writeToFirestore({ lang: newLang }, 'cambio de idioma');
             };
 
             const handleUpdate = (v) => {
-                if (db && sessionId) db.collection("sessions").doc(sessionId).set(v, { merge: true });
+                writeToFirestore(v, 'actualización de vitales');
             };
 
             if (!user) return <div className="h-screen bg-black flex flex-col items-center justify-center text-green-500"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div><span className="font-mono text-sm tracking-widest uppercase">{t.connecting}</span></div>;
@@ -2151,7 +2350,16 @@
                                 setVitalsLoaded(true);
                                 setSessionId(sid);
                                 setMode('monitor');
-                                if (db) db.collection("sessions").doc(sid).set(initDoc);
+                                if (db) {
+                                    db.collection("sessions").doc(sid).set(initDoc)
+                                        .catch(err => {
+                                            logFirestore(`Error inicializando sesión ${sid}: ${err?.message || err}`, 'error');
+                                            setConnectionError(err?.message || 'Error al crear sesión');
+                                            setIsConnected(false);
+                                            setIsRetrying(true); // Inicia retry automático
+                                            setRetryCount(0);
+                                        });
+                                }
                             }} className="bg-slate-900 border border-slate-800 hover:border-green-500/50 p-8 rounded-3xl flex flex-col items-center gap-6 group transition-all active:scale-95 shadow-2xl"><div className="bg-green-500/10 p-5 rounded-2xl group-hover:bg-green-500/20 transition-colors"><Icons.Monitor className="w-12 h-12 text-green-400"/></div><span className="text-xl font-bold text-white leading-tight">{t.useAsMonitor}</span></button>
                             <button onClick={() => setShowScanner(true)} className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 p-8 rounded-3xl flex flex-col items-center gap-6 group transition-all active:scale-95 shadow-2xl"><div className="bg-blue-500/10 p-5 rounded-2xl group-hover:bg-blue-500/20 transition-colors"><Icons.Smartphone className="w-12 h-12 text-blue-400"/></div><span className="text-xl font-bold text-white leading-tight">{t.useAsControl}</span></button>
                         </div>
@@ -2167,8 +2375,8 @@
 
             return (
                 <div className="font-sans antialiased">
-                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} />}
+                    {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
                 </div>
             );
         };

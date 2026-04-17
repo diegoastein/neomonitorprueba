@@ -6,7 +6,7 @@ NeoMonitor is a vital signs monitor simulator for medical resuscitation training
 
 ## Architecture
 
-**Single-file SPA** — all code lives in `index.html` (~1635 lines). No build system, no bundler, no separate JS/CSS files. Edit and deploy directly.
+**Single-file SPA** — all code lives in `index.html` (~1750 lines). No build system, no bundler, no separate JS/CSS files. Edit and deploy directly.
 
 ### Tech stack (all via CDN, no npm)
 
@@ -42,6 +42,36 @@ Uses Web Audio API (`AudioContext`). Key functions:
 - **Control** (smartphone): pairs via QR code scan, writes commands to Firestore.
 - Session is keyed by a short alphanumeric ID shown on the monitor.
 
+### Firestore connection handling & resilience
+
+**States:**
+- `isConnected` — boolean, true when Firestore is reachable
+- `connectionError` — string, error message from Firestore (e.g., "Permission denied", "Network error")
+- `isRetrying` — boolean, true when automatic retry loop is active
+- `retryCount` — number, incremented with each retry attempt
+
+**Listener error handling:**
+The main `onSnapshot()` listener has an error callback that:
+1. Sets `isConnected=false` and stores the error message
+2. Activates `isRetrying=true` to start the automatic retry loop
+3. Shows a red banner with error details and retry count
+
+**Automatic retry (every 5 seconds):**
+- `useEffect` with `isRetrying` dependency runs `db.get()` to verify connection
+- If successful: resets `isConnected=true`, clears error, stops retry loop
+- If fails: continues retrying, increments counter displayed in banner
+- User sees: `🔴 Desconectado: Permission denied (reintentando... intento #7)`
+
+**Error sources that trigger retry:**
+1. `onSnapshot()` error — listener connection lost
+2. `writeToFirestore()` errors — failed write on control device
+3. Session initialization errors — failed `.set()` when creating session
+
+**Debugging:**
+- Check browser Console (F12) for `[Firestore]` prefixed logs
+- Look for `Error en listener`, `Error escribiendo`, `Retry #N` messages
+- Banner stays visible until connection recovers automatically
+
 ## Patient types and alarm thresholds
 
 | Type | HR critical | HR warning low | HR warning high | SpO2 critical | SpO2 warning |
@@ -63,5 +93,28 @@ Uses Web Audio API (`AudioContext`). Key functions:
 
 - Do not split the code into multiple files or introduce a build system unless explicitly requested.
 - Do not add npm dependencies.
-- Do not add error handling for internal states that can't fail (trust React/Firebase guarantees).
+- **DO add error handling for Firestore operations** (listener, writes, initialization). Network errors must be caught and retried.
+- Do not add error handling for internal React state or guaranteed operations.
 - Do not add features not explicitly requested.
+
+## Recent fixes (beta branch)
+
+- **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
+- **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle.
+- **v1.07**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. Monitor false positives resolved ✓ but Control device shows frequent false positives due to aggressive retry (5s fixed).
+- **v1.08**: On-screen logs widget + exponential backoff + increased keep-alive interval
+  - Added `[Firestore]` logs widget in bottom-right of Control device (collapsible, shows last 10 logs)
+  - Implemented exponential backoff for keep-alive retries (1s → 2s → 4s → 8s → 30s max)
+  - Increased keep-alive interval from 30s to 60s to reduce Firestore write frequency
+  - Increased watchdog timeout from 15s to 75s (60s keep-alive + 15s buffer)
+  - **Status:** Ready for testing — logs widget enables on-device diagnostics without USB debugging ✓
+
+- **v1.09**: Fix false "connected" status on Control device (Firestore caché issue)
+  - `handleOnline` no longer marks connected directly — listener is source of truth
+  - Online event now triggers immediate keep-alive attempt on Control (faster recovery)
+  - Fixed watchdog log message ("15s" → "75s") and keep-alive recovery interval (30s → 60s)
+  - **Critical fix:** Use `doc.metadata.fromCache` to distinguish network data from local cache
+    - Firestore SDK returns cached data after ~70s in airplane mode, was falsely marking Control as "connected"
+    - Now only marks connected when `doc.metadata.fromCache === false` (real network data)
+  - Removed on-screen logs widget (kept console logging for debugging)
+  - **Status:** Testing in beta — verified Control disconnection banner persists correctly ✓
