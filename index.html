@@ -1262,7 +1262,7 @@
             );
         };
 
-        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0, firestoreLogs = [] }) => {
+        const ControllerScreen = ({ sessionId, vitals: currentVitals, onUpdate, t, lang, db, userId, userEmail, patientType = 'neonatal', onPatientTypeChange, onLangChange, clinicalCases = [], isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(currentVitals);
             const [transitionDuration, setTransitionDuration] = useState(5);
             const [showDebrief, setShowDebrief] = useState(false);
@@ -1955,33 +1955,6 @@
                         <SponsorSpace compact className="h-10 w-full" source="Control" t={t} />
                     </div>
 
-                    {/* Widget de logs Firestore - esquina inferior derecha */}
-                    <button onClick={() => setShowLogs(!showLogs)} className="fixed bottom-4 right-4 z-40 bg-blue-600 border-2 border-blue-400 hover:bg-blue-500 rounded-lg px-3 py-2 text-sm font-bold text-white shadow-lg hover:shadow-xl transition-all" title={`${firestoreLogs.length} logs`}>
-                        📋 {firestoreLogs.length}
-                    </button>
-                    {showLogs && (
-                        <div className="fixed bottom-14 right-4 z-40 bg-slate-900 border border-slate-600 rounded-lg shadow-2xl max-w-xs max-h-64 overflow-y-auto flex flex-col">
-                            <div className="flex-none px-3 py-2 border-b border-slate-700 flex justify-between items-center">
-                                <span className="text-xs font-bold text-slate-300">[Firestore] Logs</span>
-                                <button onClick={() => setShowLogs(false)} className="text-slate-500 hover:text-slate-300"><Icons.X className="w-4 h-4"/></button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto">
-                                {firestoreLogs.length === 0 ? (
-                                    <div className="p-3 text-xs text-slate-500">Sin logs</div>
-                                ) : (
-                                    firestoreLogs.map((log, idx) => (
-                                        <div key={idx} className={`px-3 py-1.5 text-xs font-mono border-b border-slate-800 ${log.level === 'error' ? 'bg-red-950/30 text-red-400' : log.level === 'warn' ? 'bg-yellow-950/30 text-yellow-400' : log.level === 'debug' ? 'bg-slate-800/30 text-slate-400' : 'text-slate-300'}`}>
-                                            <div className="flex gap-2 items-start">
-                                                <span className="flex-none text-slate-500">{log.timestamp}</span>
-                                                <span className="flex-none uppercase text-[10px] font-bold opacity-60">{log.level.substring(0, 3)}</span>
-                                                <span className="flex-1 break-words">{log.msg}</span>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         };
@@ -2403,7 +2376,7 @@
             return (
                 <div className="font-sans antialiased">
                     {mode === 'monitor' && <MonitorScreen sessionId={sessionId} vitals={vitals} t={t} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
-                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} firestoreLogs={firestoreLogs} />}
+                    {mode === 'control' && <ControllerScreen sessionId={sessionId} vitals={vitals} onUpdate={handleUpdate} t={t} lang={lang} db={db} userId={user.uid} userEmail={user.email} patientType={patientType} onPatientTypeChange={handlePatientTypeChange} onLangChange={handleLangChange} clinicalCases={clinicalCases} isConnected={isConnected} connectionError={connectionError} isRetrying={isRetrying} retryCount={retryCount} />}
                 </div>
             );
         };
