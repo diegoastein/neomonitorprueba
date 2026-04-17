@@ -108,3 +108,13 @@ The main `onSnapshot()` listener has an error callback that:
   - Increased keep-alive interval from 30s to 60s to reduce Firestore write frequency
   - Increased watchdog timeout from 15s to 75s (60s keep-alive + 15s buffer)
   - **Status:** Ready for testing — logs widget enables on-device diagnostics without USB debugging ✓
+
+- **v1.09**: Fix false "connected" status on Control device (Firestore caché issue)
+  - `handleOnline` no longer marks connected directly — listener is source of truth
+  - Online event now triggers immediate keep-alive attempt on Control (faster recovery)
+  - Fixed watchdog log message ("15s" → "75s") and keep-alive recovery interval (30s → 60s)
+  - **Critical fix:** Use `doc.metadata.fromCache` to distinguish network data from local cache
+    - Firestore SDK returns cached data after ~70s in airplane mode, was falsely marking Control as "connected"
+    - Now only marks connected when `doc.metadata.fromCache === false` (real network data)
+  - Removed on-screen logs widget (kept console logging for debugging)
+  - **Status:** Testing in beta — verified Control disconnection banner persists correctly ✓
