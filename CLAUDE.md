@@ -118,3 +118,7 @@ The main `onSnapshot()` listener has an error callback that:
     - Now only marks connected when `doc.metadata.fromCache === false` (real network data)
   - Removed on-screen logs widget (kept console logging for debugging)
   - **Status:** Testing in beta — verified Control disconnection banner persists correctly ✓
+
+- **v1.10**: Version indicator (pending)
+  - Add visible version number below the clock on Monitor device
+  - Version should be small and non-intrusive (bottom corner or minimal UI space)
