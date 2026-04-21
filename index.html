@@ -33,6 +33,7 @@
       }
     </script>
 
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -118,6 +119,38 @@
         .qr-button { background: linear-gradient(180deg, #166534 0%, #14532d 100%); border-color: #22c55e; color: #bbf7d0; }
         #reader { width: 100% !important; border: none !important; }
         #reader video { border-radius: 12px !important; object-fit: cover !important; }
+
+        /* ── MonitorScreen Classic redesign ── */
+        .neo-numeric {
+            font-family: 'Barlow Condensed', 'JetBrains Mono', monospace;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 0.85;
+            font-variant-numeric: tabular-nums;
+        }
+        .neo-label {
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .neo-mono {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .neo-crt {
+            background-image:
+                linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        .neo-panel {
+            background: #111214;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+        }
+        @keyframes neo-pulse-dot { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+        .neo-pulse-dot { animation: neo-pulse-dot 1.4s ease-in-out infinite; }
     </style>
 </head>
 <body>
@@ -156,6 +189,7 @@
                 mute: "Silenciar",
                 menu: "Menú",
                 link: "VINCULAR",
+                simTimer: 'SIMULACIÓN',
                 simNotStarted: "Simulación sin iniciar",
                 id: "ID",
                 sessionId: "ID SESIÓN",
@@ -230,6 +264,7 @@
                 mute: "Mute",
                 menu: "Menu",
                 link: "LINK",
+                simTimer: 'SIMULATION',
                 simNotStarted: "Simulation not started",
                 id: "ID",
                 sessionId: "SESSION ID",
@@ -304,6 +339,7 @@
                 mute: "Silenciar",
                 menu: "Menu",
                 link: "VINCULAR",
+                simTimer: 'SIMULAÇÃO',
                 simNotStarted: "Simulação não iniciada",
                 id: "ID",
                 sessionId: "ID DA SESSÃO",
@@ -1020,15 +1056,32 @@
 
         const MonitorScreen = ({ sessionId, vitals: targetVitals, t, patientType = 'neonatal', onPatientTypeChange, isConnected = true, connectionError = null, isRetrying = false, retryCount = 0 }) => {
             const vitals = useInterpolatedVitals(targetVitals);
+
+            // ── original state ──────────────────────────────────────────────
             const [audioEnabled, setAudioEnabled] = useState(false);
             const [time, setTime] = useState(new Date());
             const [alarmState, setAlarmState] = useState('none');
             const [flash, setFlash] = useState(false);
             const [qrExpanded, setQrExpanded] = useState(false);
 
+            // ── new: simulation timer ────────────────────────────────────────
+            const [simTime, setSimTime] = useState(0);
+            const simStartRef = React.useRef(null);
             useEffect(() => {
-                const t = setInterval(() => setTime(new Date()), 1000);
-                return () => clearInterval(t);
+                if (!vitals.simRunning) { simStartRef.current = null; return; }
+                if (!simStartRef.current) simStartRef.current = Date.now() - simTime * 1000;
+                const id = setInterval(() => setSimTime(Math.floor((Date.now() - simStartRef.current) / 1000)), 250);
+                return () => clearInterval(id);
+            }, [vitals.simRunning]);
+            const fmtTimer = (s) => {
+                const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+                return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+            };
+
+            // ── original effects ─────────────────────────────────────────────
+            useEffect(() => {
+                const id = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(id);
             }, []);
 
             useEffect(() => {
@@ -1061,9 +1114,9 @@
                 playBeep(vitals.spo2 < 89 ? 400 : 800);
             };
 
-            const start = () => { 
+            const start = () => {
                 if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => {}); }
-                initAudio(); setAudioEnabled(true); 
+                initAudio(); setAudioEnabled(true);
                 trackNeoEvent('monitor_active', 'Audio enabled on monitor', { session_id: sessionId });
             };
 
@@ -1075,28 +1128,62 @@
             };
             const controlUrl = getControlUrl();
 
+            // ── derived alarm style ──────────────────────────────────────────
+            const cfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
+            const alarmActive = alarmState !== 'none' && !vitals.alarmMuted && vitals.simRunning;
+            const borderCls = !alarmActive ? 'border-slate-900'
+                : alarmState === 'critical'
+                    ? (flash ? 'border-red-500' : 'border-red-900')
+                    : (flash ? 'border-yellow-500' : 'border-yellow-900');
+            const bgFlashCls = !alarmActive ? ''
+                : alarmState === 'critical' && flash ? 'bg-red-900/10' : '';
+
+            const hrFlash  = alarmActive && flash;
+            const spo2Flash = alarmActive && flash && vitals.spo2 < cfg.spo2Warning;
+
+            // ── temp (optional field, shown if present) ──────────────────────
+            const hasTemp = vitals.temp != null && vitals.temp > 0;
+            const tempDisplay = hasTemp ? Number(vitals.temp).toFixed(1) : '--.-';
+            const tempPct = hasTemp ? Math.max(0, Math.min(100, ((vitals.temp - 34) / 6) * 100)) : 0;
+
+            // ── rhythm label ─────────────────────────────────────────────────
+            const rhythmLabel = {
+                sinus: 'RITMO SINUSAL', afib: 'FIB. AURICULAR',
+                vt: 'TAQ. VENTRICULAR', vf: 'FIB. VENTRICULAR'
+            }[vitals.rhythm || 'sinus'] || 'RITMO SINUSAL';
+
+            // ── patient label (i18n-aware) ────────────────────────────────────
+            const patientLabel = t.patientTypes ? t.patientTypes[patientType] : patientType.toUpperCase();
+
             return (
-                <div className={`w-full h-screen bg-black flex flex-col border-[12px] transition-colors duration-100 ${alarmState === 'none' || vitals.alarmMuted || !vitals.simRunning ? 'border-slate-900' : (alarmState === 'critical' ? (flash ? 'border-red-600 bg-red-900/10' : 'border-red-900') : (flash ? 'border-yellow-500 bg-yellow-900/10' : 'border-yellow-900'))} hardware-accelerated monitor-screen`}>
+                <div className={`w-full h-screen bg-[#0a0b0c] flex flex-col border-[10px] transition-colors duration-100 ${borderCls} ${bgFlashCls} hardware-accelerated monitor-screen`}
+                     style={{ borderRadius: '0px' }}>
+
+                    {/* ── Disconnected banner (original) ── */}
                     {!isConnected && (
-                        <div className="w-full bg-red-700 border-b-4 border-red-900 px-6 py-4 text-lg font-black text-white flex items-center gap-4 justify-between flex-shrink-0 shadow-2xl animate-pulse">
+                        <div className="w-full bg-red-700 border-b-4 border-red-900 px-6 py-3 text-base font-black text-white flex items-center gap-4 justify-between flex-shrink-0 shadow-2xl animate-pulse">
                             <div className="flex items-center gap-4 flex-1">
-                                <div className="w-4 h-4 bg-yellow-300 rounded-full animate-bounce"></div>
+                                <div className="w-3 h-3 bg-yellow-300 rounded-full animate-bounce" />
                                 <span className="tracking-wide">⚠️ SIMULADOR DESCONECTADO</span>
                                 <span className="text-sm font-semibold opacity-90">{connectionError}</span>
                             </div>
                             {isRetrying && <span className="text-sm font-bold bg-red-900/80 px-3 py-1 rounded">Intento #{retryCount}</span>}
                         </div>
                     )}
+
+                    {/* ── Audio gate overlay (original) ── */}
                     {!audioEnabled && (
                         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center text-center px-4">
                             <button onClick={start} className="bg-green-600 px-8 py-4 rounded-xl font-bold text-xl animate-pulse">{t.startMonitorBtn}</button>
                         </div>
                     )}
 
+                    {/* ── Patient type selector (original) ── */}
                     {audioEnabled && onPatientTypeChange && (
                         <PatientTypeSelector current={patientType} onSelect={onPatientTypeChange} t={t} disabled={vitals.simRunning} />
                     )}
 
+                    {/* ── Idle / QR screen (original logic, refreshed layout) ── */}
                     {audioEnabled && !vitals.simRunning && (
                         <div className="absolute inset-0 bg-black z-40 flex flex-col items-center justify-center text-center p-6 border-4 border-slate-800 m-2 rounded-xl">
                             {vitals.controlConnected ? (
@@ -1106,9 +1193,7 @@
                                     </div>
                                     <h2 className="text-2xl font-black text-green-400 uppercase tracking-widest mb-2">Dispositivos sincronizados</h2>
                                     <p className="text-slate-400 text-base mb-8">Simulación lista para comenzar</p>
-                                    <button onClick={() => setQrExpanded(true)} className="text-xs text-slate-600 hover:text-slate-400 border border-slate-800 px-3 py-1.5 rounded-lg transition-colors">
-                                        Mostrar QR
-                                    </button>
+                                    <button onClick={() => setQrExpanded(true)} className="text-xs text-slate-600 hover:text-slate-400 border border-slate-800 px-3 py-1.5 rounded-lg transition-colors">Mostrar QR</button>
                                 </>
                             ) : (
                                 <>
@@ -1124,6 +1209,7 @@
                         </div>
                     )}
 
+                    {/* ── QR expanded modal (original) ── */}
                     {qrExpanded && (
                         <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-6" onClick={() => setQrExpanded(false)}>
                             <div className="bg-white p-4 rounded-2xl shadow-2xl max-w-xs w-full aspect-square flex items-center justify-center relative animate-zoom" onClick={e => e.stopPropagation()}>
@@ -1134,44 +1220,188 @@
                         </div>
                     )}
 
-                    <div className="flex-none flex justify-between px-4 py-2 bg-slate-900/50 text-slate-400 text-sm font-mono border-b border-slate-800 top-bar">
-                        <div className="flex gap-4"><span>{t.patientTypes ? t.patientTypes[patientType] : 'NEONATAL'}</span><span>{t.bed}: 01</span></div>
-                        <div className="flex gap-4 items-center">{vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}<span>{t.id}: {sessionId}</span></div>
+                    {/* Top bar */}
+                    <div className="flex-none flex items-center justify-between px-5 py-2 bg-[#141518] border-b border-white/5 top-bar">
+                        <div className="flex items-center gap-5">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 neo-pulse-dot" />
+                                <span className="neo-label text-slate-200" style={{ fontSize: '11px' }}>{patientLabel}</span>
+                            </div>
+                            <span className="neo-label text-slate-500" style={{ fontSize: '11px' }}>{t.bed || 'CAMA'} · 01</span>
+                            <span className="neo-label text-slate-500" style={{ fontSize: '11px' }}>NeoMonitor · v1.10</span>
+                            {alarmActive && (
+                                <span className={`neo-label px-2.5 py-1 rounded-full`}
+                                      style={{ fontSize: '10px', background: alarmState==='critical' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)', color: alarmState==='critical' ? '#fca5a5' : '#fde047', border: `1px solid ${alarmState==='critical' ? 'rgba(239,68,68,0.4)' : 'rgba(234,179,8,0.4)'}` }}>
+                                    {alarmState === 'critical' ? '● ALARMA CRÍTICA' : '● ADVERTENCIA'}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-5">
+                            {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
+                            <span className="neo-label text-slate-500" style={{ fontSize: '10px' }}>{t.id || 'ID'}</span>
+                            <span className="neo-mono text-slate-200" style={{ fontSize: '11px' }}>{sessionId}</span>
+                            <span className="neo-mono text-slate-200" style={{ fontSize: '14px' }}>
+                                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col divide-y divide-slate-800 min-h-0">
-                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#42B334" speed={vitals.hr} type="ecg" flatline={vitals.hr === 0 && vitals.rhythm !== 'vf'} onBeat={handleBeat} rhythm={vitals.rhythm || 'sinus'} patientType={patientType}/>}</div>
-                            <div className="flex flex-col items-center px-4 justify-center number-container">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-[#42B334] font-bold text-lg number-label">{t.hr}</span>
-                                    {vitals.simRunning && vitals.hr > 0 && <Icons.Heart className="heart-portrait text-red-600 fill-red-600 w-6 h-6" style={{ animation: `heartbeat ${60/vitals.hr}s infinite cubic-bezier(0.4, 0, 0.2, 1)` }}/>}
+                    {/* Main grid */}
+                    <div className="flex-1 grid grid-cols-[1fr_300px] divide-x divide-white/5 min-h-0 main-row">
+
+                        {/* LEFT — waveforms */}
+                        <div className="flex flex-col divide-y divide-white/5 min-h-0 waveform-col">
+
+                            {/* ECG row */}
+                            <div className="flex-[1.5] relative min-h-0 neo-crt bg-black">
+                                <div className="absolute top-2.5 left-4 flex items-center gap-3 z-10">
+                                    <span className="neo-label" style={{ fontSize: '11px', color: '#42B334' }}>II · ECG</span>
+                                    <span className="neo-mono text-slate-500" style={{ fontSize: '10px' }}>25 mm/s · 1 mV</span>
+                                    <span className="neo-mono text-slate-500" style={{ fontSize: '10px' }}>{rhythmLabel}</span>
                                 </div>
-                                <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-[#42B334]'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.hr || '--') : '--'}</span>
+                                <div className="absolute inset-0">
+                                    {vitals.simRunning && (
+                                        <WaveformCanvas
+                                            color="#42B334"
+                                            speed={vitals.hr}
+                                            type="ecg"
+                                            flatline={vitals.hr === 0 && vitals.rhythm !== 'vf'}
+                                            onBeat={handleBeat}
+                                            rhythm={vitals.rhythm || 'sinus'}
+                                            patientType={patientType}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Pleth row */}
+                            <div className="flex-[1.5] relative min-h-0 neo-crt bg-black">
+                                <div className="absolute top-2.5 left-4 flex items-center gap-3 z-10">
+                                    <span className="neo-label" style={{ fontSize: '11px', color: '#facc15' }}>PLETH</span>
+                                    <span className="neo-mono text-slate-500" style={{ fontSize: '10px' }}>ÍNDICE DE PERFUSIÓN · 2.4</span>
+                                </div>
+                                <div className="absolute inset-0">
+                                    {vitals.simRunning && (
+                                        <WaveformCanvas
+                                            color="#facc15"
+                                            speed={vitals.hr}
+                                            type="pleth"
+                                            flatline={vitals.spo2 === 0}
+                                            spo2={vitals.spo2}
+                                            patientType={patientType}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Temp bar row */}
+                            <div className="flex-none h-[18%] flex items-center px-5 gap-4 bg-black border-t border-white/5">
+                                <span className="neo-label" style={{ fontSize: '11px', color: '#67e8f9' }}>TEMP · PIEL</span>
+                                <div className="flex-1 relative h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                                    <div className="absolute inset-y-0 left-[40%] right-[30%]" style={{ background: 'rgba(103,232,249,0.12)', borderLeft: '1px solid rgba(103,232,249,0.3)', borderRight: '1px solid rgba(103,232,249,0.3)' }} />
+                                    <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                                         style={{ width: `${tempPct}%`, background: 'linear-gradient(90deg,#67e8f9,#06b6d4)' }} />
+                                    <div className="absolute top-[-3px] w-[2px] h-[8px] bg-white transition-all duration-500"
+                                         style={{ left: `${tempPct}%` }} />
+                                </div>
+                                <span className="neo-mono text-slate-500" style={{ fontSize: '10px' }}>34° — 40°</span>
                             </div>
                         </div>
-                        <div className="flex-[1.5] grid grid-cols-[1fr_280px] h-full main-row">
-                            <div className="relative border-r border-slate-800 bg-black waveform-col">{vitals.simRunning && <WaveformCanvas color="#facc15" speed={vitals.hr} type="pleth" flatline={vitals.spo2 === 0} spo2={vitals.spo2} patientType={patientType}/>}</div>
-                            <div className="flex flex-col items-center px-4 justify-center number-container">
-                                <span className="text-yellow-400 font-bold text-lg number-label">SpO2</span>
-                                <span className={`font-mono font-bold leading-none number-display ${alarmState !== 'none' && !vitals.alarmMuted && flash ? 'text-white' : 'text-yellow-400'}`} style={{fontSize: '18vh'}}>{vitals.simRunning ? (vitals.spo2 || '--') : '--'}</span>
+
+                        {/* RIGHT — numeric panels */}
+                        <div className="flex flex-col divide-y divide-white/5 min-h-0 number-container">
+
+                            {/* HR */}
+                            <div className={`flex-[1.5] flex flex-col justify-center px-5 py-3 min-h-0 ${hrFlash && alarmState==='critical' ? 'bg-red-950/30' : ''}`}>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <div className="neo-label number-label" style={{ fontSize: '11px', color: '#42B334' }}>{t.hr || 'FC'} · lpm</div>
+                                        <div className="neo-mono text-slate-500 mt-0.5" style={{ fontSize: '9px' }}>{cfg.hrWarningLow} — {cfg.hrWarningHigh}</div>
+                                    </div>
+                                    {vitals.simRunning && vitals.hr > 0 && (
+                                        <Icons.Heart className="heart-portrait text-red-600 fill-red-600 w-6 h-6"
+                                            style={{ animation: `heartbeat ${60/vitals.hr}s infinite cubic-bezier(0.4,0,0.2,1)` }} />
+                                    )}
+                                </div>
+                                <span className={`neo-numeric number-display text-right ${hrFlash ? 'text-white' : ''}`}
+                                      style={{ fontSize: '18vh', color: hrFlash ? undefined : '#42B334' }}>
+                                    {vitals.simRunning ? (vitals.hr || '--') : '--'}
+                                </span>
                             </div>
-                        </div>
-                        <div className="flex-1 grid grid-cols-[1fr_1fr_280px] h-full divide-x divide-slate-800 extra-info-row">
-                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">RESP</span><span className="text-4xl font-bold">---</span></div>
-                            <div className="flex flex-col justify-center items-center text-slate-600"><span className="text-xs">NIBP</span><span className="text-2xl font-bold">--/--</span></div>
-                            <div className="p-2 flex items-center justify-center sponsor-col"><SponsorSpace className="w-full h-full" source="Monitor" t={t} /></div>
+
+                            {/* SpO2 */}
+                            <div className={`flex-[1.5] flex flex-col justify-center px-5 py-3 min-h-0 ${spo2Flash ? 'bg-yellow-950/30' : ''}`}>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <div className="neo-label number-label" style={{ fontSize: '11px', color: '#facc15' }}>SpO₂ · %</div>
+                                        <div className="neo-mono text-slate-500 mt-0.5" style={{ fontSize: '9px' }}>&gt; {cfg.spo2Warning}</div>
+                                    </div>
+                                    {/* mini amplitude bars */}
+                                    <div className="flex items-end gap-0.5 h-5">
+                                        {[0,1,2,3,4].map(i => (
+                                            <div key={i} className="w-1 rounded-sm" style={{
+                                                height: `${20 + i*20}%`,
+                                                background: i < Math.round(vitals.spo2 / 20) ? '#facc15' : 'rgba(255,255,255,0.08)'
+                                            }} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <span className={`neo-numeric number-display text-right ${spo2Flash ? 'text-white' : ''}`}
+                                      style={{ fontSize: '18vh', color: spo2Flash ? undefined : '#facc15' }}>
+                                    {vitals.simRunning ? (vitals.spo2 || '--') : '--'}
+                                </span>
+                            </div>
+
+                            {/* Temp numeric */}
+                            <div className="flex-none h-[18%] flex flex-col justify-center px-5 py-3">
+                                <div className="flex items-start justify-between">
+                                    <div className="neo-label number-label" style={{ fontSize: '11px', color: '#67e8f9' }}>TEMP · °C</div>
+                                    <div className="neo-mono text-slate-500" style={{ fontSize: '9px' }}>36.5 — 37.5</div>
+                                </div>
+                                <span className="neo-numeric text-right" style={{ fontSize: '7.5vh', color: '#67e8f9' }}>
+                                    {vitals.simRunning ? tempDisplay : '--.-'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex-none bg-slate-900 p-2 flex justify-between items-center text-xs text-slate-500 bottom-bar">
-                        <div className="flex gap-2">
-                            <div className="soft-key px-4 py-2">{t.mute}</div>
-                            <div className="soft-key px-4 py-2">{t.menu}</div>
-                            <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold" onClick={() => setQrExpanded(true)}><Icons.QrCode className="w-4 h-4" /><span>{t.link}</span></div>
+                    {/* Bottom bar */}
+                    <div className="flex-none bg-[#141518] border-t border-white/5 px-5 py-2.5 flex items-center justify-between bottom-bar">
+                        <div className="flex items-center gap-4">
+                            {/* Sim timer */}
+                            <div className="flex items-center gap-2.5">
+                                <span className="neo-label text-slate-500" style={{ fontSize: '9px' }}>
+                                    {t.simTimer || 'SIMULACIÓN'}
+                                </span>
+                                <span className="neo-mono font-bold text-white tabular-nums" style={{ fontSize: '22px' }}>
+                                    {fmtTimer(simTime)}
+                                </span>
+                            </div>
+                            <div className="h-6 w-px bg-white/10" />
+                            {/* Soft keys */}
+                            <div className="flex gap-1.5">
+                                <div className="soft-key px-4 py-2 text-xs">{t.mute}</div>
+                                <div className="soft-key px-4 py-2 text-xs">{t.menu}</div>
+                                <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold text-xs" onClick={() => setQrExpanded(true)}>
+                                    <Icons.QrCode className="w-4 h-4" /><span>{t.link}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex-1 flex justify-center opacity-30 font-mono text-[10px] tracking-widest border border-slate-800 mx-4 rounded py-1 bg-black/20">SPONSOR AREA</div>
-                        <div className="flex gap-4 items-center font-mono"><span>{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span><Icons.Wifi className="w-4 h-4 text-green-500" /><Icons.Battery className="w-4 h-4 text-green-500" /></div>
+
+                        {/* Sponsor area */}
+                        <div className="flex-1 flex justify-center mx-4">
+                            <SponsorSpace className="w-full h-full" source="Monitor" t={t} />
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-3 neo-mono text-slate-400" style={{ fontSize: '11px' }}>
+                            <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> SYNC
+                            </span>
+                            <span className="text-slate-600">·</span>
+                            <Icons.Wifi className="w-4 h-4 text-green-500" />
+                            <Icons.Battery className="w-4 h-4 text-green-500" />
+                        </div>
                     </div>
                 </div>
             );
