@@ -105,3 +105,4 @@ The main `onSnapshot()` listener has an error callback that:
 - **v1.08**: Exponential backoff for keep-alive retries. Keep-alive interval → 60s. Watchdog timeout → 75s.
 - **v1.09**: Fix false "connected" on Control using `doc.metadata.fromCache`. `handleOnline` ya no marca conectado directamente — el listener es la fuente de verdad. ✓
 - **v1.10**: Rediseño completo de `MonitorScreen` con layout "Clinical Classic" (estilo Mindray moderno). Fuente Barlow Condensed. Indicador de versión visible en Monitor. **Mergeado a main. ✓**
+- **v1.11**: SponsorSpace activo con botón real "Apoyá este proyecto" → cafecito.app/neomonitor. Reemplaza placeholder "LOGO HERE". En Monitor: tamaño compacto y alineado a la derecha. **Mergeado a main. ✓**

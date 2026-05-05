@@ -727,16 +727,18 @@
         ];
 
         const SponsorSpace = ({ className = "", compact = false, source = "Monitor", t }) => (
-            <div className={`sponsor-container ${className}`} onClick={() => {
-                trackNeoEvent('sponsor_click', source);
-                window.open('https://tu-sitio-o-del-sponsor.com', '_blank');
-            }}>
-                <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-500 font-bold mb-0.5">SPONSOR</span>
-                    <div className="bg-slate-700/50 w-full px-4 py-1 rounded flex items-center justify-center">
-                        <span className="text-[9px] text-slate-400 font-mono italic">LOGO HERE</span>
-                    </div>
-                </div>
+            <div className={`sponsor-container ${className}`}>
+                <a href="https://cafecito.app/neomonitor" rel="noopener" target="_blank"
+                   onClick={() => trackNeoEvent('sponsor_click', source)}
+                   style={{
+                       display: 'flex', alignItems: 'center',
+                       background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)',
+                       borderRadius: '8px', padding: compact ? '4px 12px' : '8px 18px',
+                       textDecoration: 'none', color: '#f59e0b',
+                       fontSize: compact ? '11px' : '12px', fontWeight: '600', letterSpacing: '0.08em',
+                   }}>
+                    Apoyá este proyecto
+                </a>
             </div>
         );
 
@@ -1389,8 +1391,8 @@
                         </div>
 
                         {/* Sponsor area */}
-                        <div className="flex-1 flex justify-center mx-4">
-                            <SponsorSpace className="w-full h-full" source="Monitor" t={t} />
+                        <div className="flex-1 flex justify-end mx-4">
+                            <SponsorSpace compact className="h-full" source="Monitor" t={t} />
                         </div>
 
                         {/* Status */}
