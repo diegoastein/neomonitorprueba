@@ -97,28 +97,12 @@ The main `onSnapshot()` listener has an error callback that:
 - Do not add error handling for internal React state or guaranteed operations.
 - Do not add features not explicitly requested.
 
-## Recent fixes (beta branch)
+## Version history (producción)
 
 - **v1.05+**: Firestore connection resilience with automatic retry every 10 seconds on error. Banner persists until listener recovers. Watchdog timeout: 15 seconds.
-- **v1.06**: Partial fix for false "disconnect" banner. Watchdog now resets on **write operations** (heartbeat). Resolves false positives on **Control** when idle ✓ but reveals limitation: **Monitor** shows false positive when both devices idle.
-- **v1.07**: Control sends lightweight keep-alive write every 30s (`lastKeepAlive` timestamp). Monitor receives via listener → watchdog resets. Monitor false positives resolved ✓ but Control device shows frequent false positives due to aggressive retry (5s fixed).
-- **v1.08**: On-screen logs widget + exponential backoff + increased keep-alive interval
-  - Added `[Firestore]` logs widget in bottom-right of Control device (collapsible, shows last 10 logs)
-  - Implemented exponential backoff for keep-alive retries (1s → 2s → 4s → 8s → 30s max)
-  - Increased keep-alive interval from 30s to 60s to reduce Firestore write frequency
-  - Increased watchdog timeout from 15s to 75s (60s keep-alive + 15s buffer)
-  - **Status:** Ready for testing — logs widget enables on-device diagnostics without USB debugging ✓
-
-- **v1.09**: Fix false "connected" status on Control device (Firestore caché issue)
-  - `handleOnline` no longer marks connected directly — listener is source of truth
-  - Online event now triggers immediate keep-alive attempt on Control (faster recovery)
-  - Fixed watchdog log message ("15s" → "75s") and keep-alive recovery interval (30s → 60s)
-  - **Critical fix:** Use `doc.metadata.fromCache` to distinguish network data from local cache
-    - Firestore SDK returns cached data after ~70s in airplane mode, was falsely marking Control as "connected"
-    - Now only marks connected when `doc.metadata.fromCache === false` (real network data)
-  - Removed on-screen logs widget (kept console logging for debugging)
-  - **Status:** Testing in beta — verified Control disconnection banner persists correctly ✓
-
-- **v1.10**: Version indicator (pending)
-  - Add visible version number below the clock on Monitor device
-  - Version should be small and non-intrusive (bottom corner or minimal UI space)
+- **v1.06**: Watchdog resets on write operations (heartbeat). Resolves false positives on Control ✓
+- **v1.07**: Control sends keep-alive write every 30s (`lastKeepAlive`). Monitor false positives resolved ✓
+- **v1.08**: Exponential backoff for keep-alive retries. Keep-alive interval → 60s. Watchdog timeout → 75s.
+- **v1.09**: Fix false "connected" on Control using `doc.metadata.fromCache`. `handleOnline` ya no marca conectado directamente — el listener es la fuente de verdad. ✓
+- **v1.10**: Rediseño completo de `MonitorScreen` con layout "Clinical Classic" (estilo Mindray moderno). Fuente Barlow Condensed. Indicador de versión visible en Monitor. **Mergeado a main. ✓**
+- **v1.11**: SponsorSpace activo con botón real "Apoyá este proyecto" → cafecito.app/neomonitor. Reemplaza placeholder "LOGO HERE". En Monitor: tamaño compacto y alineado a la derecha. **Mergeado a main. ✓**
