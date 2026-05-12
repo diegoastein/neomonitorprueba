@@ -1158,7 +1158,7 @@
 
             // ── derived alarm style ──────────────────────────────────────────
             const cfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
-            const alarmActive = alarmState !== 'none' && !vitals.alarmMuted && !localMuted && vitals.simRunning;
+            const alarmActive = alarmState !== 'none' && !vitals.alarmMuted && vitals.simRunning;
             const borderCls = !alarmActive ? 'border-slate-900'
                 : alarmState === 'critical'
                     ? (flash ? 'border-red-500' : 'border-red-900')
