@@ -1066,6 +1066,27 @@
             const [flash, setFlash] = useState(false);
             const [qrExpanded, setQrExpanded] = useState(false);
 
+            // ── local mute (30s) ─────────────────────────────────────────────
+            const [localMuted, setLocalMuted] = useState(false);
+            const [muteCountdown, setMuteCountdown] = useState(0);
+            const muteTimerRef = React.useRef(null);
+            const handleMute = () => {
+                if (muteTimerRef.current) clearInterval(muteTimerRef.current);
+                setLocalMuted(true);
+                setMuteCountdown(30);
+                let remaining = 30;
+                muteTimerRef.current = setInterval(() => {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        clearInterval(muteTimerRef.current);
+                        setLocalMuted(false);
+                        setMuteCountdown(0);
+                    } else {
+                        setMuteCountdown(remaining);
+                    }
+                }, 1000);
+            };
+
             // ── new: simulation timer ────────────────────────────────────────
             const [simTime, setSimTime] = useState(0);
             const simStartRef = React.useRef(null);
@@ -1099,12 +1120,12 @@
 
             useEffect(() => {
                 let interval;
-                if (audioEnabled && !vitals.alarmMuted && alarmState !== 'none' && vitals.simRunning) {
+                if (audioEnabled && !vitals.alarmMuted && !localMuted && alarmState !== 'none' && vitals.simRunning) {
                     playAlarmSequence(alarmState);
                     interval = setInterval(() => playAlarmSequence(alarmState), alarmState === 'critical' ? 2500 : 4000);
                 }
                 return () => clearInterval(interval);
-            }, [alarmState, audioEnabled, vitals.alarmMuted, vitals.simRunning]);
+            }, [alarmState, audioEnabled, vitals.alarmMuted, localMuted, vitals.simRunning]);
 
             useEffect(() => {
                 if (!audioEnabled || !targetVitals.soundTimestamp || targetVitals.soundType !== 'grunt') return;
@@ -1112,7 +1133,7 @@
             }, [targetVitals.soundTimestamp]);
 
             const handleBeat = () => {
-                if (!audioEnabled || vitals.alarmMuted || !vitals.simRunning) return;
+                if (!audioEnabled || vitals.alarmMuted || localMuted || !vitals.simRunning) return;
                 playBeep(vitals.spo2 < 89 ? 400 : 800);
             };
 
@@ -1132,7 +1153,7 @@
 
             // ── derived alarm style ──────────────────────────────────────────
             const cfg = PATIENT_CONFIG[patientType] || PATIENT_CONFIG.neonatal;
-            const alarmActive = alarmState !== 'none' && !vitals.alarmMuted && vitals.simRunning;
+            const alarmActive = alarmState !== 'none' && !vitals.alarmMuted && !localMuted && vitals.simRunning;
             const borderCls = !alarmActive ? 'border-slate-900'
                 : alarmState === 'critical'
                     ? (flash ? 'border-red-500' : 'border-red-900')
@@ -1239,7 +1260,7 @@
                             )}
                         </div>
                         <div className="flex items-center gap-5">
-                            {vitals.alarmMuted && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
+                            {(vitals.alarmMuted || localMuted) && <Icons.VolumeX className="text-orange-500 w-4 h-4" />}
                             <span className="neo-label text-slate-500" style={{ fontSize: '10px' }}>{t.id || 'ID'}</span>
                             <span className="neo-mono text-slate-200" style={{ fontSize: '11px' }}>{sessionId}</span>
                             <span className="neo-mono text-slate-200" style={{ fontSize: '14px' }}>
@@ -1382,7 +1403,9 @@
                             <div className="h-6 w-px bg-white/10" />
                             {/* Soft keys */}
                             <div className="flex gap-1.5">
-                                <div className="soft-key px-4 py-2 text-xs">{t.mute}</div>
+                                <div className={`soft-key px-4 py-2 text-xs cursor-pointer select-none${localMuted ? ' text-orange-400' : ''}`} onClick={handleMute}>
+                                    {localMuted ? `${t.mute} ${muteCountdown}s` : t.mute}
+                                </div>
                                 <div className="soft-key px-4 py-2 text-xs">{t.menu}</div>
                                 <div className="soft-key qr-button px-3 py-2 flex items-center gap-1 font-bold text-xs" onClick={() => setQrExpanded(true)}>
                                     <Icons.QrCode className="w-4 h-4" /><span>{t.link}</span>
