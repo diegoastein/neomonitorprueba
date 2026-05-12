@@ -1071,7 +1071,12 @@
             const [muteCountdown, setMuteCountdown] = useState(0);
             const muteTimerRef = React.useRef(null);
             const handleMute = () => {
-                if (muteTimerRef.current) clearInterval(muteTimerRef.current);
+                if (localMuted) {
+                    clearInterval(muteTimerRef.current);
+                    setLocalMuted(false);
+                    setMuteCountdown(0);
+                    return;
+                }
                 setLocalMuted(true);
                 setMuteCountdown(30);
                 let remaining = 30;
