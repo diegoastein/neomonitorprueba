@@ -1,17 +1,15 @@
 const CACHE_NAME = 'neomonitor-v1';
-const OFFLINE_URL = '/offline.html';
-
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  OFFLINE_URL
-];
 
 self.addEventListener('install', event => {
+  const base = self.registration.scope;
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll([
+      base,
+      base + 'index.html',
+      base + 'icons/icon-192.png',
+      base + 'icons/icon-512.png',
+      base + 'offline.html'
+    ]))
   );
   self.skipWaiting();
 });
@@ -26,18 +24,13 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Solo interceptar requests del mismo origen
-  if (!event.request.url.startsWith(self.location.origin)) return;
+  if (!event.request.url.startsWith(self.registration.scope)) return;
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cachear index.html e íconos
-        if (
-          event.request.url.includes('/index.html') ||
-          event.request.url === self.location.origin + '/' ||
-          event.request.url.includes('/icons/')
-        ) {
+        const url = event.request.url;
+        if (url.endsWith('/') || url.includes('index.html') || url.includes('/icons/')) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
@@ -45,7 +38,7 @@ self.addEventListener('fetch', event => {
       })
       .catch(() =>
         caches.match(event.request).then(cached =>
-          cached || caches.match(OFFLINE_URL)
+          cached || caches.match(self.registration.scope + 'offline.html')
         )
       )
   );
