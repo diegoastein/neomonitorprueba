@@ -2,7 +2,7 @@
   "name": "NeoMonitor",
   "short_name": "NeoMonitor",
   "description": "Simulador de monitor multiparamétrico para entrenamiento en reanimación neonatal y pediátrica.",
-  "start_url": "./?source=twa",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#000000",
